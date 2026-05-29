@@ -36,7 +36,7 @@ export function loadConfig(path?: string): Config {
   const outputDir = requireString(raw, 'outputDir');
 
   const playerRaw = raw.player as Record<string, unknown> | undefined;
-  if (!playerRaw || typeof playerRaw !== 'object') {
+  if (!playerRaw || typeof playerRaw !== 'object' || Array.isArray(playerRaw)) {
     throw new Error('Config error: required field "player" must be an object');
   }
   const player: PlayerIdentity = {
@@ -45,7 +45,13 @@ export function loadConfig(path?: string): Config {
     guid: typeof playerRaw.guid === 'string' ? playerRaw.guid : undefined,
   };
 
-  const videoDirs = Array.isArray(raw.videoDirs) ? (raw.videoDirs as string[]) : [];
+  let videoDirs: string[] = [];
+  if (raw.videoDirs !== undefined) {
+    if (!Array.isArray(raw.videoDirs) || !raw.videoDirs.every((v) => typeof v === 'string')) {
+      throw new Error('Config error: "videoDirs" must be an array of strings');
+    }
+    videoDirs = raw.videoDirs as string[];
+  }
 
   return {
     sampleLogsDir,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadConfig } from '../src/config.js';
 
@@ -23,18 +23,33 @@ describe('loadConfig', () => {
     expect(cfg.outputDir).toBe('./output');
     expect(cfg.player.name).toBe('Tester');
     expect(cfg.videoDirs).toEqual([]);
-    rmSync(path, { force: true });
+    rmSync(dirname(path), { recursive: true, force: true });
   });
 
   it('throws a clear error when a required field is missing', () => {
     const path = writeTempConfig({ outputDir: './output', player: { name: 'X', realm: 'Y' } });
     expect(() => loadConfig(path)).toThrow(/sampleLogsDir/);
-    rmSync(path, { force: true });
+    rmSync(dirname(path), { recursive: true, force: true });
   });
 
   it('throws when player identity is incomplete', () => {
     const path = writeTempConfig({ sampleLogsDir: '/logs', outputDir: './o', player: { name: 'X' } });
     expect(() => loadConfig(path)).toThrow(/player\.realm/);
-    rmSync(path, { force: true });
+    rmSync(dirname(path), { recursive: true, force: true });
+  });
+
+  it('throws when the config file does not exist', () => {
+    expect(() => loadConfig('/definitely/not/a/real/path/config.json')).toThrow(/could not read\/parse/);
+  });
+
+  it('throws when videoDirs contains a non-string element', () => {
+    const path = writeTempConfig({
+      sampleLogsDir: '/logs',
+      outputDir: './o',
+      videoDirs: ['/ok', 123],
+      player: { name: 'X', realm: 'Y' },
+    });
+    expect(() => loadConfig(path)).toThrow(/videoDirs/);
+    rmSync(dirname(path), { recursive: true, force: true });
   });
 });
