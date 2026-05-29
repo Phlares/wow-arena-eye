@@ -1,0 +1,3 @@
+[submodule "vendor/wowarenalogs"]
+	path = vendor/wowarenalogs
+	url = https://github.com/wowarenalogs/wowarenalogs.git

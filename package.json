@@ -10,6 +10,9 @@
     "ingest": "tsx src/cli/ingest.ts",
     "extract-fixture": "tsx src/util/extractMatchFixture.ts"
   },
+  "dependencies": {
+    "@wowarenalogs/parser": "file:./vendor/parser-proxy"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
