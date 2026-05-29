@@ -199,7 +199,7 @@ table. A real UI is a later phase.
   touched.
 - The watcher mirrors Warcraft Recorder's `CombatLogWatcher.ts`: directory watch + byte-offset
   tailing + new-file reset, **write-free**.
-- **Development & tests run on the staged D: copies**, so nothing requires the live game and
+- **Development & tests run on staged copies** (see `sampleLogsDir` in config), so nothing requires the live game and
   the install is only ever read.
 
 ---

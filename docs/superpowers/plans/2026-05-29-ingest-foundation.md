@@ -329,12 +329,14 @@ Expected: PASS — 3 tests pass.
 }
 ```
 
-- [ ] **Step 6: Create the REAL local config (NOT committed — it is git-ignored)** — `config.json`
+- [ ] **Step 6: Create your local config from the template (NOT committed — it is git-ignored)** — `config.json`
+
+Copy `config.example.json` to `config.json` and replace the placeholder values with your real paths and player identity. The file should look like this template (edit every `<…>` and generic string to your actual values):
 
 ```json
 {
   "sampleLogsDir": "<sampleLogsDir>",
-  "liveLogsDir": "C:/Program Files (x86)/World of Warcraft/_retail_/Logs",
+  "liveLogsDir": "<WoW install>/_retail_/Logs",
   "videoDirs": ["<current videos dir>", "<archived videos dir>"],
   "outputDir": "./output",
   "dbPath": "./wow-arena-eye.local.db",
