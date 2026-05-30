@@ -76,6 +76,7 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
       if (isPlayer(s)) casts.push(spellName(ev));
     } else if (t === 'SPELL_INTERRUPT') {
       bump(s, 'interrupts');
+      // extraSpellName is the kicked/removed spell; spellName is a defensive fallback (always present on these events in valid logs).
       const kicked = extraSpellName(ev) ?? spellName(ev);
       if (isPlayer(s)) interruptsLanded.push(kicked);
       if (isPlayer(d)) interruptsSuffered.push(kicked);
@@ -85,7 +86,7 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
       if (isPlayer(s)) {
         dispelsRemoved.push(removed);
         if (auraType(ev) === 'BUFF') purges += 1;
-        else cleanses += 1;
+        else if (auraType(ev) === 'DEBUFF') cleanses += 1;
       }
       if (isPlayer(d) && auraType(ev) === 'BUFF') buffsLostToPurgeOrSteal += 1;
     } else if (t === 'SPELL_STOLEN') {

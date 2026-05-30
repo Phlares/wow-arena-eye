@@ -44,6 +44,33 @@ describe('computeMatchMetrics (synthetic)', () => {
   });
 });
 
+describe('computeMatchMetrics ally/enemy death split', () => {
+  it('splits non-player deaths by unit reaction', () => {
+    const match = {
+      playerId: 'P',
+      durationInSeconds: 60,
+      units: {
+        P: { name: 'You', reaction: 1 },        // friendly (numeric enum)
+        A: { name: 'Ally', reaction: 1 },        // friendly
+        E1: { name: 'Enemy1', reaction: 2 },     // hostile
+        E2: { name: 'Enemy2', reaction: 2 },     // hostile
+        N: { name: 'Neutral', reaction: 0 },     // neutral -> dropped
+      },
+      events: [
+        { logLine: { event: 'UNIT_DIED' }, destUnitId: 'A',  timestamp: 1000 },
+        { logLine: { event: 'UNIT_DIED' }, destUnitId: 'E1', timestamp: 2000 },
+        { logLine: { event: 'UNIT_DIED' }, destUnitId: 'E2', timestamp: 3000 },
+        { logLine: { event: 'UNIT_DIED' }, destUnitId: 'N',  timestamp: 4000 },
+        { logLine: { event: 'UNIT_DIED' }, destUnitId: 'P',  timestamp: 5000 }, // player's own death -> not ally
+      ],
+    };
+    const mm = computeMatchMetrics(match);
+    expect(mm.allyDeaths).toBe(1);    // A only (P excluded, counted as player death)
+    expect(mm.enemyDeaths).toBe(2);   // E1, E2
+    expect(mm.player.deaths).toBe(1); // P
+  });
+});
+
 const FIXTURE = 'test-data/fixtures/arena-sample.log';
 describe('computeMatchMetrics (real fixture)', () => {
   it.runIf(existsSync(FIXTURE))('produces well-formed metrics for a real match', async () => {
