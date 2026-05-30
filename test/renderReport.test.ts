@@ -86,33 +86,42 @@ describe('renderReport', () => {
   });
 });
 
-describe('renderReport metrics block', () => {
-  it('renders the player metrics when present', () => {
+describe('renderReport metrics block (per-player)', () => {
+  it('renders team sections with a player combined line', () => {
     const metrics: MatchMetrics = {
-      player: {
-        interruptsLanded: 1,
-        interruptsLandedBySpell: [{ spellName: 'Chaos Bolt', count: 1 }],
-        interruptsSuffered: 0,
-        interruptsSufferedBySpell: [],
-        dispels: 2,
-        dispelsByRemoved: [{ spellName: 'Polymorph', count: 1 }],
-        purges: 1,
-        cleanses: 1,
-        buffsLostToPurgeOrSteal: 0,
-        spellsteals: 0,
-        casts: 187,
-        castsPerMin: 3.2,
-        topCasts: [{ spellName: 'Agony', count: 40 }],
-        deaths: 1,
-        deathTimesSec: [248],
-      },
-      allyDeaths: 1,
-      enemyDeaths: 2,
-      perCombatant: [{ name: 'You', interrupts: 1, dispels: 2, casts: 187, deaths: 1 }],
+      playerUnitId: 'P',
+      timeline: [{ tSec: 5, unitId: 'P', unitName: 'You', kind: 'cast', spell: 'Agony' }],
+      teams: [
+        {
+          team: 'friendly',
+          unownedPets: [],
+          players: [
+            {
+              player: {
+                unitId: 'P', name: 'You', kind: 'player', team: 'friendly', spec: '265', ownerId: undefined,
+                casts: 100, topCasts: [{ spellName: 'Agony', count: 30 }], interruptsLanded: 0, interruptsLandedBySpell: [],
+                dispels: 0, purges: 0, purgesBySpell: [], cleanses: 0, cleansesBySpell: [], spellsteals: 0, spellstealsBySpell: [],
+                deaths: 0, deathTimesSec: [], distanceMoved: 1234.5, positionSamples: 200, timeStationarySec: 12.3,
+              },
+              pets: [
+                {
+                  unitId: 'PET', name: 'Zhaazhem', kind: 'primary-pet', team: 'friendly', ownerId: 'P',
+                  casts: 20, topCasts: [], interruptsLanded: 1, interruptsLandedBySpell: [{ spellName: 'Fear', count: 1 }],
+                  dispels: 5, purges: 5, purgesBySpell: [{ spellName: 'Backlash', count: 3 }], cleanses: 0, cleansesBySpell: [],
+                  spellsteals: 0, spellstealsBySpell: [], deaths: 0, deathTimesSec: [], distanceMoved: 0, positionSamples: 0, timeStationarySec: 0,
+                },
+              ],
+              combined: { casts: 120, interruptsLanded: 1, interruptsLandedBySpell: [{ spellName: 'Fear', count: 1 }], dispels: 5, purges: 5, cleanses: 0, spellsteals: 0, deaths: 0 },
+            },
+          ],
+        },
+      ],
     };
     const html = renderReport([match({ metrics })], index());
-    expect(html).toContain('Metrics');
-    expect(html).toContain('187');
-    expect(html).toContain('Chaos Bolt');
+    expect(html).toContain('Your team');
+    expect(html).toContain('Zhaazhem');
+    expect(html).toContain('Backlash');
+    expect(html).toContain('120');
+    expect(html).toContain('timeline');
   });
 });
