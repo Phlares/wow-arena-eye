@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderReport, type ParsedMatchView } from '../src/view/renderReport.js';
 import type { SidecarIndex } from '../src/sidecar/sidecarIndex.js';
+import type { MatchMetrics } from '../src/metrics/metrics.js';
 
 function match(over: Partial<ParsedMatchView> = {}): ParsedMatchView {
   return {
@@ -18,6 +19,7 @@ function match(over: Partial<ParsedMatchView> = {}): ParsedMatchView {
     combatants: [{ name: "Phlér'gus", spec: 'Warlock_Affliction', type: 'Player', reaction: 'Friendly' }],
     rawStartInfo: { bracket: '3v3' },
     rawEndInfo: { winningTeamId: '1' },
+    metrics: undefined,
     ...over,
   };
 }
@@ -81,5 +83,36 @@ describe('renderReport', () => {
     const html = renderReport([], index());
     expect(html).toContain('<!DOCTYPE html>');
     expect(html).toContain('0 matches');
+  });
+});
+
+describe('renderReport metrics block', () => {
+  it('renders the player metrics when present', () => {
+    const metrics: MatchMetrics = {
+      player: {
+        interruptsLanded: 1,
+        interruptsLandedBySpell: [{ spellName: 'Chaos Bolt', count: 1 }],
+        interruptsSuffered: 0,
+        interruptsSufferedBySpell: [],
+        dispels: 2,
+        dispelsByRemoved: [{ spellName: 'Polymorph', count: 1 }],
+        purges: 1,
+        cleanses: 1,
+        buffsLostToPurgeOrSteal: 0,
+        spellsteals: 0,
+        casts: 187,
+        castsPerMin: 3.2,
+        topCasts: [{ spellName: 'Agony', count: 40 }],
+        deaths: 1,
+        deathTimesSec: [248],
+      },
+      allyDeaths: 1,
+      enemyDeaths: 2,
+      perCombatant: [{ name: 'You', interrupts: 1, dispels: 2, casts: 187, deaths: 1 }],
+    };
+    const html = renderReport([match({ metrics })], index());
+    expect(html).toContain('Metrics');
+    expect(html).toContain('187');
+    expect(html).toContain('Chaos Bolt');
   });
 });

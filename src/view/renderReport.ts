@@ -1,4 +1,5 @@
 import type { SidecarIndex, SidecarEntry } from '../sidecar/sidecarIndex.js';
+import type { MatchMetrics } from '../metrics/metrics.js';
 
 export interface ViewCombatant {
   name: string;
@@ -22,6 +23,7 @@ export interface ParsedMatchView {
   combatants: ViewCombatant[];
   rawStartInfo: unknown;
   rawEndInfo: unknown;
+  metrics?: MatchMetrics;
 }
 
 export interface RenderOpts {
@@ -52,6 +54,29 @@ function nearest(idx: SidecarIndex, startMs: number | null): { entry: SidecarEnt
     if (best === null || deltaMs < best.deltaMs) best = { entry: e, deltaMs };
   }
   return best;
+}
+
+function metricsBlock(mm: MatchMetrics | undefined): string {
+  if (!mm) return '';
+  const p = mm.player;
+  const tallyStr = (t: { spellName: string; count: number }[]) =>
+    t.length ? t.map((x) => `${escapeHtml(x.spellName)}×${x.count}`).join(', ') : '—';
+  const cpm = p.castsPerMin === null ? '?' : p.castsPerMin.toFixed(1);
+  return `<h4>Metrics (you)</h4>
+  <table>
+    <tr><td>interrupts landed</td><td>${p.interruptsLanded}</td><td>${tallyStr(p.interruptsLandedBySpell)}</td></tr>
+    <tr><td>times interrupted</td><td>${p.interruptsSuffered}</td><td>${tallyStr(p.interruptsSufferedBySpell)}</td></tr>
+    <tr><td>dispels (purge/cleanse)</td><td>${p.dispels} (${p.purges}/${p.cleanses})</td><td>${tallyStr(p.dispelsByRemoved)}</td></tr>
+    <tr><td>spellsteals</td><td>${p.spellsteals}</td><td></td></tr>
+    <tr><td>buffs purged/stolen off you</td><td>${p.buffsLostToPurgeOrSteal}</td><td></td></tr>
+    <tr><td>casts (per min)</td><td>${p.casts} (${cpm})</td><td>${tallyStr(p.topCasts)}</td></tr>
+    <tr><td>deaths</td><td>${p.deaths}</td><td>at ${p.deathTimesSec.map((s) => `${s}s`).join(', ') || '—'}</td></tr>
+    <tr><td>ally / enemy deaths</td><td>${mm.allyDeaths} / ${mm.enemyDeaths}</td><td></td></tr>
+  </table>
+  <details><summary>per-combatant tally</summary>
+  <table><tr><th>name</th><th>int</th><th>disp</th><th>casts</th><th>deaths</th></tr>${mm.perCombatant
+    .map((c) => `<tr><td>${escapeHtml(c.name)}</td><td>${c.interrupts}</td><td>${c.dispels}</td><td>${c.casts}</td><td>${c.deaths}</td></tr>`)
+    .join('')}</table></details>`;
 }
 
 function matchSection(m: ParsedMatchView, near: { entry: SidecarEntry; deltaMs: number } | null): string {
@@ -88,6 +113,7 @@ function matchSection(m: ParsedMatchView, near: { entry: SidecarEntry; deltaMs: 
   <p>start: ${escapeHtml(m.startTimeIso ?? String(m.startTimeMs))} (epoch ${m.startTimeMs ?? '?'}) ·
      end epoch ${m.endTimeMs ?? '?'} · ranked=${m.isRanked ?? '?'} · winningTeamId=${escapeHtml(String(m.winningTeamId))}</p>
   ${videoBlock}
+  ${metricsBlock(m.metrics)}
   <h4>Combatants (${m.combatants.length})</h4>
   <table><tr><th>name</th><th>spec</th><th>type</th><th>reaction</th></tr>${combatRows}</table>
   <h4>Event counts</h4>
