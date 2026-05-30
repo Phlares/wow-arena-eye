@@ -87,3 +87,18 @@ export function eventTimeMs(ev: unknown): number | undefined {
   const t = e?.timestamp;
   return typeof t === 'number' ? t : undefined;
 }
+
+/**
+ * Owner GUID for a pet/guardian event — present on CombatAdvancedAction events.
+ * Field name: advancedOwnerId (from the WoW advanced combat log owner GUID field).
+ * A value of "0000000000000000" means "no owner" and is treated as undefined.
+ *
+ * NOTE: Plain CombatAction events (e.g. SPELL_INTERRUPT) do NOT carry this field.
+ * Use resolvePlayerUnits (which also scans m.units[id].ownerId) for full pet coverage.
+ */
+export function ownerId(ev: unknown): string | undefined {
+  const e = ev as Record<string, unknown>;
+  const direct = e?.advancedOwnerId ?? e?.ownerUnitId ?? e?.ownerGuid ?? e?.ownerGUID;
+  if (typeof direct === 'string' && direct.length > 0 && direct !== '0000000000000000') return direct;
+  return undefined;
+}
