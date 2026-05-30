@@ -1,0 +1,8 @@
+{
+  "sampleLogsDir": "/path/to/sample/combat/logs",
+  "liveLogsDir": "/path/to/World of Warcraft/_retail_/Logs",
+  "videoDirs": ["/path/to/current/videos", "/path/to/archived/videos"],
+  "outputDir": "./output",
+  "dbPath": "./wow-arena-eye.local.db",
+  "player": { "name": "YourName", "realm": "YourRealm", "guid": "Player-XX-XXXXXXXX" }
+}
