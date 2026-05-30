@@ -4,6 +4,7 @@ import { firstLog } from '../util/logFiles.js';
 import { loadSidecarIndex } from '../sidecar/sidecarIndex.js';
 import { projectMatch } from '../view/projectMatch.js';
 import { renderReport } from '../view/renderReport.js';
+import { computeMatchMetrics } from '../metrics/metrics.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -13,8 +14,8 @@ async function main(): Promise<void> {
 
   const res = await parseLogFile(logPath);
   const views = [
-    ...res.arenaMatches.map((m) => projectMatch(m, 'arena')),
-    ...res.shuffleRounds.map((r) => projectMatch(r, 'shuffleRound')),
+    ...res.arenaMatches.map((m) => ({ ...projectMatch(m, 'arena'), metrics: computeMatchMetrics(m) })),
+    ...res.shuffleRounds.map((r) => ({ ...projectMatch(r, 'shuffleRound'), metrics: computeMatchMetrics(r) })),
   ];
   const index = loadSidecarIndex(cfg.videoDirs);
 
