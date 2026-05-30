@@ -52,3 +52,20 @@ describe('computeUnitMetrics', () => {
     expect(byId('P').distanceMoved).toBe(0);
   });
 });
+
+describe('computeUnitMetrics dispel counting', () => {
+  it('counts a dispel with unresolved auraType in dispels but not purge/cleanse', () => {
+    const units = computeUnitMetrics({
+      playerId: 'P',
+      units: { P: { name: 'You', type: 1, reaction: 1 } },
+      events: [
+        // SPELL_DISPEL with NO parameters[14] -> auraType undefined
+        { logLine: { event: 'SPELL_DISPEL' }, srcUnitId: 'P', destUnitId: 'P', spellName: 'Dispel', extraSpellName: 'Something', timestamp: 1000 },
+      ],
+    });
+    const p = units.find((u) => u.unitId === 'P')!;
+    expect(p.dispels).toBe(1);
+    expect(p.purges).toBe(0);
+    expect(p.cleanses).toBe(0);
+  });
+});

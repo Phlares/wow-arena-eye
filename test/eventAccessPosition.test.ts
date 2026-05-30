@@ -1,9 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
 import { parseLogFile } from '../src/parser/parserClient.js';
-import { position, srcId } from '../src/metrics/eventAccess.js';
+import { position, srcId, matchStartMs } from '../src/metrics/eventAccess.js';
 
 const FIXTURE = 'test-data/fixtures/arena-sample.log';
+
+describe('matchStartMs', () => {
+  it('skips leading events with no timestamp', () => {
+    const events = [
+      { logLine: { event: 'ZONE_CHANGE' } },                 // no timestamp
+      { logLine: { event: 'SPELL_CAST_SUCCESS' }, timestamp: 5000 },
+      { logLine: { event: 'SPELL_CAST_SUCCESS' }, timestamp: 6000 },
+    ];
+    expect(matchStartMs(events)).toBe(5000);
+  });
+  it('returns undefined when no event has a timestamp', () => {
+    expect(matchStartMs([{ logLine: { event: 'X' } }])).toBeUndefined();
+  });
+});
 
 describe('position accessor (real fixture)', () => {
   it.runIf(existsSync(FIXTURE))('reads x/y off advanced events', async () => {
