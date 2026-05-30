@@ -1,16 +1,8 @@
 import { loadConfig } from '../config.js';
 import { parseLogFile, summarizeMatch } from '../parser/parserClient.js';
-import { readdirSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-
-function firstLog(dir: string): string {
-  const files = readdirSync(dir).filter((n) => n.startsWith('WoWCombatLog'));
-  if (files.length === 0) throw new Error(`No WoWCombatLog files in ${dir}`);
-  // Most recently modified — WoWCombatLog-MMDDYY_HHMMSS names do not sort chronologically.
-  const paths = files.map((n) => join(dir, n));
-  paths.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-  return paths[0];
-}
+import { firstLog } from '../util/logFiles.js';
 
 async function main(): Promise<void> {
   const cfg = loadConfig();
