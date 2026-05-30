@@ -53,22 +53,21 @@ describe('resolvePlayerUnits', () => {
     expect(set.has('Player-60-OPPONENT')).toBe(false);
   });
 
-  it('includes a pet via advancedOwnerId on CombatAdvancedAction events in m.events', () => {
-    // Some in-combat guardians only appear via advancedOwnerId on advanced events.
+  it('includes a pre-summoned pet via unit.ownerId (no summon event)', () => {
     const match = {
       playerId: 'Player-1-AAA',
-      units: {},
-      events: [
-        {
-          // CombatAdvancedAction carries advancedOwnerId
-          advancedOwnerId: 'Player-1-AAA',
-          srcUnitId: 'Creature-1-GUARDIAN',
-          logLine: { event: 'SPELL_CAST_SUCCESS' },
-        },
-      ],
+      events: [],
+      units: {
+        'Player-1-AAA': { name: 'You', ownerId: '0' },
+        'Creature-FELHUNTER': { name: 'Zhaazhem', ownerId: 'Player-1-AAA' },
+        'Player-2-ENEMY': { name: 'Enemy', ownerId: '0' },
+        'Creature-ENEMYPET': { name: 'Imp', ownerId: 'Player-2-ENEMY' },
+      },
     };
     const set = resolvePlayerUnits(match);
     expect(set.has('Player-1-AAA')).toBe(true);
-    expect(set.has('Creature-1-GUARDIAN')).toBe(true);
+    expect(set.has('Creature-FELHUNTER')).toBe(true);   // owned by player → included
+    expect(set.has('Player-2-ENEMY')).toBe(false);      // a player, ownerId '0' → excluded
+    expect(set.has('Creature-ENEMYPET')).toBe(false);   // owned by enemy → excluded
   });
 });
