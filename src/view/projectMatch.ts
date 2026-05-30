@@ -32,17 +32,17 @@ export function projectMatch(raw: unknown, kind: 'arena' | 'shuffleRound'): Pars
     eventCounts[t] = (eventCounts[t] ?? 0) + 1;
   }
 
-  const startMs = typeof startInfo.timestamp === 'number' ? (startInfo.timestamp as number) : null;
+  const startMs = typeof startInfo.timestamp === 'number' ? startInfo.timestamp : null;
 
   return {
     kind,
     bracket: str(startInfo.bracket) || '?',
     zone: str(startInfo.zoneId) || '?',
-    isRanked: typeof startInfo.isRanked === 'boolean' ? (startInfo.isRanked as boolean) : null,
+    isRanked: typeof startInfo.isRanked === 'boolean' ? startInfo.isRanked : null,
     startTimeMs: startMs,
     startTimeIso: startMs !== null ? new Date(startMs).toISOString() : null,
-    endTimeMs: typeof m.endTime === 'number' ? (m.endTime as number) : null,
-    durationSec: typeof m.durationInSeconds === 'number' ? (m.durationInSeconds as number) : null,
+    endTimeMs: typeof m.endTime === 'number' ? m.endTime : null,
+    durationSec: typeof m.durationInSeconds === 'number' ? m.durationInSeconds : null,
     result: m.result,
     winningTeamId: m.winningTeamId,
     eventCounts,

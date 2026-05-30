@@ -84,7 +84,7 @@ export function loadSidecarIndex(videoDirs: string[]): SidecarIndex {
         continue;
       }
 
-      const startField = typeof obj.start === 'number' ? (obj.start as number) : null;
+      const startField = typeof obj.start === 'number' ? obj.start : null;
       const startEpochMs = startField ?? startFromFilename(basename(jsonPath));
 
       const rawCombatants = Array.isArray(obj.combatants) ? (obj.combatants as Record<string, unknown>[]) : [];

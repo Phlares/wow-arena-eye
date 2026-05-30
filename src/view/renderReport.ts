@@ -33,11 +33,14 @@ export interface RenderOpts {
 const MATCH_WINDOW_MS = 15 * 60 * 1000;
 
 export function escapeHtml(s: string): string {
-  return s
-    .replace(/[&<>"']/g, (c) =>
-      c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&#34;' : '&#39;',
-    )
-    .replace(/[^\x00-\x7F]/g, (c) => `&#${c.codePointAt(0)};`);
+  return s.replace(/[&<>"']|[^\x00-\x7F]/g, (c) => {
+    if (c === '&') return '&amp;';
+    if (c === '<') return '&lt;';
+    if (c === '>') return '&gt;';
+    if (c === '"') return '&#34;';
+    if (c === "'") return '&#39;';
+    return `&#${c.codePointAt(0)};`;
+  });
 }
 
 function nearest(idx: SidecarIndex, startMs: number | null): { entry: SidecarEntry; deltaMs: number } | null {
@@ -51,8 +54,7 @@ function nearest(idx: SidecarIndex, startMs: number | null): { entry: SidecarEnt
   return best;
 }
 
-function matchSection(m: ParsedMatchView, idx: SidecarIndex): string {
-  const near = nearest(idx, m.startTimeMs);
+function matchSection(m: ParsedMatchView, near: { entry: SidecarEntry; deltaMs: number } | null): string {
   let videoBlock: string;
   if (near && near.deltaMs <= MATCH_WINDOW_MS) {
     const sec = (near.deltaMs / 1000).toFixed(1);
@@ -96,11 +98,12 @@ function matchSection(m: ParsedMatchView, idx: SidecarIndex): string {
 }
 
 export function renderReport(matches: ParsedMatchView[], idx: SidecarIndex, opts: RenderOpts = {}): string {
+  const nearests = matches.map((m) => nearest(idx, m.startTimeMs));
+
   const deltas: number[] = [];
-  for (const m of matches) {
-    const near = nearest(idx, m.startTimeMs);
+  nearests.forEach((near) => {
     if (near && near.deltaMs <= MATCH_WINDOW_MS) deltas.push(near.deltaMs);
-  }
+  });
   deltas.sort((a, b) => a - b);
   const fmt = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
   const deltaSummary =
@@ -112,7 +115,8 @@ export function renderReport(matches: ParsedMatchView[], idx: SidecarIndex, opts
     ? `<p class="warn">WARNING: parse aborted — ${opts.linesAfterError ?? 0} lines dropped after a parser error; data is INCOMPLETE.</p>`
     : '';
 
-  const body = matches.length > 0 ? matches.map((m) => matchSection(m, idx)).join('\n') : '<p>0 matches parsed.</p>';
+  const body =
+    matches.length > 0 ? matches.map((m, i) => matchSection(m, nearests[i])).join('\n') : '<p>0 matches parsed.</p>';
 
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>wow-arena-eye debug report</title>
