@@ -41,5 +41,7 @@ describe('parseLogFile golden (real 12.0.5 arena fixture)', () => {
     expect(s.durationInSeconds).toBeDefined();
     expect(s.winningTeamId).toBeDefined();
     expect(s.result).toBeDefined();
+    expect(res.aborted).toBe(false);
+    expect(res.errors).toBe(0);
   });
 });

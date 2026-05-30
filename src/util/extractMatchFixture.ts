@@ -14,20 +14,23 @@ export async function extractFirstArenaMatch(srcPath: string, destPath: string):
   let capturing = false;
   let done = false;
 
-  for await (const line of rl) {
-    if (done) break;
-    if (header === null && line.includes('COMBAT_LOG_VERSION')) {
-      header = line;
-      continue;
+  try {
+    for await (const line of rl) {
+      if (done) break;
+      if (header === null && line.includes('COMBAT_LOG_VERSION')) {
+        header = line;
+        continue;
+      }
+      if (!capturing && line.includes('ARENA_MATCH_START')) capturing = true;
+      if (capturing) {
+        captured.push(line);
+        if (line.includes('ARENA_MATCH_END')) done = true;
+      }
     }
-    if (!capturing && line.includes('ARENA_MATCH_START')) capturing = true;
-    if (capturing) {
-      captured.push(line);
-      if (line.includes('ARENA_MATCH_END')) done = true;
-    }
+  } finally {
+    rl.close();
+    stream.destroy();
   }
-  rl.close();
-  stream.destroy();
 
   if (!header || captured.length === 0 || !done) {
     throw new Error(`No complete arena match found in ${srcPath}`);

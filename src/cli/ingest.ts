@@ -1,20 +1,28 @@
 import { loadConfig } from '../config.js';
 import { parseLogFile, summarizeMatch } from '../parser/parserClient.js';
-import { readdirSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readdirSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 function firstLog(dir: string): string {
-  const f = readdirSync(dir)
-    .filter((n) => n.startsWith('WoWCombatLog'))
-    .sort()[0];
-  if (!f) throw new Error(`No WoWCombatLog files in ${dir}`);
-  return join(dir, f);
+  const files = readdirSync(dir).filter((n) => n.startsWith('WoWCombatLog'));
+  if (files.length === 0) throw new Error(`No WoWCombatLog files in ${dir}`);
+  // Most recently modified — WoWCombatLog-MMDDYY_HHMMSS names do not sort chronologically.
+  const paths = files.map((n) => join(dir, n));
+  paths.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  return paths[0];
 }
 
 async function main(): Promise<void> {
   const cfg = loadConfig();
   const logPath = process.argv[2] ?? firstLog(cfg.sampleLogsDir);
   const res = await parseLogFile(logPath);
+
+  if (res.aborted) {
+    console.warn(
+      `WARNING: parsing aborted by a parser error after ${res.linesAfterError} further lines were dropped — ` +
+        `results for ${logPath} are INCOMPLETE and must not be trusted as a full parse.`,
+    );
+  }
 
   mkdirSync(cfg.outputDir, { recursive: true });
   res.arenaMatches.forEach((m, i) =>

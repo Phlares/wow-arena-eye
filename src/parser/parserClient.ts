@@ -9,6 +9,10 @@ export interface IngestResult {
   shuffleMatches: IShuffleMatch[];
   malformed: number;
   errors: number;
+  /** True if a parser_error terminated the stream (parser's rxjs Subject dies on first error). */
+  aborted: boolean;
+  /** Lines fed to the parser AFTER the first parser_error — silently dropped by the dead Subject. */
+  linesAfterError: number;
 }
 
 export async function parseLogFile(path: string): Promise<IngestResult> {
@@ -19,6 +23,8 @@ export async function parseLogFile(path: string): Promise<IngestResult> {
     shuffleMatches: [],
     malformed: 0,
     errors: 0,
+    aborted: false,
+    linesAfterError: 0,
   };
 
   parser.on('arena_match_ended', (m) => out.arenaMatches.push(m));
@@ -29,11 +35,16 @@ export async function parseLogFile(path: string): Promise<IngestResult> {
   });
   parser.on('parser_error', () => {
     out.errors += 1;
+    out.aborted = true;
   });
 
   await new Promise<void>((resolve, reject) => {
     const rl = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
     rl.on('line', (line) => {
+      if (out.aborted) {
+        out.linesAfterError += 1;
+        return;
+      }
       try {
         parser.parseLine(line);
       } catch {
