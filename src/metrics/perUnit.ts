@@ -1,4 +1,4 @@
-import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, position } from './eventAccess.js';
+import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position } from './eventAccess.js';
 import { tally, unitKind, unitTeam, type UnitMetrics } from './types.js';
 
 interface Acc {
@@ -21,7 +21,7 @@ export function computeUnitMetrics(match: unknown): UnitMetrics[] {
   const m = match as { events?: unknown[]; units?: Record<string, Record<string, unknown>> };
   const events = Array.isArray(m.events) ? m.events : [];
   const units = m.units ?? {};
-  const startMs = events.length > 0 ? eventTimeMs(events[0]) : undefined;
+  const startMs = matchStartMs(events);
 
   const accs = new Map<string, Acc>();
   const acc = (id: string): Acc => {

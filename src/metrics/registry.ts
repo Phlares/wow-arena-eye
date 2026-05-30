@@ -2,7 +2,7 @@ export type MetricCategory = 'disruption-out' | 'tempo' | 'outcome' | 'movement'
 
 export interface MetricDef { id: string; label: string; category: MetricCategory; }
 
-/** Per-unit metric defs (the Plan-4 battery grows this). */
+/** Forward stub — NOT yet consumed by any module. Seeds the Plan-4 scoring/selection layer. */
 export const METRICS: MetricDef[] = [
   { id: 'interruptsLanded', label: 'Interrupts landed', category: 'disruption-out' },
   { id: 'purges', label: 'Purges', category: 'disruption-out' },

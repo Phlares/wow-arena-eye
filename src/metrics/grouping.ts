@@ -1,11 +1,11 @@
-import { tally, type UnitMetrics, type PlayerGroup, type TeamGroup, type Team, type CombinedTotals } from './types.js';
+import { mergeTallies, type UnitMetrics, type PlayerGroup, type TeamGroup, type Team, type CombinedTotals } from './types.js';
 
 const TEAM_ORDER: Team[] = ['friendly', 'enemy', 'neutral'];
 
 function combine(player: UnitMetrics, pets: UnitMetrics[]): CombinedTotals {
   const all = [player, ...pets];
   const sum = (f: (u: UnitMetrics) => number) => all.reduce((acc, u) => acc + f(u), 0);
-  const mergedInterrupts = tally(all.flatMap((u) => u.interruptsLandedBySpell.flatMap((s) => Array(s.count).fill(s.spellName) as string[])));
+  const mergedInterrupts = mergeTallies(all.map((u) => u.interruptsLandedBySpell));
   return {
     casts: sum((u) => u.casts),
     interruptsLanded: sum((u) => u.interruptsLanded),
