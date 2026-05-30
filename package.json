@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "ingest": "tsx src/cli/ingest.ts",
+    "view": "tsx src/cli/view.ts",
     "extract-fixture": "tsx src/util/extractMatchFixture.ts"
   },
   "dependencies": {
