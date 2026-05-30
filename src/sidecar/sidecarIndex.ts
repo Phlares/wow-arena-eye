@@ -28,6 +28,7 @@ function startFromFilename(name: string): number | null {
   const m = name.match(/(\d{4})-(\d{2})-(\d{2})[ _](\d{2})-(\d{2})-(\d{2})/);
   if (!m) return null;
   const [, y, mo, d, h, mi, s] = m;
+  // Local time on purpose: Warcraft Recorder writes the filename in the local clock.
   const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
   const ms = dt.getTime();
   return Number.isNaN(ms) ? null : ms;
@@ -45,7 +46,13 @@ function isSidecar(o: Record<string, unknown>): boolean {
 function listJsonFiles(dir: string): string[] {
   const out: string[] = [];
   if (!existsSync(dir)) return out;
-  for (const name of readdirSync(dir)) {
+  let names: string[];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return out; // unreadable dir (e.g. permission denied on a NAS share) — skip its subtree
+  }
+  for (const name of names) {
     const full = join(dir, name);
     let st;
     try {
