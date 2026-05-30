@@ -1,4 +1,4 @@
-import { eventType, srcId, destId, spellName, extraSpellName, eventTimeMs } from './eventAccess.js';
+import { eventType, srcId, destId, spellName, extraSpellName, eventTimeMs, matchStartMs } from './eventAccess.js';
 import type { TimelineEvent, TimelineKind } from './types.js';
 
 const KIND: Record<string, TimelineKind> = {
@@ -13,7 +13,7 @@ export function buildTimeline(match: unknown): TimelineEvent[] {
   const m = match as { events?: unknown[]; units?: Record<string, { name?: unknown }> };
   const events = Array.isArray(m.events) ? m.events : [];
   const units = m.units ?? {};
-  const startMs = events.length > 0 ? eventTimeMs(events[0]) : undefined;
+  const startMs = matchStartMs(events);
   const nameOf = (id: string | undefined) => {
     const u = id ? units[id] : undefined;
     return u && typeof u.name === 'string' && u.name.length > 0 ? u.name : id ?? '?';
@@ -35,5 +35,6 @@ export function buildTimeline(match: unknown): TimelineEvent[] {
       extra: kind === 'interrupt' || kind === 'dispel' || kind === 'steal' ? extraSpellName(ev) : undefined,
     });
   }
+  // defensive: events are normally chronological, but sort guards against any out-of-order input
   return out.sort((a, b) => a.tSec - b.tSec);
 }

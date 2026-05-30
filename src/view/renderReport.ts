@@ -1,5 +1,5 @@
 import type { SidecarIndex, SidecarEntry } from '../sidecar/sidecarIndex.js';
-import type { MatchMetrics, PlayerGroup, TeamGroup, UnitMetrics, TimelineEvent } from '../metrics/metrics.js';
+import type { MatchMetrics, PlayerGroup, TeamGroup, UnitMetrics, TimelineEvent } from '../metrics/types.js';
 
 export interface ViewCombatant {
   name: string;

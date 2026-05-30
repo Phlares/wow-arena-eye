@@ -1,4 +1,4 @@
-import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, position } from './eventAccess.js';
+import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position } from './eventAccess.js';
 import { tally, unitKind, unitTeam, type UnitMetrics } from './types.js';
 
 interface Acc {
@@ -6,13 +6,14 @@ interface Acc {
   interrupts: string[];
   purgesRemoved: string[];
   cleansesRemoved: string[];
+  dispelsTotal: number;
   steals: string[];
   deathMs: number[];
   positions: { ms: number; x: number; y: number }[];
 }
 
 function emptyAcc(): Acc {
-  return { casts: [], interrupts: [], purgesRemoved: [], cleansesRemoved: [], steals: [], deathMs: [], positions: [] };
+  return { casts: [], interrupts: [], purgesRemoved: [], cleansesRemoved: [], dispelsTotal: 0, steals: [], deathMs: [], positions: [] };
 }
 
 const STATIONARY_EPS = 0.5;
@@ -21,7 +22,7 @@ export function computeUnitMetrics(match: unknown): UnitMetrics[] {
   const m = match as { events?: unknown[]; units?: Record<string, Record<string, unknown>> };
   const events = Array.isArray(m.events) ? m.events : [];
   const units = m.units ?? {};
-  const startMs = events.length > 0 ? eventTimeMs(events[0]) : undefined;
+  const startMs = matchStartMs(events);
 
   const accs = new Map<string, Acc>();
   const acc = (id: string): Acc => {
@@ -44,6 +45,7 @@ export function computeUnitMetrics(match: unknown): UnitMetrics[] {
     if (t === 'SPELL_CAST_SUCCESS' && s) acc(s).casts.push(spellName(ev));
     else if (t === 'SPELL_INTERRUPT' && s) acc(s).interrupts.push(extraSpellName(ev) ?? spellName(ev));
     else if (t === 'SPELL_DISPEL' && s) {
+      acc(s).dispelsTotal += 1;
       const removed = extraSpellName(ev) ?? spellName(ev);
       if (auraType(ev) === 'BUFF') acc(s).purgesRemoved.push(removed);
       else if (auraType(ev) === 'DEBUFF') acc(s).cleansesRemoved.push(removed);
@@ -76,7 +78,7 @@ export function computeUnitMetrics(match: unknown): UnitMetrics[] {
       topCasts: tally(a.casts).slice(0, 8),
       interruptsLanded: a.interrupts.length,
       interruptsLandedBySpell: tally(a.interrupts),
-      dispels: a.purgesRemoved.length + a.cleansesRemoved.length,
+      dispels: a.dispelsTotal,
       purges: a.purgesRemoved.length,
       purgesBySpell: tally(a.purgesRemoved),
       cleanses: a.cleansesRemoved.length,

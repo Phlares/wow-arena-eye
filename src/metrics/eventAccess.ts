@@ -84,6 +84,15 @@ export function auraType(ev: unknown): 'BUFF' | 'DEBUFF' | undefined {
   return v === 'BUFF' || v === 'DEBUFF' ? v : undefined;
 }
 
+/** Epoch ms of the match's first event (the t=0 reference), or undefined if no events. */
+export function matchStartMs(events: unknown[]): number | undefined {
+  for (const ev of events) {
+    const t = eventTimeMs(ev);
+    if (t !== undefined) return t;
+  }
+  return undefined;
+}
+
 /** Millisecond timestamp of the event (directly on CombatAction). */
 export function eventTimeMs(ev: unknown): number | undefined {
   const e = ev as Ev;

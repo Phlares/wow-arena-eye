@@ -28,6 +28,8 @@ export interface UnitMetrics {
   timeStationarySec: number;
 }
 
+/** Combined player+pet totals. Intentionally carries only interruptsLandedBySpell;
+ *  other by-spell breakdowns (purges/cleanses/steals) are shown per-unit, not combined. */
 export interface CombinedTotals {
   casts: number;
   interruptsLanded: number;
@@ -50,6 +52,13 @@ export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; p
 export function tally(names: string[]): SpellTally[] {
   const counts = new Map<string, number>();
   for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1);
+  return [...counts.entries()].map(([spellName, count]) => ({ spellName, count })).sort((a, b) => b.count - a.count);
+}
+
+/** Merge several SpellTally[] into one, summing counts by spell, sorted desc. */
+export function mergeTallies(lists: SpellTally[][]): SpellTally[] {
+  const counts = new Map<string, number>();
+  for (const list of lists) for (const s of list) counts.set(s.spellName, (counts.get(s.spellName) ?? 0) + s.count);
   return [...counts.entries()].map(([spellName, count]) => ({ spellName, count })).sort((a, b) => b.count - a.count);
 }
 
