@@ -48,6 +48,6 @@ export function projectMatch(raw: unknown, kind: 'arena' | 'shuffleRound'): Pars
     eventCounts,
     combatants,
     rawStartInfo: m.startInfo ?? null,
-    rawEndInfo: m.endInfo ?? null,
+    rawEndInfo: m.endInfo ?? m.shuffleMatchEndInfo ?? null,
   };
 }

@@ -33,7 +33,7 @@ export interface RenderOpts {
 const MATCH_WINDOW_MS = 15 * 60 * 1000;
 
 export function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']|[^\x00-\x7F]/g, (c) => {
+  return s.replace(/[&<>"']|[^\x00-\x7F]/gu, (c) => {
     if (c === '&') return '&amp;';
     if (c === '<') return '&lt;';
     if (c === '>') return '&gt;';

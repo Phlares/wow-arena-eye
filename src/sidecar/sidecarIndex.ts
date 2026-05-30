@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, lstatSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 
 export interface SidecarCombatant {
@@ -56,12 +56,13 @@ function listJsonFiles(dir: string): string[] {
     const full = join(dir, name);
     let st;
     try {
-      st = statSync(full);
+      st = lstatSync(full);
     } catch {
       continue;
     }
+    if (st.isSymbolicLink()) continue; // don't follow symlinks — avoids recursion cycles
     if (st.isDirectory()) out.push(...listJsonFiles(full));
-    else if (name.toLowerCase().endsWith('.json')) out.push(full);
+    else if (st.isFile() && name.toLowerCase().endsWith('.json')) out.push(full);
   }
   return out;
 }
