@@ -42,7 +42,7 @@ export async function parseLogFile(path: string): Promise<IngestResult> {
     });
     rl.on('close', () => {
       try {
-        (parser as unknown as { flush?: () => void }).flush?.();
+        parser.flush();
       } catch {
         /* flush is best-effort */
       }
@@ -55,8 +55,9 @@ export async function parseLogFile(path: string): Promise<IngestResult> {
 }
 
 /**
- * Shape-revealing summary. Reads values through a Record view so it compiles
- * regardless of the parser's exact field names — its job is to expose the shape.
+ * TODO(Plan 3): TEMPORARY shape-discovery output — replace with the typed
+ * Normalizer that writes real per-match records. Reads values through a Record
+ * view so it compiles regardless of the parser's exact field names.
  */
 export function summarizeMatch(m: IArenaMatch): Record<string, unknown> {
   const v = m as unknown as Record<string, unknown>;

@@ -35,14 +35,15 @@ export function loadConfig(path?: string): Config {
   const sampleLogsDir = requireString(raw, 'sampleLogsDir');
   const outputDir = requireString(raw, 'outputDir');
 
-  const playerRaw = raw.player as Record<string, unknown> | undefined;
+  const playerRaw = raw.player;
   if (!playerRaw || typeof playerRaw !== 'object' || Array.isArray(playerRaw)) {
     throw new Error('Config error: required field "player" must be an object');
   }
+  const p = playerRaw as Record<string, unknown>;
   const player: PlayerIdentity = {
-    name: requireString(playerRaw, 'name', 'player.name'),
-    realm: requireString(playerRaw, 'realm', 'player.realm'),
-    guid: typeof playerRaw.guid === 'string' ? playerRaw.guid : undefined,
+    name: requireString(p, 'name', 'player.name'),
+    realm: requireString(p, 'realm', 'player.realm'),
+    guid: typeof p.guid === 'string' ? p.guid : undefined,
   };
 
   let videoDirs: string[] = [];

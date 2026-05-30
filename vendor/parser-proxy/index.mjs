@@ -1,11 +1,18 @@
-// Use CJS build to avoid rxjs 6 directory-import issues in Node 22 ESM
+// Use the CJS build to avoid rxjs 6 directory-import issues in Node 22 ESM.
+//
+// FRAGILITY NOTES (see design spec / Plan 2):
+//  - Relies on npm symlinking this file: dependency in place
+//    (node_modules/@wowarenalogs/parser -> vendor/parser-proxy), so the relative
+//    require below resolves into the sibling submodule. A package manager that
+//    COPIES instead of symlinking would break this path.
+//  - The named re-export list below is HAND-MAINTAINED and can silently DRIFT if
+//    the vendored parser changes its exports (tsc won't catch it — types are
+//    re-exported via index.d.ts). Re-check against the build after updating the
+//    submodule.
 import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import path from 'path';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const _m = require(path.join(__dirname, '../wowarenalogs/packages/parser/dist/index.js'));
+const _m = require('../wowarenalogs/packages/parser/dist/index.js');
 
 export const LogEvent = _m.LogEvent;
 export const CombatResult = _m.CombatResult;

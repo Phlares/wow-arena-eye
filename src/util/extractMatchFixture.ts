@@ -7,7 +7,8 @@ import { dirname } from 'node:path';
  * from a large combat log into a small fixture file. Dev/test helper only.
  */
 export async function extractFirstArenaMatch(srcPath: string, destPath: string): Promise<void> {
-  const rl = createInterface({ input: createReadStream(srcPath), crlfDelay: Infinity });
+  const stream = createReadStream(srcPath);
+  const rl = createInterface({ input: stream, crlfDelay: Infinity });
   const captured: string[] = [];
   let header: string | null = null;
   let capturing = false;
@@ -26,6 +27,7 @@ export async function extractFirstArenaMatch(srcPath: string, destPath: string):
     }
   }
   rl.close();
+  stream.destroy();
 
   if (!header || captured.length === 0 || !done) {
     throw new Error(`No complete arena match found in ${srcPath}`);
