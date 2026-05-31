@@ -73,6 +73,10 @@ export interface UnitMetrics {
   defensivesUsed: number;
   defensivesUsedBySpell: SpellTally[];
   defensivesIntoBurst: number;
+  timeControlledSec: number;
+  castDenialSec: number;
+  hardCcSec: number;
+  rootSec: number;
   damageDone: number;
   healingDone: number;
   absorbDone: number;

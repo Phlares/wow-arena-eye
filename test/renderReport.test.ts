@@ -106,6 +106,7 @@ describe('renderReport metrics block (per-player)', () => {
                 deaths: 0, deathTimesSec: [], distanceMoved: 1234.5, positionSamples: 200, timeStationarySec: 12.3,
                 track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0, ccTakenByCategory: [],
                 deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
+                timeControlledSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0,
                 damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
               },
               pets: [
@@ -116,6 +117,7 @@ describe('renderReport metrics block (per-player)', () => {
                   spellsteals: 0, spellstealsBySpell: [], deaths: 0, deathTimesSec: [], distanceMoved: 0, positionSamples: 0, timeStationarySec: 0,
                   track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0, ccTakenByCategory: [],
                   deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
+                  timeControlledSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0,
                   damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
                 },
               ],

@@ -117,6 +117,27 @@ describe('perUnit Phase 4/5', () => {
   });
 });
 
+describe('CC durations', () => {
+  it('buckets a stun and an interrupt; totals the union', () => {
+    const match = {
+      durationInSeconds: 100,
+      units: { 'Player-A': { name: 'You', type: 1, reaction: 1 }, 'Player-E': { name: 'Enemy', type: 1, reaction: 2 } },
+      events: [
+        { logLine: { event: 'SPELL_AURA_APPLIED' }, destUnitId: 'Player-A', spellId: '408', spellName: 'Kidney Shot', timestamp: 0 },
+        { logLine: { event: 'SPELL_AURA_REMOVED' }, destUnitId: 'Player-A', spellId: '408', spellName: 'Kidney Shot', timestamp: 2000 },
+        { logLine: { event: 'SPELL_INTERRUPT' }, srcUnitId: 'Player-E', destUnitId: 'Player-A', spellId: '2139', spellName: 'Counterspell', extraSpellName: 'Chaos Bolt', timestamp: 10000 },
+      ],
+    };
+    const units = computeUnitMetrics(match, buildAuraState(match));
+    const you = units.find((u) => u.unitId === 'Player-A')!;
+    expect(you.hardCcSec).toBe(2);       // Kidney Shot 0-2s
+    expect(you.castDenialSec).toBe(6);   // Counterspell 6s lockout at 10s
+    expect(you.rootSec).toBe(0);
+    expect(you.timeControlledSec).toBe(8); // disjoint: 2 + 6
+    expect(you.ccTakenByCategory.find((c) => c.category === 'stun')?.durationSec).toBe(2);
+  });
+});
+
 describe('absorbDone attribution', () => {
   it('credits the shield owner, not the attacker', () => {
     const match = {

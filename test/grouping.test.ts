@@ -12,6 +12,7 @@ function u(over: Partial<UnitMetrics> & Pick<UnitMetrics, 'unitId' | 'kind' | 't
     track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0,
     ccTakenByCategory: [], deathsWhileCcd: 0, deathsWhileCcdBySpell: [],
     defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
+    timeControlledSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0,
     damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0, ...over,
   } as UnitMetrics;
 }
