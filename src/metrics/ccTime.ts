@@ -61,8 +61,11 @@ export function computeCcDurations(
 
   // Derive the three buckets from the per-category windows (disarm/taunt/knockback
   // stay in byCategory only — excluded from the buckets + total).
+  // Interrupt-lockout windows are clamped to match end too (a kick late in the match
+  // can't lock out cast-time past the final event).
   const cat = (c: DrCategory): Window[] => byCat.get(c) ?? [];
-  const castDenial = [...interruptWindows, ...cat('silence')];
+  const clampedInterrupts = interruptWindows.map((w) => ({ start: w.start, end: Math.min(w.end, matchEndMs) }));
+  const castDenial = [...clampedInterrupts, ...cat('silence')];
   const hard = [...cat('stun'), ...cat('incapacitate'), ...cat('disorient')];
   const root = cat('root');
 

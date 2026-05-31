@@ -49,6 +49,13 @@ describe('computeCcDurations', () => {
     expect(d.hardCcSec).toBe(1);
   });
 
+  it('clamps an interrupt-lockout window to matchEndMs', () => {
+    // kick lands 1s before the last event but its lockout would run 4s past it
+    const d = computeCcDurations([], [{ start: 4000, end: 8000 }], 5000);
+    expect(d.castDenialSec).toBe(1); // only the 1s inside the match counts, not 4s
+    expect(d.timeControlledSec).toBe(1);
+  });
+
   it('routes silence into cast-denial', () => {
     const d = computeCcDurations(
       [{ spellId: SILENCE, name: 'Silence', start: 0, end: 4000 }],
