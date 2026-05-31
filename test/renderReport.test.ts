@@ -91,6 +91,7 @@ describe('renderReport metrics block (per-player)', () => {
     const metrics: MatchMetrics = {
       playerUnitId: 'P',
       timeline: [{ tSec: 5, unitId: 'P', unitName: 'You', kind: 'cast', spell: 'Agony' }],
+      coordination: [{ team: 'friendly', summary: { focusFireWindows: 2, topFocusTarget: 'EnemyDps', targetPriority: [{ name: 'EnemyDps', damageTaken: 1000 }], healerPressureDamage: 300, swaps: 4 } }],
       teams: [
         {
           team: 'friendly',
@@ -102,6 +103,9 @@ describe('renderReport metrics block (per-player)', () => {
                 casts: 100, topCasts: [{ spellName: 'Agony', count: 30 }], interruptsLanded: 0, interruptsLandedBySpell: [],
                 dispels: 0, purges: 0, purgesBySpell: [], cleanses: 0, cleansesBySpell: [], spellsteals: 0, spellstealsBySpell: [],
                 deaths: 0, deathTimesSec: [], distanceMoved: 1234.5, positionSamples: 200, timeStationarySec: 12.3,
+                track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0, ccTakenByCategory: [],
+                deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
+                damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
               },
               pets: [
                 {
@@ -109,9 +113,12 @@ describe('renderReport metrics block (per-player)', () => {
                   casts: 20, topCasts: [], interruptsLanded: 1, interruptsLandedBySpell: [{ spellName: 'Fear', count: 1 }],
                   dispels: 5, purges: 5, purgesBySpell: [{ spellName: 'Backlash', count: 3 }], cleanses: 0, cleansesBySpell: [],
                   spellsteals: 0, spellstealsBySpell: [], deaths: 0, deathTimesSec: [], distanceMoved: 0, positionSamples: 0, timeStationarySec: 0,
+                  track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0, ccTakenByCategory: [],
+                  deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
+                  damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
                 },
               ],
-              combined: { casts: 120, interruptsLanded: 1, interruptsLandedBySpell: [{ spellName: 'Fear', count: 1 }], dispels: 5, purges: 5, cleanses: 0, spellsteals: 0, deaths: 0 },
+              combined: { casts: 120, interruptsLanded: 1, interruptsLandedBySpell: [{ spellName: 'Fear', count: 1 }], dispels: 5, purges: 5, cleanses: 0, spellsteals: 0, deaths: 0, damageDone: 0, healingDone: 0 },
             },
           ],
         },
@@ -123,5 +130,6 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('Backlash');
     expect(html).toContain('120');
     expect(html).toContain('timeline');
+    expect(html).toContain('coordination');
   });
 });

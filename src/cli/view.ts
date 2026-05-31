@@ -29,6 +29,16 @@ async function main(): Promise<void> {
   const outPath = join(cfg.outputDir, 'report.html');
   writeFileSync(outPath, html, 'utf8');
 
+  const replayDir = join(cfg.outputDir, 'replay');
+  mkdirSync(replayDir, { recursive: true });
+  views.forEach((v, i) => {
+    if (!v.metrics) return;
+    const tracks = v.metrics.teams
+      .flatMap((t) => [...t.players.flatMap((p) => [p.player, ...p.pets]), ...t.unownedPets])
+      .map((u) => ({ unitId: u.unitId, name: u.name, kind: u.kind, team: u.team, track: u.track }));
+    writeFileSync(join(replayDir, `match-${i}.json`), JSON.stringify({ playerUnitId: v.metrics.playerUnitId, timeline: v.metrics.timeline, tracks }));
+  });
+
   console.log(
     `Wrote report: ${resolve(outPath)}  (${views.length} matches, ` +
       `sidecars ${index.loaded}/${index.skipped}, from ${logPath})`,
