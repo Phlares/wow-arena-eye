@@ -160,20 +160,19 @@ export function position(ev: unknown): { x: number; y: number; facing?: number }
  * Shield owner + absorbed amount for SPELL_ABSORBED events.
  *
  * srcUnitId on SPELL_ABSORBED is the ATTACKER; the absorbing caster (shield owner) is a
- * separate named field on the parser output. Field names discovered via TDD against the
- * real fixture (see test/eventAccessAbsorb.test.ts):
- *   shieldOwnerUnitId  — GUID of the unit whose absorb shield soaked the hit
- *   absorbedAmount     — numeric amount absorbed (always positive)
- *
- * All 3172 SPELL_ABSORBED events in the fixture carry both named fields directly on the
- * parsed event object (params length is uniformly 21; no second/short form observed).
+ * separate named field on the parser output. Reads the named class properties
+ * `shieldOwnerUnitId` and `absorbedAmount` on CombatAbsorbAction — robust across all
+ * SPELL_ABSORBED subtypes (the parser handles 17/18/20/21-param forms), with no
+ * dependence on a fixed params-array length.
  * Returns undefined when the event is not SPELL_ABSORBED or the named fields are absent.
+ * Never throws.
  */
 export function absorbInfo(ev: unknown): { shieldOwnerId: string; amount: number } | undefined {
   if (eventType(ev) !== 'SPELL_ABSORBED') return undefined;
   const e = ev as Ev;
   const owner = strOpt(e?.shieldOwnerUnitId);
   const amt = e?.absorbedAmount;
+  // real WoW GUIDs always contain '-'; rejects parser artifacts like an empty string or "nil"
   if (!owner || !owner.includes('-')) return undefined;
   const n = typeof amt === 'number' ? amt : Number(amt);
   if (!Number.isFinite(n) || n <= 0) return undefined;

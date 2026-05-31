@@ -23,5 +23,6 @@ describe('absorbInfo (real fixture)', () => {
 
   it('returns undefined for non-absorb events', () => {
     expect(absorbInfo({ logLine: { event: 'SPELL_DAMAGE' } })).toBeUndefined();
+    expect(absorbInfo({})).toBeUndefined();
   });
 });
