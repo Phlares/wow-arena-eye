@@ -5,7 +5,7 @@ export interface SpellTally { spellName: string; count: number; }
 
 export interface Sample { tSec: number; x: number; y: number; facing?: number; hpPct?: number; }
 
-export type DrCategory = 'stun' | 'incapacitate' | 'disorient' | 'silence' | 'root' | 'knockback' | 'fear' | 'disarm';
+export type DrCategory = 'stun' | 'incapacitate' | 'disorient' | 'silence' | 'root' | 'disarm' | 'taunt' | 'knockback';
 
 export interface CcTakenEntry { category: DrCategory; count: number; durationSec: number; }
 

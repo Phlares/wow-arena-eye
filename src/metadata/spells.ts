@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { DrCategory } from '../metrics/types.js';
 
 export type SpellTag = 'interrupt' | 'cc' | 'defensive' | 'immunity' | 'offensive';
-export interface SpellMeta { name: string; tags: SpellTag[]; ccCategory?: DrCategory; drCategory?: DrCategory; priority?: number; }
+export interface SpellMeta { name: string; tags: SpellTag[]; ccCategory?: DrCategory; lockoutSec?: number; priority?: number; }
 
 const TABLE = JSON.parse(
   readFileSync(fileURLToPath(new URL('./spells.curated.json', import.meta.url)), 'utf8'),
@@ -15,10 +15,10 @@ export function spellMeta(id: number | undefined): SpellMeta | undefined {
 export function isInterrupt(id: number | undefined): boolean {
   return spellMeta(id)?.tags.includes('interrupt') ?? false;
 }
-export function ccInfo(id: number | undefined): { category: DrCategory; dr?: DrCategory } | undefined {
+export function ccInfo(id: number | undefined): { category: DrCategory } | undefined {
   const m = spellMeta(id);
   if (!m || !m.tags.includes('cc') || !m.ccCategory) return undefined;
-  return { category: m.ccCategory, dr: m.drCategory };
+  return { category: m.ccCategory };
 }
 export function isDefensive(id: number | undefined): boolean {
   return spellMeta(id)?.tags.includes('defensive') ?? false;

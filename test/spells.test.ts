@@ -7,7 +7,7 @@ describe('spell metadata', () => {
     expect(isInterrupt(118)).toBe(false);
   });
   it('returns CC info with DR category', () => {
-    expect(ccInfo(408)).toMatchObject({ category: 'stun', dr: 'stun' });
+    expect(ccInfo(408)).toEqual({ category: 'stun' });
     expect(ccInfo(1766)).toBeUndefined();
   });
   it('classifies defensives', () => {
