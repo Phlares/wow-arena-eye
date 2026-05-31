@@ -1,7 +1,10 @@
 import { eventType, destId, spellId, spellName, eventTimeMs } from './eventAccess.js';
 
 interface Interval { spellId: number; name: string; start: number; end: number; }
-export interface AuraState { activeOn(unitId: string, ms: number): { spellId: number; name: string }[]; }
+export interface AuraState {
+  activeOn(unitId: string, ms: number): { spellId: number; name: string }[];
+  intervalsOn(unitId: string): { spellId: number; name: string; start: number; end: number }[];
+}
 
 export function buildAuraState(match: unknown): AuraState {
   const m = match as { events?: unknown[] };
@@ -25,7 +28,7 @@ export function buildAuraState(match: unknown): AuraState {
       let u = open.get(id);
       if (!u) { u = new Map(); open.set(id, u); }
       if (!u.has(sid)) u.set(sid, { spellId: sid, name: spellName(ev), start: ms, end: Number.MAX_SAFE_INTEGER });
-    } else if (t === 'SPELL_AURA_REMOVED') {
+    } else if (t === 'SPELL_AURA_REMOVED' || t === 'SPELL_AURA_BROKEN' || t === 'SPELL_AURA_BROKEN_SPELL') {
       const iv = open.get(id)?.get(sid);
       if (iv) { iv.end = ms; open.get(id)!.delete(sid); push(id, iv); }
     }
@@ -37,6 +40,9 @@ export function buildAuraState(match: unknown): AuraState {
       return (intervals.get(unitId) ?? [])
         .filter((iv) => ms >= iv.start && ms < iv.end)
         .map((iv) => ({ spellId: iv.spellId, name: iv.name }));
+    },
+    intervalsOn(unitId) {
+      return (intervals.get(unitId) ?? []).map((iv) => ({ spellId: iv.spellId, name: iv.name, start: iv.start, end: iv.end }));
     },
   };
 }

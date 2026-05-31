@@ -19,4 +19,26 @@ describe('buildAuraState', () => {
   it('treats an unremoved aura as active through match end', () => {
     expect(st.activeOn('P', 9999).map((a) => a.spellId)).toContain(118);
   });
+
+  it('closes an aura early on SPELL_AURA_BROKEN', () => {
+    const st = buildAuraState({
+      events: [
+        { logLine: { event: 'SPELL_AURA_APPLIED' }, destUnitId: 'U', spellId: '5782', spellName: 'Fear', timestamp: 1000 },
+        { logLine: { event: 'SPELL_AURA_BROKEN' }, destUnitId: 'U', spellId: '5782', spellName: 'Fear', timestamp: 2500 },
+      ],
+    });
+    const ivs = st.intervalsOn('U');
+    expect(ivs).toHaveLength(1);
+    expect(ivs[0]).toMatchObject({ spellId: 5782, start: 1000, end: 2500 });
+  });
+
+  it('intervalsOn returns an open aura with a sentinel end', () => {
+    const st = buildAuraState({
+      events: [{ logLine: { event: 'SPELL_AURA_APPLIED' }, destUnitId: 'U', spellId: '339', spellName: 'Entangling Roots', timestamp: 500 }],
+    });
+    const ivs = st.intervalsOn('U');
+    expect(ivs).toHaveLength(1);
+    expect(ivs[0].start).toBe(500);
+    expect(ivs[0].end).toBe(Number.MAX_SAFE_INTEGER);
+  });
 });
