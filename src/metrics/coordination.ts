@@ -2,6 +2,7 @@ import { eventType, srcId, destId, amount, eventTimeMs } from './eventAccess.js'
 import { unitTeam, type Team, type CoordinationSummary } from './types.js';
 
 const FOCUS_WINDOW_MS = 3000;
+const DAMAGE_EVENTS = /^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/;
 
 export function computeCoordination(match: unknown, healerSpecIds: string[]): { team: Team; summary: CoordinationSummary }[] {
   const m = match as { events?: unknown[]; units?: Record<string, { name?: unknown; reaction?: unknown; spec?: unknown }> };
@@ -13,7 +14,7 @@ export function computeCoordination(match: unknown, healerSpecIds: string[]): { 
   const isHealer = (id: string | undefined) => healer.has(String((units[id ?? ''] ?? {}).spec));
 
   function summarize(team: Team): CoordinationSummary {
-    const dmg = events.filter((e) => /DAMAGE/.test(eventType(e)) && teamOf(srcId(e)) === team && teamOf(destId(e)) !== team && teamOf(destId(e)) !== 'neutral');
+    const dmg = events.filter((e) => DAMAGE_EVENTS.test(eventType(e)) && teamOf(srcId(e)) === team && teamOf(destId(e)) !== team);
     const byTarget = new Map<string, { total: number; hits: { src: string | undefined; ms: number }[] }>();
     for (const e of dmg) {
       const d = destId(e);
@@ -38,16 +39,23 @@ export function computeCoordination(match: unknown, healerSpecIds: string[]): { 
           if (c <= 0) window.delete(ls); else window.set(ls, c);
           lo++;
         }
-        if (window.size >= 2) { focusFireWindows += 1; break; }
+        if (window.size >= 2) { focusFireWindows += 1; lo = hi + 1; window.clear(); }
       }
     }
     const healerPressureDamage = dmg.filter((e) => isHealer(destId(e))).reduce<number>((s, e) => s + amount(e), 0);
-    // swaps: deliberate target changes on DIRECT casts only (exclude DoT ticks / swing noise)
+    // swaps: deliberate target changes on DIRECT casts only (exclude DoT ticks / swing noise), per attacker
     const directSorted = dmg
       .filter((e) => { const t = eventType(e); return t === 'SPELL_DAMAGE' || t === 'RANGE_DAMAGE'; })
       .sort((a, b) => (eventTimeMs(a) ?? 0) - (eventTimeMs(b) ?? 0));
-    let swaps = 0; let prev: string | undefined;
-    for (const e of directSorted) { const d = destId(e); if (prev !== undefined && d !== prev) swaps += 1; prev = d; }
+    const lastTarget = new Map<string, string>();
+    let swaps = 0;
+    for (const e of directSorted) {
+      const s = srcId(e); const d = destId(e);
+      if (!s || !d) continue;
+      const prev = lastTarget.get(s);
+      if (prev !== undefined && prev !== d) swaps += 1;
+      lastTarget.set(s, d);
+    }
     return { focusFireWindows, topFocusTarget: targetPriority[0]?.name, targetPriority, healerPressureDamage, swaps };
   }
 

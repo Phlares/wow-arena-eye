@@ -18,7 +18,6 @@ interface Acc {
   defensives: { spell: string; ms: number }[];
   damageDone: number;
   healingDone: number;
-  absorbDone: number;
   samples: Sample[];
 }
 
@@ -27,7 +26,7 @@ function emptyAcc(): Acc {
     casts: [], interrupts: [], purgesRemoved: [], cleansesRemoved: [], dispelsTotal: 0,
     steals: [], deathMs: [],
     interruptsSuffered: [], ccTaken: [], deathsWhileCcd: [], defensives: [],
-    damageDone: 0, healingDone: 0, absorbDone: 0, samples: [],
+    damageDone: 0, healingDone: 0, samples: [],
   };
 }
 
@@ -89,19 +88,14 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       if (cc) acc(d).ccTaken.push({ category: cc.category });
     }
 
-    // Damage (enemy-only, exclude friendly fire)
-    if (/^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/.test(t) && s && teamOf(s) !== 'neutral' && teamOf(d) !== 'neutral' && teamOf(s) !== teamOf(d)) {
+    // Damage (enemy-only, exclude friendly fire; dest may be neutral e.g. enemy summons)
+    if (/^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/.test(t) && s && teamOf(s) !== 'neutral' && teamOf(s) !== teamOf(d)) {
       acc(s).damageDone += amount(ev);
     }
 
     // Healing
     if ((t === 'SPELL_HEAL' || t === 'SPELL_PERIODIC_HEAL') && s) {
       acc(s).healingDone += amount(ev);
-    }
-
-    // Absorb (best-effort)
-    if (t === 'SPELL_ABSORBED' && s) {
-      acc(s).absorbDone += amount(ev);
     }
   }
 
@@ -169,7 +163,8 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       defensivesIntoBurst,
       damageDone: Math.round(a.damageDone),
       healingDone: Math.round(a.healingDone),
-      absorbDone: Math.round(a.absorbDone),
+      // absorbDone: deferred — SPELL_ABSORBED.srcId is the attacker; correct attribution needs the shield owner (shieldOwnerUnitId).
+      absorbDone: 0,
       dps: durationSec > 0 ? Math.round(a.damageDone / durationSec) : 0,
       hps: durationSec > 0 ? Math.round(a.healingDone / durationSec) : 0,
     });
