@@ -86,13 +86,14 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
     }
 
     // CC taken tracking
+    // Counts both APPLIED and REFRESH: a CC reapply restarts the DR clock (a new CC instance). Safe for the current curated CC set (no channel-sustained CCs that refresh as ticks).
     if ((t === 'SPELL_AURA_APPLIED' || t === 'SPELL_AURA_REFRESH') && d) {
       const cc = ccInfo(spellId(ev));
       if (cc) acc(d).ccTaken.push({ category: cc.category });
     }
 
     // Damage (enemy-only, exclude friendly fire)
-    if (/^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/.test(t) && s && teamOf(s) !== teamOf(d)) {
+    if (/^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/.test(t) && s && teamOf(s) !== 'neutral' && teamOf(d) !== 'neutral' && teamOf(s) !== teamOf(d)) {
       acc(s).damageDone += amount(ev);
     }
 
