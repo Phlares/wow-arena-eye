@@ -43,5 +43,9 @@ describe('computeMatchMetrics phases 4-6 (real fixture)', () => {
 
     // Retained per-player dominant-target track exists for at least one attacker.
     expect(mm.focusTracks.tracks.some((t) => t.segments.length > 0)).toBe(true);
+
+    // absorbDone is now live (was hard-zeroed): at least one unit absorbed something.
+    const allUnits = mm.teams.flatMap((t) => [...t.players.flatMap((p) => [p.player, ...p.pets]), ...t.unownedPets]);
+    expect(allUnits.some((u) => u.absorbDone > 0)).toBe(true);
   });
 });
