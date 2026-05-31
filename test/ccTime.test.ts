@@ -10,6 +10,7 @@ const idOf = (cat: string) => Number(Object.keys(ccCats).find((id) => ccCats[id]
 const STUN = 408; // Kidney Shot (stun -> hard)
 const ROOT = 339; // Entangling Roots (root) — curated fallback if absent from DB
 const SILENCE = idOf('silence');
+const DISARM = idOf('disarm');
 
 describe('unionSeconds', () => {
   it('sums disjoint windows', () => {
@@ -55,5 +56,30 @@ describe('computeCcDurations', () => {
     );
     expect(d.castDenialSec).toBe(4);
     expect(d.timeControlledSec).toBe(4);
+  });
+
+  it('unions across buckets: a silence overlapping a stun is counted once in the total', () => {
+    const d = computeCcDurations(
+      [
+        { spellId: SILENCE, name: 'Silence', start: 0, end: 4000 },
+        { spellId: STUN, name: 'Kidney Shot', start: 0, end: 4000 },
+      ],
+      [], 100000,
+    );
+    expect(d.castDenialSec).toBe(4);
+    expect(d.hardCcSec).toBe(4);
+    expect(d.timeControlledSec).toBe(4); // union of identical windows, NOT 8
+  });
+
+  it('tracks disarm in byCategory only, excluded from the three buckets and total', () => {
+    const d = computeCcDurations(
+      [{ spellId: DISARM, name: 'Disarm', start: 0, end: 3000 }],
+      [], 100000,
+    );
+    expect(d.byCategory.find((b) => b.category === 'disarm')?.durationSec).toBe(3);
+    expect(d.castDenialSec).toBe(0);
+    expect(d.hardCcSec).toBe(0);
+    expect(d.rootSec).toBe(0);
+    expect(d.timeControlledSec).toBe(0);
   });
 });
