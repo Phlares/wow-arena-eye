@@ -15,6 +15,8 @@ function combine(player: UnitMetrics, pets: UnitMetrics[]): CombinedTotals {
     cleanses: sum((u) => u.cleanses),
     spellsteals: sum((u) => u.spellsteals),
     deaths: sum((u) => u.deaths),
+    damageDone: sum((u) => u.damageDone),
+    healingDone: sum((u) => u.healingDone),
   };
 }
 
