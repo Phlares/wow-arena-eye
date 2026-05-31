@@ -43,16 +43,30 @@ describe('computeFocusTracks', () => {
     expect(track.segments.map((s) => s.target)).toEqual(['X']);
   });
 
-  it('debounces a sub-dwell flicker (no extra swap)', () => {
-    // A on X throughout, with a single 500ms blip where Y briefly out-damages X.
+  it('debounces a sub-dwell flicker (Y wins one tick, smoothed back to X)', () => {
     const events = [];
     for (let ms = 0; ms <= 8000; ms += 500) events.push(dmg('A', 'X', 1000, ms));
-    // one big Y hit at t=4000 that would win that single tick
-    events.push(dmg('A', 'Y', 9000, 4000));
-    const ft = computeFocusTracks({ units, events, }, { dwellMs: 1000 });
+    events.push(dmg('A', 'Y', 9500, 4000)); // strictly out-damages the 5s X window for ONE tick only
+    // With debounce (default dwell 1000ms = 2 ticks), the 1-tick Y flicker is removed:
+    const smoothed = computeFocusTracks({ units, events });
+    const sTrack = smoothed.tracks.find((t) => t.attacker === 'A')!;
+    expect(sTrack.segments.map((s) => s.target)).toEqual(['X']);
+    expect(sTrack.ticks.includes('Y')).toBe(false);
+    // Without debounce (dwellMs 0 -> dwellTicks 1, smoothing is a no-op), the raw Y flicker survives,
+    // proving it is the debounce step (not hysteresis) that removed it:
+    const raw = computeFocusTracks({ units, events }, { dwellMs: 0 });
+    const rTrack = raw.tracks.find((t) => t.attacker === 'A')!;
+    expect(rTrack.ticks.includes('Y')).toBe(true);
+  });
+
+  it('resets focus memory after a long disengage (re-engage is not back-filled)', () => {
+    const events = [];
+    for (let ms = 0; ms < 3000; ms += 500) events.push(dmg('A', 'X', 1000, ms));      // engage X early
+    for (let ms = 12000; ms < 15000; ms += 500) events.push(dmg('A', 'Y', 1000, ms)); // engage Y much later
+    const ft = computeFocusTracks({ units, events });
     const track = ft.tracks.find((t) => t.attacker === 'A')!;
-    // flicker shorter than dwell (2 ticks) is held -> Y never appears as a stable segment
-    expect(track.segments.map((s) => s.target)).toEqual(['X']);
+    expect(track.segments.map((s) => s.target)).toEqual(['X', 'Y']);
+    expect(track.ticks.includes(null)).toBe(true); // a real disengage gap, not back-filled with X
   });
 
   it('rolls pet damage onto the owner', () => {

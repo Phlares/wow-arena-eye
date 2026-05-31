@@ -41,6 +41,8 @@ function encodeSegments(ticks: (string | null)[], stepMs: number, nameOf: (id: s
     const val = ticks[i];
     let j = i;
     while (j < ticks.length && ticks[j] === val) j++;
+    // fromSec/toSec are grid-snapped to the tick boundaries (toSec = exclusive end tick * step);
+    // the final segment's toSec can therefore round up to ~stepMs past the last real event.
     if (val !== null) segs.push({ target: val, targetName: nameOf(val), fromSec: (i * stepMs) / 1000, toSec: (j * stepMs) / 1000 });
     i = j;
   }
