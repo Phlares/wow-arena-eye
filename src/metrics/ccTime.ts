@@ -18,7 +18,7 @@ const HARD = new Set<DrCategory>(['stun', 'incapacitate', 'disorient']);
 // while the union across instances still accumulates repeated CC correctly.
 const MAX_INSTANCE_MS: Record<DrCategory, number> = {
   stun: 10000, incapacitate: 10000, disorient: 10000, silence: 10000,
-  root: 30000, disarm: 15000, taunt: 6000, knockback: 5000,
+  root: 30000, disarm: 15000, taunt: 8000, knockback: 5000,
 };
 
 /** Summed length (seconds, 0.1s precision) of the union of [start,end) windows. */

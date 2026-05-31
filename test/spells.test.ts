@@ -25,5 +25,7 @@ describe('spell metadata', () => {
   it('covers newer-class interrupt lockouts', () => {
     expect(interruptLockoutSec(116705)).toBe(4); // Spear Hand Strike
     expect(interruptLockoutSec(351338)).toBe(4); // Quell
+    expect(interruptLockoutSec(97547)).toBe(4);  // Solar Beam
+    expect(interruptLockoutSec(93985)).toBe(4);  // Skull Bash (legacy)
   });
 });
