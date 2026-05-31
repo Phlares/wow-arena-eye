@@ -9,6 +9,10 @@ const TABLE = JSON.parse(
   readFileSync(fileURLToPath(new URL('./spells.curated.json', import.meta.url)), 'utf8'),
 ) as Record<string, SpellMeta>;
 
+const CC_CATEGORIES = JSON.parse(
+  readFileSync(fileURLToPath(new URL('./ccCategories.json', import.meta.url)), 'utf8'),
+) as Record<string, { drCategory: DrCategory; name: string }>;
+
 export function spellMeta(id: number | undefined): SpellMeta | undefined {
   return id === undefined ? undefined : TABLE[String(id)];
 }
@@ -16,9 +20,12 @@ export function isInterrupt(id: number | undefined): boolean {
   return spellMeta(id)?.tags.includes('interrupt') ?? false;
 }
 export function ccInfo(id: number | undefined): { category: DrCategory } | undefined {
+  if (id === undefined) return undefined;
+  const fromDb = CC_CATEGORIES[String(id)];
+  if (fromDb) return { category: fromDb.drCategory };
   const m = spellMeta(id);
-  if (!m || !m.tags.includes('cc') || !m.ccCategory) return undefined;
-  return { category: m.ccCategory };
+  if (m && m.tags.includes('cc') && m.ccCategory) return { category: m.ccCategory };
+  return undefined;
 }
 export function isDefensive(id: number | undefined): boolean {
   return spellMeta(id)?.tags.includes('defensive') ?? false;
