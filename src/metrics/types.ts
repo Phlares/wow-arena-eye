@@ -3,6 +3,20 @@ export type Team = 'friendly' | 'enemy' | 'neutral';
 
 export interface SpellTally { spellName: string; count: number; }
 
+export interface Sample { tSec: number; x: number; y: number; facing?: number; hpPct?: number; }
+
+export type DrCategory = 'stun' | 'incapacitate' | 'disorient' | 'silence' | 'root' | 'knockback' | 'fear' | 'disarm';
+
+export interface CcTakenEntry { category: DrCategory; count: number; durationSec: number; }
+
+export interface CoordinationSummary {
+  focusFireWindows: number;
+  topFocusTarget?: string;
+  targetPriority: { name: string; damageTaken: number }[];
+  healerPressureDamage: number;
+  swaps: number;
+}
+
 export interface UnitMetrics {
   unitId: string;
   name: string;
@@ -26,6 +40,21 @@ export interface UnitMetrics {
   distanceMoved: number;
   positionSamples: number;
   timeStationarySec: number;
+  track: Sample[];
+  interruptsSuffered: number;
+  interruptsSufferedBySpell: SpellTally[];
+  ccTaken: number;
+  ccTakenByCategory: CcTakenEntry[];
+  deathsWhileCcd: number;
+  deathsWhileCcdBySpell: SpellTally[];
+  defensivesUsed: number;
+  defensivesUsedBySpell: SpellTally[];
+  defensivesIntoBurst: number;
+  damageDone: number;
+  healingDone: number;
+  absorbDone: number;
+  dps: number;
+  hps: number;
 }
 
 /** Combined player+pet totals. Intentionally carries only interruptsLandedBySpell;
@@ -39,6 +68,8 @@ export interface CombinedTotals {
   cleanses: number;
   spellsteals: number;
   deaths: number;
+  damageDone: number;
+  healingDone: number;
 }
 
 export interface PlayerGroup { player: UnitMetrics; pets: UnitMetrics[]; combined: CombinedTotals; }
@@ -47,7 +78,7 @@ export interface TeamGroup { team: Team; players: PlayerGroup[]; unownedPets: Un
 export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death';
 export interface TimelineEvent { tSec: number; unitId: string; unitName: string; kind: TimelineKind; spell?: string; extra?: string; }
 
-export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; }
+export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; }
 
 export function tally(names: string[]): SpellTally[] {
   const counts = new Map<string, number>();
