@@ -1,4 +1,4 @@
-import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct } from './eventAccess.js';
+import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo } from './eventAccess.js';
 import { tally, unitKind, unitTeam, type UnitMetrics, type Sample, type CcTakenEntry } from './types.js';
 import { isDefensive, ccInfo } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
@@ -18,6 +18,7 @@ interface Acc {
   defensives: { spell: string; ms: number }[];
   damageDone: number;
   healingDone: number;
+  absorbDone: number;
   samples: Sample[];
 }
 
@@ -26,7 +27,7 @@ function emptyAcc(): Acc {
     casts: [], interrupts: [], purgesRemoved: [], cleansesRemoved: [], dispelsTotal: 0,
     steals: [], deathMs: [],
     interruptsSuffered: [], ccTaken: [], deathsWhileCcd: [], defensives: [],
-    damageDone: 0, healingDone: 0, samples: [],
+    damageDone: 0, healingDone: 0, absorbDone: 0, samples: [],
   };
 }
 
@@ -97,6 +98,12 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
     if ((t === 'SPELL_HEAL' || t === 'SPELL_PERIODIC_HEAL') && s) {
       acc(s).healingDone += amount(ev);
     }
+
+    // Absorbs: credit the shield owner (SPELL_ABSORBED.srcId is the attacker).
+    if (t === 'SPELL_ABSORBED') {
+      const info = absorbInfo(ev);
+      if (info) acc(info.shieldOwnerId).absorbDone += info.amount;
+    }
   }
 
   const durationSec = typeof m.durationInSeconds === 'number' ? m.durationInSeconds : 0;
@@ -163,8 +170,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       defensivesIntoBurst,
       damageDone: Math.round(a.damageDone),
       healingDone: Math.round(a.healingDone),
-      // absorbDone: deferred — SPELL_ABSORBED.srcId is the attacker; correct attribution needs the shield owner (shieldOwnerUnitId).
-      absorbDone: 0,
+      absorbDone: Math.round(a.absorbDone),
       dps: durationSec > 0 ? Math.round(a.damageDone / durationSec) : 0,
       hps: durationSec > 0 ? Math.round(a.healingDone / durationSec) : 0,
     });

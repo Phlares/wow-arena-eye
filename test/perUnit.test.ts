@@ -116,3 +116,28 @@ describe('perUnit Phase 4/5', () => {
     expect(units.find((u) => u.unitId === 'ALLY')!.healingDone).toBe(300);
   });
 });
+
+describe('absorbDone attribution', () => {
+  it('credits the shield owner, not the attacker', () => {
+    const match = {
+      units: {
+        'Player-P': { name: 'You', type: 1, reaction: 1 },
+        'Player-E': { name: 'Enemy', type: 1, reaction: 2 },
+      },
+      events: [
+        // Enemy attacks You; You's OWN absorb shield soaks 300. The parser exposes the shield
+        // caster as the named field shieldOwnerUnitId and the soaked amount as absorbedAmount.
+        {
+          logLine: { event: 'SPELL_ABSORBED' },
+          srcUnitId: 'Player-E', destUnitId: 'Player-P',
+          shieldOwnerUnitId: 'Player-P', absorbedAmount: 300, timestamp: 1000,
+        },
+      ],
+    };
+    const units = computeUnitMetrics(match, buildAuraState(match));
+    const you = units.find((u) => u.unitId === 'Player-P')!;
+    expect(you.absorbDone).toBe(300);
+    const enemy = units.find((u) => u.unitId === 'Player-E');
+    expect(enemy?.absorbDone ?? 0).toBe(0);
+  });
+});
