@@ -133,5 +133,9 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('timeline');
     expect(html).toContain('coordination');
     expect(html).toContain('alignment');
+    expect(html).toContain('Your team coordination'); // TEAM_LABEL applied to coordination line
+    expect(html).toContain('80%');                    // alignmentFraction 0.8 rendered as percent
+    expect(html).toContain('per-attacker focus');     // the collapsed focus table rendered
+    expect(html).toContain('Ally1');                  // attackerFocus row present
   });
 });

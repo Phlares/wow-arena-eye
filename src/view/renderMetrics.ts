@@ -41,7 +41,7 @@ function timelineBlock(tl: TimelineEvent[]): string {
 }
 
 function attackerFocusRows(af: CoordinationSummary['attackerFocus']): string {
-  if (!af.length) return '';
+  if (!af?.length) return '';
   const rows = af.map((a) => `<tr><td>${escapeHtml(a.attackerName)}</td><td>${a.swaps}</td><td>${escapeHtml(a.topTarget ?? '—')}</td><td>${a.topTargetSec}s</td><td>${a.engagedSec}s</td></tr>`).join('');
   return `<details><summary>per-attacker focus</summary>
   <table><tr><th>player</th><th>swaps</th><th>top target</th><th>on target</th><th>engaged</th></tr>${rows}</table></details>`;
@@ -51,7 +51,7 @@ function coordinationBlock(coord: MatchMetrics['coordination']): string {
   if (!coord?.length) return '';
   return coord.map((c) => {
     const s = c.summary;
-    return `<p class="coord">${escapeHtml(c.team)} coordination — swaps: ${s.swaps}, alignment: ${Math.round(s.alignmentFraction * 100)}% (${s.alignedTimeSec}s), top target: ${escapeHtml(s.topFocusTarget ?? '—')}, healer pressure: ${s.healerPressureDamage}</p>${attackerFocusRows(s.attackerFocus)}`;
+    return `<p class="coord">${escapeHtml(TEAM_LABEL[c.team] ?? c.team)} coordination — swaps: ${s.swaps}, alignment: ${Math.round(s.alignmentFraction * 100)}% (${s.alignedTimeSec}s), top target: ${escapeHtml(s.topFocusTarget ?? '—')}, healer pressure: ${s.healerPressureDamage}</p>${attackerFocusRows(s.attackerFocus)}`;
   }).join('');
 }
 
