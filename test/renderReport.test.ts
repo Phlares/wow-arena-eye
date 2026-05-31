@@ -106,7 +106,7 @@ describe('renderReport metrics block (per-player)', () => {
                 deaths: 0, deathTimesSec: [], distanceMoved: 1234.5, positionSamples: 200, timeStationarySec: 12.3,
                 track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0, ccTakenByCategory: [],
                 deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
-                timeControlledSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0,
+                timeControlledSec: 12.5, castDenialSec: 6, hardCcSec: 4.5, rootSec: 2,
                 damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
               },
               pets: [
@@ -134,6 +134,8 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('120');
     expect(html).toContain('timeline');
     expect(html).toContain('coordination');
+    expect(html).toContain('12.5s'); // total time controlled rendered
+    expect(html).toContain('defensives (used/burst)'); // clarified header
     expect(html).toContain('alignment');
     expect(html).toContain('Your team coordination'); // TEAM_LABEL applied to coordination line
     expect(html).toContain('80%');                    // alignmentFraction 0.8 rendered as percent

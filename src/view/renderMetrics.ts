@@ -12,7 +12,7 @@ function unitRow(u: UnitMetrics, label: string): string {
     `<td>${u.casts}</td><td>${u.interruptsLanded}${u.interruptsLandedBySpell.length ? ' (' + tallyStr(u.interruptsLandedBySpell) + ')' : ''}</td>` +
     `<td>${u.purges}/${u.cleanses}${u.purgesBySpell.length ? ' (' + tallyStr(u.purgesBySpell) + ')' : ''}</td>` +
     `<td>${u.spellsteals}</td><td>${u.deaths}</td><td>${u.distanceMoved} (${u.timeStationarySec}s still)</td>` +
-    `<td>${u.damageDone}</td><td>${u.healingDone}</td><td>${u.ccTaken}</td><td>${u.deathsWhileCcd}</td><td>${u.defensivesUsed}/${u.defensivesIntoBurst}</td></tr>`;
+    `<td>${u.damageDone}</td><td>${u.healingDone}</td><td>${u.timeControlledSec}s (${u.castDenialSec}/${u.hardCcSec}/${u.rootSec})</td><td>${u.deathsWhileCcd}</td><td>${u.defensivesUsed}/${u.defensivesIntoBurst}</td></tr>`;
 }
 
 function playerGroupBlock(pg: PlayerGroup, isYou: boolean): string {
@@ -30,7 +30,7 @@ function teamBlock(tg: TeamGroup, playerUnitId: string | undefined): string {
   const rows = tg.players.map((pg) => playerGroupBlock(pg, pg.player.unitId === playerUnitId)).join('') +
     tg.unownedPets.map((p) => unitRow(p, '(unowned) ')).join('');
   return `<h5>${escapeHtml(TEAM_LABEL[tg.team] ?? tg.team)}</h5>
-  <table><tr><th>unit</th><th>casts</th><th>interrupts</th><th>purge/cleanse</th><th>steals</th><th>deaths</th><th>move</th><th>dmg</th><th>heal</th><th>ccTaken</th><th>died-CC</th><th>def(u/burst)</th></tr>${rows}</table>`;
+  <table><tr><th>unit</th><th>casts</th><th>interrupts</th><th>purge/cleanse</th><th>steals</th><th>deaths</th><th>move</th><th>dmg</th><th>heal</th><th>CC time (cd/hard/root)</th><th>died-CC</th><th>defensives (used/burst)</th></tr>${rows}</table>`;
 }
 
 function timelineBlock(tl: TimelineEvent[]): string {
