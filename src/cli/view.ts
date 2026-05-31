@@ -37,7 +37,8 @@ async function main(): Promise<void> {
       const tracks = v.metrics.teams
         .flatMap((t) => [...t.players.flatMap((p) => [p.player, ...p.pets]), ...t.unownedPets])
         .map((u) => ({ unitId: u.unitId, name: u.name, kind: u.kind, team: u.team, track: u.track }));
-      writeFileSync(join(replayDir, `match-${i}.json`), JSON.stringify({ playerUnitId: v.metrics.playerUnitId, timeline: v.metrics.timeline, tracks }));
+      const focus = v.metrics.focusTracks.tracks.map((t) => ({ attacker: t.attacker, attackerName: t.attackerName, team: t.team, segments: t.segments }));
+      writeFileSync(join(replayDir, `match-${i}.json`), JSON.stringify({ playerUnitId: v.metrics.playerUnitId, timeline: v.metrics.timeline, tracks, focus }));
     });
   }
 

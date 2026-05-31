@@ -13,6 +13,8 @@
  *   position x   : advancedActorPositionX (number, ~41% of events carry valid position)
  *   position y   : advancedActorPositionY (number)
  *   facing       : advancedActorFacing    (number, radians)
+ *   shieldOwner  : shieldOwnerUnitId      (SPELL_ABSORBED — absorbing caster GUID, NOT srcUnitId)
+ *   absorbAmount : absorbedAmount         (SPELL_ABSORBED — amount absorbed, always positive)
  */
 
 type Ev = Record<string, unknown>;
@@ -32,6 +34,9 @@ function logLine(ev: unknown): LogLineShape | undefined {
   if (ll && typeof ll === 'object') return ll as LogLineShape;
   return undefined;
 }
+
+/** The combat-log damage event types (advanced + swing) — single source of truth for "is this damage?". */
+export const DAMAGE_EVENTS = /^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/;
 
 /** The LogEvent string, e.g. "SPELL_CAST_SUCCESS". Never returns empty — falls back to "UNKNOWN". */
 export function eventType(ev: unknown): string {
@@ -152,5 +157,30 @@ export function position(ev: unknown): { x: number; y: number; facing?: number }
   if (x === 0 && y === 0) return undefined;
   const f = e?.advancedActorFacing ?? e?.advancedActorPositionFacing ?? e?.facing;
   return { x, y, facing: typeof f === 'number' ? f : undefined };
+}
+
+/**
+ * Shield owner + absorbed amount for SPELL_ABSORBED events.
+ *
+ * srcUnitId on SPELL_ABSORBED is the ATTACKER; the absorbing caster (shield owner) is a
+ * separate named field on the parser output. Reads the named class properties
+ * `shieldOwnerUnitId` and `absorbedAmount` on CombatAbsorbAction — robust across all
+ * SPELL_ABSORBED subtypes (the parser handles 17/18/20/21-param forms), with no
+ * dependence on a fixed params-array length.
+ * Returns undefined when the event is not SPELL_ABSORBED or the named fields are absent.
+ * Never throws.
+ */
+export function absorbInfo(ev: unknown): { shieldOwnerId: string; amount: number } | undefined {
+  if (eventType(ev) !== 'SPELL_ABSORBED') return undefined;
+  const e = ev as Ev;
+  const owner = strOpt(e?.shieldOwnerUnitId);
+  const amt = e?.absorbedAmount;
+  // real WoW GUIDs always contain '-'; rejects parser artifacts like an empty string or "nil"
+  if (!owner || !owner.includes('-')) return undefined;
+  // absorbedAmount is a raw log parameter and is occasionally signed-negative (like the
+  // HP-update amount that amount() normalizes); take the magnitude so those absorbs aren't dropped.
+  const n = Math.abs(typeof amt === 'number' ? amt : Number(amt));
+  if (!Number.isFinite(n) || n === 0) return undefined;
+  return { shieldOwnerId: owner, amount: n };
 }
 

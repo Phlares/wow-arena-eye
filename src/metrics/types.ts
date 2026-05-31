@@ -9,12 +9,35 @@ export type DrCategory = 'stun' | 'incapacitate' | 'disorient' | 'silence' | 'ro
 
 export interface CcTakenEntry { category: DrCategory; count: number; durationSec: number; }
 
-export interface CoordinationSummary {
-  focusFireWindows: number;
-  topFocusTarget?: string;
-  targetPriority: { name: string; damageTaken: number }[];
-  healerPressureDamage: number;
+export interface FocusSegment { target: string; targetName: string; fromSec: number; toSec: number; }
+
+export interface AttackerTrack {
+  attacker: string;        // owning player's unitId
+  attackerName: string;
+  team: Team;
+  ticks: (string | null)[]; // smoothed dominant-target unitId per tick (null = not engaged)
+  segments: FocusSegment[]; // run-length encoding of `ticks` (the retained track)
+}
+
+export interface FocusTracks { stepMs: number; tickCount: number; startMs: number; tracks: AttackerTrack[]; }
+
+export interface AttackerFocus {
+  attacker: string;
+  attackerName: string;
   swaps: number;
+  topTarget?: string;
+  topTargetSec: number;
+  engagedSec: number;
+}
+
+export interface CoordinationSummary {
+  targetPriority: { name: string; damageTaken: number }[];
+  topFocusTarget?: string;
+  healerPressureDamage: number;
+  swaps: number;                  // debounced dominant-target re-aligns (team sum)
+  attackerFocus: AttackerFocus[];
+  alignmentFraction: number;      // 0..1
+  alignedTimeSec: number;
 }
 
 export interface UnitMetrics {
@@ -78,7 +101,7 @@ export interface TeamGroup { team: Team; players: PlayerGroup[]; unownedPets: Un
 export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death';
 export interface TimelineEvent { tSec: number; unitId: string; unitName: string; kind: TimelineKind; spell?: string; extra?: string; }
 
-export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; }
+export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; }
 
 export function tally(names: string[]): SpellTally[] {
   const counts = new Map<string, number>();
@@ -100,4 +123,12 @@ export function unitKind(type: unknown): UnitKind {
 export function unitTeam(reaction: unknown): Team {
   const r = String(reaction);
   return r === '1' || r === 'Friendly' ? 'friendly' : r === '2' || r === 'Hostile' ? 'enemy' : 'neutral';
+}
+
+const OWNER_SENTINELS = new Set(['0', '0000000000000000']);
+
+/** Sanitized owner unit id from a raw units-map entry, or undefined if absent / a no-owner sentinel. */
+export function ownerIdOf(unit: { ownerId?: unknown } | undefined): string | undefined {
+  const raw = unit && typeof unit.ownerId === 'string' ? unit.ownerId : undefined;
+  return raw && !OWNER_SENTINELS.has(raw) ? raw : undefined;
 }

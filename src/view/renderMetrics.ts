@@ -40,9 +40,19 @@ function timelineBlock(tl: TimelineEvent[]): string {
   <table><tr><th>t</th><th>unit</th><th>action</th><th>spell</th></tr>${rows}</table></details>`;
 }
 
+function attackerFocusRows(af: CoordinationSummary['attackerFocus']): string {
+  if (!af?.length) return '';
+  const rows = af.map((a) => `<tr><td>${escapeHtml(a.attackerName)}</td><td>${a.swaps}</td><td>${escapeHtml(a.topTarget ?? '—')}</td><td>${a.topTargetSec}s</td><td>${a.engagedSec}s</td></tr>`).join('');
+  return `<details><summary>per-attacker focus</summary>
+  <table><tr><th>player</th><th>swaps</th><th>top target</th><th>on target</th><th>engaged</th></tr>${rows}</table></details>`;
+}
+
 function coordinationBlock(coord: MatchMetrics['coordination']): string {
   if (!coord?.length) return '';
-  return coord.map((c) => `<p class="coord">${escapeHtml(c.team)} coordination — focus-fire windows: ${c.summary.focusFireWindows}, top target: ${escapeHtml(c.summary.topFocusTarget ?? '—')}, healer pressure: ${c.summary.healerPressureDamage}, swaps: ${c.summary.swaps}</p>`).join('');
+  return coord.map((c) => {
+    const s = c.summary;
+    return `<p class="coord">${escapeHtml(TEAM_LABEL[c.team] ?? c.team)} coordination — swaps: ${s.swaps}, alignment: ${Math.round(s.alignmentFraction * 100)}% (${s.alignedTimeSec}s), top target: ${escapeHtml(s.topFocusTarget ?? '—')}, healer pressure: ${s.healerPressureDamage}</p>${attackerFocusRows(s.attackerFocus)}`;
+  }).join('');
 }
 
 export function metricsBlock(mm: MatchMetrics | undefined): string {

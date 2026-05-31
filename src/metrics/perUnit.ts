@@ -1,5 +1,5 @@
-import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct } from './eventAccess.js';
-import { tally, unitKind, unitTeam, type UnitMetrics, type Sample, type CcTakenEntry } from './types.js';
+import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS } from './eventAccess.js';
+import { tally, unitKind, unitTeam, ownerIdOf, type UnitMetrics, type Sample, type CcTakenEntry } from './types.js';
 import { isDefensive, ccInfo } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
 import { sampleAt } from './sampleAt.js';
@@ -18,6 +18,7 @@ interface Acc {
   defensives: { spell: string; ms: number }[];
   damageDone: number;
   healingDone: number;
+  absorbDone: number;
   samples: Sample[];
 }
 
@@ -26,7 +27,7 @@ function emptyAcc(): Acc {
     casts: [], interrupts: [], purgesRemoved: [], cleansesRemoved: [], dispelsTotal: 0,
     steals: [], deathMs: [],
     interruptsSuffered: [], ccTaken: [], deathsWhileCcd: [], defensives: [],
-    damageDone: 0, healingDone: 0, samples: [],
+    damageDone: 0, healingDone: 0, absorbDone: 0, samples: [],
   };
 }
 
@@ -89,13 +90,19 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
     }
 
     // Damage (enemy-only, exclude friendly fire; dest may be neutral e.g. enemy summons)
-    if (/^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/.test(t) && s && teamOf(s) !== 'neutral' && teamOf(s) !== teamOf(d)) {
+    if (DAMAGE_EVENTS.test(t) && s && teamOf(s) !== 'neutral' && teamOf(s) !== teamOf(d)) {
       acc(s).damageDone += amount(ev);
     }
 
     // Healing
     if ((t === 'SPELL_HEAL' || t === 'SPELL_PERIODIC_HEAL') && s) {
       acc(s).healingDone += amount(ev);
+    }
+
+    // Absorbs: credit the shield owner (SPELL_ABSORBED.srcId is the attacker).
+    if (t === 'SPELL_ABSORBED') {
+      const info = absorbInfo(ev);
+      if (info) acc(info.shieldOwnerId).absorbDone += info.amount;
     }
   }
 
@@ -104,7 +111,6 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
   const result: UnitMetrics[] = [];
   for (const [id, a] of accs) {
     const u = units[id] ?? {};
-    const ownerRaw = typeof u.ownerId === 'string' ? u.ownerId : undefined;
 
     const track = a.samples.sort((x, y) => x.tSec - y.tSec);
     let distance = 0;
@@ -134,7 +140,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       kind: unitKind(u.type),
       team: unitTeam(u.reaction),
       spec: u.spec !== undefined ? String(u.spec) : undefined,
-      ownerId: ownerRaw && ownerRaw !== '0' && ownerRaw !== '0000000000000000' ? ownerRaw : undefined,
+      ownerId: ownerIdOf(u),
       casts: a.casts.length,
       topCasts: tally(a.casts).slice(0, 8),
       interruptsLanded: a.interrupts.length,
@@ -163,8 +169,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       defensivesIntoBurst,
       damageDone: Math.round(a.damageDone),
       healingDone: Math.round(a.healingDone),
-      // absorbDone: deferred — SPELL_ABSORBED.srcId is the attacker; correct attribution needs the shield owner (shieldOwnerUnitId).
-      absorbDone: 0,
+      absorbDone: Math.round(a.absorbDone),
       dps: durationSec > 0 ? Math.round(a.damageDone / durationSec) : 0,
       hps: durationSec > 0 ? Math.round(a.healingDone / durationSec) : 0,
     });
