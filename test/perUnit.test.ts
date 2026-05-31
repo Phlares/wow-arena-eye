@@ -126,6 +126,8 @@ describe('CC durations', () => {
         { logLine: { event: 'SPELL_AURA_APPLIED' }, destUnitId: 'Player-A', spellId: '408', spellName: 'Kidney Shot', timestamp: 0 },
         { logLine: { event: 'SPELL_AURA_REMOVED' }, destUnitId: 'Player-A', spellId: '408', spellName: 'Kidney Shot', timestamp: 2000 },
         { logLine: { event: 'SPELL_INTERRUPT' }, srcUnitId: 'Player-E', destUnitId: 'Player-A', spellId: '2139', spellName: 'Counterspell', extraSpellName: 'Chaos Bolt', timestamp: 10000 },
+        // match continues past the kick so the 6s lockout fits within match end (endMs = 20000)
+        { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'Player-E', spellName: 'Filler', timestamp: 20000 },
       ],
     };
     const units = computeUnitMetrics(match, buildAuraState(match));
