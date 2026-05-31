@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { spellMeta, isInterrupt, ccInfo, isDefensive } from '../src/metadata/spells.js';
+import { spellMeta, isInterrupt, ccInfo, isDefensive, interruptLockoutSec } from '../src/metadata/spells.js';
 
 describe('spell metadata', () => {
   it('classifies interrupts', () => {
@@ -16,5 +16,10 @@ describe('spell metadata', () => {
   });
   it('returns undefined for unknown ids', () => {
     expect(spellMeta(99999999)).toBeUndefined();
+  });
+  it('returns interrupt lockout seconds', () => {
+    expect(interruptLockoutSec(2139)).toBe(6); // Counterspell
+    expect(interruptLockoutSec(47528)).toBe(3); // Mind Freeze
+    expect(interruptLockoutSec(118)).toBe(0);   // not an interrupt -> no lockout
   });
 });
