@@ -45,6 +45,7 @@ export function computeCoordination(
       }
       let topTarget: string | undefined;
       let topTicks = 0;
+      // tie-break: '>' keeps the first-seen target (Map insertion = order of first appearance in ticks)
       for (const [tgt, ticks] of dwellByTarget) if (ticks > topTicks) { topTicks = ticks; topTarget = tgt; }
       return {
         attacker: t.attacker,
@@ -63,8 +64,8 @@ export function computeCoordination(
     for (let i = 0; i < focus.tickCount; i++) {
       const counts = new Map<string, number>();
       for (const t of teamTracks) { const v = t.ticks[i]; if (v !== null) counts.set(v, (counts.get(v) ?? 0) + 1); }
-      const engaged = [...counts.values()].reduce((s, c) => s + c, 0);
-      if (engaged >= 2) {
+      const engagedAttackers = [...counts.values()].reduce((s, c) => s + c, 0);
+      if (engagedAttackers >= 2) {
         contestedTicks++;
         if ([...counts.values()].some((c) => c >= 2)) alignedTicks++;
       }

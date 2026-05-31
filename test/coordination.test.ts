@@ -30,16 +30,15 @@ describe('computeCoordination', () => {
   });
   it('reports per-attacker focus with sane (small) swap counts', () => {
     expect(friendly.attackerFocus.length).toBeGreaterThanOrEqual(2);
-    // A2 only ever hit E -> zero swaps; nobody churns
-    expect(friendly.swaps).toBeLessThanOrEqual(2);
+    // A1's single late healer poke is a 1-tick run the debounce removes, so nobody churns: team swaps == 0
+    expect(friendly.swaps).toBe(0);
     const a2 = friendly.attackerFocus.find((a) => a.attacker === 'A2')!;
     expect(a2.swaps).toBe(0);
     expect(a2.topTarget).toBe('EnemyDps');
     expect(a2.engagedSec).toBeGreaterThan(0);
   });
   it('detects alignment while both allies focus the same target', () => {
-    expect(friendly.alignmentFraction).toBeGreaterThan(0);
-    expect(friendly.alignmentFraction).toBeLessThanOrEqual(1);
+    expect(friendly.alignmentFraction).toBe(1); // every contested tick has both allies on E
     expect(friendly.alignedTimeSec).toBeGreaterThan(0);
   });
   it('returns both teams', () => {
