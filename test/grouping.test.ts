@@ -8,7 +8,11 @@ function u(over: Partial<UnitMetrics> & Pick<UnitMetrics, 'unitId' | 'kind' | 't
     casts: 0, topCasts: [], interruptsLanded: 0, interruptsLandedBySpell: [],
     dispels: 0, purges: 0, purgesBySpell: [], cleanses: 0, cleansesBySpell: [],
     spellsteals: 0, spellstealsBySpell: [], deaths: 0, deathTimesSec: [],
-    distanceMoved: 0, positionSamples: 0, timeStationarySec: 0, ...over,
+    distanceMoved: 0, positionSamples: 0, timeStationarySec: 0,
+    track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0,
+    ccTakenByCategory: [], deathsWhileCcd: 0, deathsWhileCcdBySpell: [],
+    defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
+    damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0, ...over,
   } as UnitMetrics;
 }
 
@@ -38,5 +42,15 @@ describe('groupUnits', () => {
   it('buckets pets whose owner is not a known player', () => {
     const enemy = teams.find((t) => t.team === 'enemy')!;
     expect(enemy.unownedPets.map((p) => p.unitId)).toEqual(['ORPHAN']);
+  });
+
+  it('combines damage/healing across player+pets', () => {
+    const units = [
+      u({ unitId: 'P', kind: 'player', team: 'friendly', damageDone: 1000, healingDone: 0 }),
+      u({ unitId: 'PET', kind: 'primary-pet', team: 'friendly', ownerId: 'P', damageDone: 400, healingDone: 0 }),
+    ];
+    const pg = groupUnits(units, 'P').find((t) => t.team === 'friendly')!.players[0];
+    expect(pg.combined.damageDone).toBe(1400);
+    expect(pg.combined.healingDone).toBe(0);
   });
 });

@@ -1,5 +1,7 @@
 import type { SidecarIndex, SidecarEntry } from '../sidecar/sidecarIndex.js';
-import type { MatchMetrics, PlayerGroup, TeamGroup, UnitMetrics, TimelineEvent } from '../metrics/types.js';
+import type { MatchMetrics } from '../metrics/types.js';
+import { escapeHtml } from './html.js';
+import { metricsBlock } from './renderMetrics.js';
 
 export interface ViewCombatant {
   name: string;
@@ -34,17 +36,6 @@ export interface RenderOpts {
 
 const MATCH_WINDOW_MS = 15 * 60 * 1000;
 
-export function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']|[^\x00-\x7F]/gu, (c) => {
-    if (c === '&') return '&amp;';
-    if (c === '<') return '&lt;';
-    if (c === '>') return '&gt;';
-    if (c === '"') return '&#34;';
-    if (c === "'") return '&#39;';
-    return `&#${c.codePointAt(0)};`;
-  });
-}
-
 function nearest(idx: SidecarIndex, startMs: number | null): { entry: SidecarEntry; deltaMs: number } | null {
   if (startMs === null) return null;
   let best: { entry: SidecarEntry; deltaMs: number } | null = null;
@@ -54,50 +45,6 @@ function nearest(idx: SidecarIndex, startMs: number | null): { entry: SidecarEnt
     if (best === null || deltaMs < best.deltaMs) best = { entry: e, deltaMs };
   }
   return best;
-}
-
-const TEAM_LABEL: Record<string, string> = { friendly: 'Your team', enemy: 'Enemy team', neutral: 'Neutral' };
-
-function tallyStr(t: { spellName: string; count: number }[]): string {
-  return t.length ? t.map((x) => `${escapeHtml(x.spellName)}×${x.count}`).join(', ') : '—';
-}
-
-function unitRow(u: UnitMetrics, label: string): string {
-  return `<tr><td>${escapeHtml(label)}${escapeHtml(u.name)}</td>` +
-    `<td>${u.casts}</td><td>${u.interruptsLanded}${u.interruptsLandedBySpell.length ? ' (' + tallyStr(u.interruptsLandedBySpell) + ')' : ''}</td>` +
-    `<td>${u.purges}/${u.cleanses}${u.purgesBySpell.length ? ' (' + tallyStr(u.purgesBySpell) + ')' : ''}</td>` +
-    `<td>${u.spellsteals}</td><td>${u.deaths}</td><td>${u.distanceMoved} (${u.timeStationarySec}s still)</td></tr>`;
-}
-
-function playerGroupBlock(pg: PlayerGroup, isYou: boolean): string {
-  const c = pg.combined;
-  const head = `<tr class="pg-head"><td><b>${isYou ? '★ ' : ''}${escapeHtml(pg.player.name)}</b>${pg.player.spec ? ' (' + escapeHtml(pg.player.spec) + ')' : ''}${pg.pets.length ? ` [+${pg.pets.length} pet]` : ''}</td>` +
-    `<td>${c.casts}</td><td>${c.interruptsLanded}${c.interruptsLandedBySpell.length ? ' (' + tallyStr(c.interruptsLandedBySpell) + ')' : ''}</td>` +
-    `<td>${c.purges}/${c.cleanses}</td><td>${c.spellsteals}</td><td>${c.deaths}</td><td></td></tr>`;
-  const own = unitRow(pg.player, '↳ self: ');
-  const pets = pg.pets.map((p) => unitRow(p, '↳ pet: ')).join('');
-  return head + own + pets;
-}
-
-function teamBlock(tg: TeamGroup, playerUnitId: string | undefined): string {
-  const rows = tg.players.map((pg) => playerGroupBlock(pg, pg.player.unitId === playerUnitId)).join('') +
-    tg.unownedPets.map((p) => unitRow(p, '(unowned) ')).join('');
-  return `<h5>${escapeHtml(TEAM_LABEL[tg.team] ?? tg.team)}</h5>
-  <table><tr><th>unit</th><th>casts</th><th>interrupts</th><th>purge/cleanse</th><th>steals</th><th>deaths</th><th>move</th></tr>${rows}</table>`;
-}
-
-function timelineBlock(tl: TimelineEvent[]): string {
-  if (!tl.length) return '';
-  const rows = tl.map((e) => `<tr><td>${e.tSec}s</td><td>${escapeHtml(e.unitName)}</td><td>${escapeHtml(e.kind)}</td><td>${escapeHtml(e.spell ?? '')}${e.extra ? ' → ' + escapeHtml(e.extra) : ''}</td></tr>`).join('');
-  return `<details><summary>spell-use timeline (${tl.length} events)</summary>
-  <table><tr><th>t</th><th>unit</th><th>action</th><th>spell</th></tr>${rows}</table></details>`;
-}
-
-function metricsBlock(mm: MatchMetrics | undefined): string {
-  if (!mm) return '';
-  return `<h4>Metrics (per player)</h4>
-  ${mm.teams.map((t) => teamBlock(t, mm.playerUnitId)).join('')}
-  ${timelineBlock(mm.timeline)}`;
 }
 
 function matchSection(m: ParsedMatchView, near: { entry: SidecarEntry; deltaMs: number } | null): string {

@@ -101,6 +101,44 @@ export function eventTimeMs(ev: unknown): number | undefined {
 }
 
 /**
+ * Spell ID for the primary spell on the event.
+ * Real field name: spellId (type string | null on CombatAction — parsed to number here).
+ * TDD-confirmed: spellId is a string e.g. "8680" in the parser output.
+ */
+export function spellId(ev: unknown): number | undefined {
+  const e = ev as Ev;
+  const v = e?.spellId ?? e?.spellID;
+  if (v === null || v === undefined) return undefined;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * Effective damage/heal amount — always non-negative.
+ * Real field name: amount (number on CombatHpUpdateAction, negative for damage taken).
+ * effectiveAmount is the mitigated value; both are signed negative for damage.
+ * We return Math.abs(effectiveAmount ?? amount) so callers always get a positive magnitude.
+ */
+export function amount(ev: unknown): number {
+  const e = ev as Ev;
+  const v = e?.effectiveAmount ?? e?.amount ?? e?.damageAmount ?? e?.healAmount;
+  return typeof v === 'number' && Number.isFinite(v) ? Math.abs(v) : 0;
+}
+
+/**
+ * Current HP as a fraction [0, 1].
+ * Real field names (TDD-confirmed): advancedActorCurrentHp / advancedActorMaxHp (both numbers).
+ * Present on any event with advanced combat log data (~41% of events).
+ */
+export function hpPct(ev: unknown): number | undefined {
+  const e = ev as Ev;
+  const cur = e?.advancedActorCurrentHp;
+  const max = e?.advancedActorMaxHp;
+  if (typeof cur !== 'number' || typeof max !== 'number' || max <= 0) return undefined;
+  return Math.max(0, Math.min(1, cur / max));
+}
+
+/**
  * Advanced-log position of the source unit at the time of the event.
  * Returns undefined for events without valid position data (x=0 & y=0 is treated as absent).
  * Real field names (confirmed via TDD): advancedActorPositionX / advancedActorPositionY /

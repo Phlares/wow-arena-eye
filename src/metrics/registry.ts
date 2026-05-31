@@ -1,3 +1,7 @@
+/** Retail healer specialization IDs (to identify enemy healers for coordination). */
+export const HEALER_SPEC_IDS: string[] = ['65', '105', '256', '257', '264', '270', '1468'];
+// HolyPaladin 65, RestoDruid 105, DiscPriest 256, HolyPriest 257, RestoShaman 264, Mistweaver 270, PreservationEvoker 1468
+
 export type MetricCategory = 'disruption-out' | 'tempo' | 'outcome' | 'movement';
 
 export interface MetricDef { id: string; label: string; category: MetricCategory; }

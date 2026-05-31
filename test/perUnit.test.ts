@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { computeUnitMetrics } from '../src/metrics/perUnit.js';
+import { buildAuraState } from '../src/metrics/auraState.js';
+
+function run(m: any) { return computeUnitMetrics(m, buildAuraState(m)); }
 
 function match() {
   return {
@@ -21,7 +24,7 @@ function match() {
 }
 
 describe('computeUnitMetrics', () => {
-  const units = computeUnitMetrics(match());
+  const units = run(match());
   const byId = (id: string) => units.find((u) => u.unitId === id)!;
 
   it('attributes casts to the actual caster (pet casts not on the player)', () => {
@@ -55,7 +58,7 @@ describe('computeUnitMetrics', () => {
 
 describe('computeUnitMetrics dispel counting', () => {
   it('counts a dispel with unresolved auraType in dispels but not purge/cleanse', () => {
-    const units = computeUnitMetrics({
+    const units = run({
       playerId: 'P',
       units: { P: { name: 'You', type: 1, reaction: 1 } },
       events: [
@@ -67,5 +70,49 @@ describe('computeUnitMetrics dispel counting', () => {
     expect(p.dispels).toBe(1);
     expect(p.purges).toBe(0);
     expect(p.cleanses).toBe(0);
+  });
+});
+
+describe('perUnit Phase 4/5', () => {
+  const match = {
+    playerId: 'P', durationInSeconds: 100,
+    units: {
+      P: { name: 'You', type: 1, reaction: 1 },
+      E: { name: 'Enemy', type: 1, reaction: 2 },
+      ALLY: { name: 'Ally', type: 1, reaction: 1 },
+    },
+    events: [
+      { logLine: { event: 'SPELL_INTERRUPT' }, srcUnitId: 'E', destUnitId: 'P', spellName: 'Counterspell', extraSpellName: 'Polymorph', timestamp: 1000 },
+      { logLine: { event: 'SPELL_AURA_APPLIED' }, srcUnitId: 'E', destUnitId: 'P', spellId: 408, spellName: 'Kidney Shot', timestamp: 2000 },
+      { logLine: { event: 'UNIT_DIED' }, destUnitId: 'P', timestamp: 3000 },
+      { logLine: { event: 'SPELL_AURA_REMOVED' }, destUnitId: 'P', spellId: 408, spellName: 'Kidney Shot', timestamp: 4000 },
+      { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', spellId: 104773, spellName: 'Unending Resolve', timestamp: 2500 },
+      { logLine: { event: 'SPELL_DAMAGE' }, srcUnitId: 'P', destUnitId: 'E', spellName: 'Chaos Bolt', amount: 1000, timestamp: 5000 },
+      { logLine: { event: 'SPELL_DAMAGE' }, srcUnitId: 'P', destUnitId: 'ALLY', spellName: 'Rain of Fire', amount: 50, timestamp: 5500 },
+      { logLine: { event: 'SPELL_HEAL' }, srcUnitId: 'ALLY', destUnitId: 'P', spellName: 'Heal', amount: 300, timestamp: 6000 },
+    ],
+  };
+  const units = run(match);
+  const me = units.find((u) => u.unitId === 'P')!;
+
+  it('counts interrupts suffered + what got kicked', () => {
+    expect(me.interruptsSuffered).toBe(1);
+    expect(me.interruptsSufferedBySpell).toEqual([{ spellName: 'Polymorph', count: 1 }]);
+  });
+  it('detects death while CC-d (stun active at death)', () => {
+    expect(me.deathsWhileCcd).toBe(1);
+    expect(me.deathsWhileCcdBySpell).toEqual([{ spellName: 'Kidney Shot', count: 1 }]);
+  });
+  it('counts defensives used', () => {
+    expect(me.defensivesUsed).toBe(1);
+    expect(me.defensivesUsedBySpell).toEqual([{ spellName: 'Unending Resolve', count: 1 }]);
+  });
+  it('attributes damage with friendly-fire exclusion + dps per second', () => {
+    expect(me.damageDone).toBe(1000);   // hit on E counts; hit on friendly ALLY excluded
+    expect(me.dps).toBe(10);            // 1000 / 100s = 10 dps (PER SECOND)
+  });
+  it('attributes healing to the healer', () => {
+    expect(me.healingDone).toBe(0);
+    expect(units.find((u) => u.unitId === 'ALLY')!.healingDone).toBe(300);
   });
 });
