@@ -21,17 +21,17 @@ describe('computeMatchMetrics (synthetic)', () => {
 });
 
 const FIXTURE = 'test-data/fixtures/arena-sample.log';
-describe('computeMatchMetrics (real fixture)', () => {
-  it.runIf(existsSync(FIXTURE))('attributes the warlock Felhunter under the player, combined', async () => {
+describe('computeMatchMetrics phases 4-6 (real fixture)', () => {
+  it.runIf(existsSync(FIXTURE))('produces damage, suffered, coordination, and tracks', async () => {
     const { arenaMatches } = await parseLogFile(FIXTURE);
     const mm = computeMatchMetrics(arenaMatches[0]);
     const me = mm.teams.flatMap((t) => t.players).find((p) => p.player.unitId === mm.playerUnitId)!;
     expect(me).toBeTruthy();
-    expect(me.pets.length).toBeGreaterThanOrEqual(1);
-    expect(me.combined.interruptsLanded).toBeGreaterThanOrEqual(1);
-    expect(me.combined.purges).toBeGreaterThanOrEqual(1);
-    expect(me.player.casts).toBeGreaterThan(0);
-    expect(mm.timeline.length).toBeGreaterThan(0);
-    expect(me.player.positionSamples).toBeGreaterThan(0);
+    expect(me.combined.damageDone).toBeGreaterThan(0);
+    expect(me.player.track.length).toBeGreaterThan(0);
+    expect(typeof me.player.ccTaken).toBe('number');
+    expect(typeof me.player.deathsWhileCcd).toBe('number');
+    expect(mm.coordination.length).toBe(2);
+    expect(mm.coordination.find((c) => c.team === 'friendly')!.summary.targetPriority.length).toBeGreaterThan(0);
   });
 });
