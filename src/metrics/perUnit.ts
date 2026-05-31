@@ -1,5 +1,5 @@
 import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS } from './eventAccess.js';
-import { tally, unitKind, unitTeam, ownerIdOf, type UnitMetrics, type Sample, type CcTakenEntry, type DrCategory } from './types.js';
+import { tally, unitKind, unitTeam, ownerIdOf, type UnitMetrics, type Sample, type CcTakenEntry } from './types.js';
 import { isDefensive, ccInfo, interruptLockoutSec } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
 import { sampleAt } from './sampleAt.js';
@@ -139,7 +139,6 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
 
     const interruptWindows: Window[] = a.interruptsSuffered.map((x) => ({ start: x.ms, end: x.ms + interruptLockoutSec(x.spellId) * 1000 }));
     const cc = computeCcDurations(auras.intervalsOn(id), interruptWindows, endMs);
-    const catDur = new Map<DrCategory, number>(cc.byCategory.map((b) => [b.category, b.durationSec]));
 
     result.push({
       unitId: id,
@@ -168,7 +167,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       interruptsSuffered: a.interruptsSuffered.length,
       interruptsSufferedBySpell: tally(a.interruptsSuffered.map((x) => x.name)),
       ccTaken: a.ccTaken.length,
-      ccTakenByCategory: [...ccByCat.entries()].map(([category, count]) => ({ category, count, durationSec: catDur.get(category as DrCategory) ?? 0 })) as CcTakenEntry[],
+      ccTakenByCategory: [...ccByCat.entries()].map(([category, count]) => ({ category, count, durationSec: cc.byCategory.find((b) => b.category === category)?.durationSec ?? 0 })) as CcTakenEntry[],
       deathsWhileCcd: a.deathsWhileCcd.length,
       deathsWhileCcdBySpell: tally(a.deathsWhileCcd),
       defensivesUsed: a.defensives.length,

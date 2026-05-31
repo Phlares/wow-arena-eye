@@ -11,11 +11,12 @@ export interface CcDurations {
   byCategory: { category: DrCategory; durationSec: number }[];
 }
 
-const HARD = new Set<DrCategory>(['stun', 'incapacitate', 'disorient']);
-
 // Max plausible duration of a SINGLE CC instance (ms). Bounds runaway unclosed auras
 // (applied but never removed -> clamped to match end) without truncating legitimate CC,
-// while the union across instances still accumulates repeated CC correctly.
+// while the union across instances still accumulates repeated CC correctly. Values are
+// generous upper bounds on a single undiminished instance: hard CC / silence top out
+// ~8s (Polymorph, Fear, Counterspell-school-lock), roots can run long (Entangling Roots
+// 30s base), disarm ~8s, knockback/taunt are near-instant.
 const MAX_INSTANCE_MS: Record<DrCategory, number> = {
   stun: 10000, incapacitate: 10000, disorient: 10000, silence: 10000,
   root: 30000, disarm: 15000, taunt: 8000, knockback: 5000,
@@ -46,24 +47,24 @@ export function computeCcDurations(
   interruptWindows: Window[],
   matchEndMs: number,
 ): CcDurations {
-  const clampEnd = (end: number) => (end > matchEndMs ? matchEndMs : end);
-  const castDenial: Window[] = [...interruptWindows];
-  const hard: Window[] = [];
-  const root: Window[] = [];
+  // Single source of truth: bucket every CC window by its DR category.
   const byCat = new Map<DrCategory, Window[]>();
-  const pushCat = (c: DrCategory, w: Window) => { const a = byCat.get(c) ?? []; a.push(w); byCat.set(c, a); };
-
   for (const iv of intervals) {
     const cc = ccInfo(iv.spellId);
     if (!cc) continue;
-    const w: Window = { start: iv.start, end: Math.min(clampEnd(iv.end), iv.start + MAX_INSTANCE_MS[cc.category]) };
-    if (w.end <= w.start) continue;
-    pushCat(cc.category, w);
-    if (cc.category === 'silence') castDenial.push(w);
-    else if (cc.category === 'root') root.push(w);
-    else if (HARD.has(cc.category)) hard.push(w);
-    // disarm / taunt / knockback: tracked in byCategory only, excluded from the three buckets + total
+    const end = Math.min(iv.end, matchEndMs, iv.start + MAX_INSTANCE_MS[cc.category]);
+    if (end <= iv.start) continue;
+    const ws = byCat.get(cc.category);
+    if (ws) ws.push({ start: iv.start, end });
+    else byCat.set(cc.category, [{ start: iv.start, end }]);
   }
+
+  // Derive the three buckets from the per-category windows (disarm/taunt/knockback
+  // stay in byCategory only — excluded from the buckets + total).
+  const cat = (c: DrCategory): Window[] => byCat.get(c) ?? [];
+  const castDenial = [...interruptWindows, ...cat('silence')];
+  const hard = [...cat('stun'), ...cat('incapacitate'), ...cat('disorient')];
+  const root = cat('root');
 
   return {
     timeControlledSec: unionSeconds([...castDenial, ...hard, ...root]),
