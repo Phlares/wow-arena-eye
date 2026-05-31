@@ -1,5 +1,5 @@
-import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo } from './eventAccess.js';
-import { tally, unitKind, unitTeam, type UnitMetrics, type Sample, type CcTakenEntry } from './types.js';
+import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS } from './eventAccess.js';
+import { tally, unitKind, unitTeam, ownerIdOf, type UnitMetrics, type Sample, type CcTakenEntry } from './types.js';
 import { isDefensive, ccInfo } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
 import { sampleAt } from './sampleAt.js';
@@ -90,7 +90,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
     }
 
     // Damage (enemy-only, exclude friendly fire; dest may be neutral e.g. enemy summons)
-    if (/^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/.test(t) && s && teamOf(s) !== 'neutral' && teamOf(s) !== teamOf(d)) {
+    if (DAMAGE_EVENTS.test(t) && s && teamOf(s) !== 'neutral' && teamOf(s) !== teamOf(d)) {
       acc(s).damageDone += amount(ev);
     }
 
@@ -111,7 +111,6 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
   const result: UnitMetrics[] = [];
   for (const [id, a] of accs) {
     const u = units[id] ?? {};
-    const ownerRaw = typeof u.ownerId === 'string' ? u.ownerId : undefined;
 
     const track = a.samples.sort((x, y) => x.tSec - y.tSec);
     let distance = 0;
@@ -141,7 +140,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       kind: unitKind(u.type),
       team: unitTeam(u.reaction),
       spec: u.spec !== undefined ? String(u.spec) : undefined,
-      ownerId: ownerRaw && ownerRaw !== '0' && ownerRaw !== '0000000000000000' ? ownerRaw : undefined,
+      ownerId: ownerIdOf(u),
       casts: a.casts.length,
       topCasts: tally(a.casts).slice(0, 8),
       interruptsLanded: a.interrupts.length,

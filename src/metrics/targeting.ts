@@ -1,10 +1,9 @@
-import { eventType, srcId, destId, amount, eventTimeMs } from './eventAccess.js';
-import { unitTeam, type Team, type FocusTracks, type AttackerTrack, type FocusSegment } from './types.js';
+import { eventType, srcId, destId, amount, eventTimeMs, DAMAGE_EVENTS } from './eventAccess.js';
+import { unitTeam, unitKind, ownerIdOf, type Team, type FocusTracks, type AttackerTrack, type FocusSegment } from './types.js';
 
 const WINDOW_MS = 5000;
 const STEP_MS = 500;
 const DWELL_MS = 1000;
-const DAMAGE_EVENTS = /^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/;
 
 export interface FocusOpts { windowMs?: number; stepMs?: number; dwellMs?: number; }
 
@@ -59,13 +58,13 @@ export function computeFocusTracks(match: unknown, opts: FocusOpts = {}): FocusT
   const units = m.units ?? {};
   const teamOf = (id: string | undefined): Team => unitTeam((units[id ?? ''] ?? {}).reaction);
   const nameOf = (id: string): string => { const u = units[id]; return u && typeof u.name === 'string' ? u.name : id; };
-  const isPlayer = (u: Record<string, unknown> | undefined): boolean => !!u && (u.type === 1 || u.type === '1');
+  const isPlayer = (u: Record<string, unknown> | undefined): boolean => !!u && unitKind(u.type) === 'player';
 
   // Resolve a damage source to its owning PLAYER (pet damage rolls to owner); undefined if not a player-attributable source.
   const attackerOf = (id: string | undefined): string | undefined => {
     const u = units[id ?? ''];
     if (!u) return undefined;
-    const ownerRaw = typeof u.ownerId === 'string' && u.ownerId !== '0' && u.ownerId !== '0000000000000000' ? u.ownerId : undefined;
+    const ownerRaw = ownerIdOf(u);
     if (ownerRaw) return isPlayer(units[ownerRaw]) ? ownerRaw : undefined;
     return isPlayer(u) ? id : undefined;
   };

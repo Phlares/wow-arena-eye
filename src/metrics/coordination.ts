@@ -1,8 +1,6 @@
-import { eventType, srcId, destId, amount } from './eventAccess.js';
+import { eventType, srcId, destId, amount, DAMAGE_EVENTS } from './eventAccess.js';
 import { unitTeam, type Team, type CoordinationSummary, type AttackerFocus, type FocusTracks } from './types.js';
 import { computeFocusTracks } from './targeting.js';
-
-const DAMAGE_EVENTS = /^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/;
 
 export function computeCoordination(
   match: unknown,
@@ -24,9 +22,15 @@ export function computeCoordination(
     // Damage buckets (kept): target priority + healer pressure.
     const dmg = events.filter((e) => DAMAGE_EVENTS.test(eventType(e)) && teamOf(srcId(e)) === team && teamOf(destId(e)) !== team);
     const byTarget = new Map<string, number>();
-    for (const e of dmg) { const d = destId(e); if (!d) continue; byTarget.set(d, (byTarget.get(d) ?? 0) + amount(e)); }
+    let healerPressureDamage = 0;
+    for (const e of dmg) {
+      const d = destId(e);
+      if (!d) continue;
+      const amt = amount(e);
+      byTarget.set(d, (byTarget.get(d) ?? 0) + amt);
+      if (isHealer(d)) healerPressureDamage += amt;
+    }
     const targetPriority = [...byTarget.entries()].map(([id, total]) => ({ name: nameOf(id), damageTaken: total })).sort((a, b) => b.damageTaken - a.damageTaken);
-    const healerPressureDamage = dmg.filter((e) => isHealer(destId(e))).reduce<number>((s, e) => s + amount(e), 0);
 
     // Focus-track derived: per-attacker swaps + time-on-target.
     const teamTracks = focus.tracks.filter((t) => t.team === team);
@@ -64,10 +68,12 @@ export function computeCoordination(
     for (let i = 0; i < focus.tickCount; i++) {
       const counts = new Map<string, number>();
       for (const t of teamTracks) { const v = t.ticks[i]; if (v !== null) counts.set(v, (counts.get(v) ?? 0) + 1); }
-      const engagedAttackers = [...counts.values()].reduce((s, c) => s + c, 0);
+      let engagedAttackers = 0;
+      let maxOnTarget = 0;
+      for (const c of counts.values()) { engagedAttackers += c; if (c > maxOnTarget) maxOnTarget = c; }
       if (engagedAttackers >= 2) {
         contestedTicks++;
-        if ([...counts.values()].some((c) => c >= 2)) alignedTicks++;
+        if (maxOnTarget >= 2) alignedTicks++; // ≥2 teammates share one target
       }
     }
     const alignmentFraction = contestedTicks > 0 ? Math.round((alignedTicks / contestedTicks) * 100) / 100 : 0;

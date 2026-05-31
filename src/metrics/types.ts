@@ -124,3 +124,11 @@ export function unitTeam(reaction: unknown): Team {
   const r = String(reaction);
   return r === '1' || r === 'Friendly' ? 'friendly' : r === '2' || r === 'Hostile' ? 'enemy' : 'neutral';
 }
+
+const OWNER_SENTINELS = new Set(['0', '0000000000000000']);
+
+/** Sanitized owner unit id from a raw units-map entry, or undefined if absent / a no-owner sentinel. */
+export function ownerIdOf(unit: { ownerId?: unknown } | undefined): string | undefined {
+  const raw = unit && typeof unit.ownerId === 'string' ? unit.ownerId : undefined;
+  return raw && !OWNER_SENTINELS.has(raw) ? raw : undefined;
+}

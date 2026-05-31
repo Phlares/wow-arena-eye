@@ -35,6 +35,9 @@ function logLine(ev: unknown): LogLineShape | undefined {
   return undefined;
 }
 
+/** The combat-log damage event types (advanced + swing) — single source of truth for "is this damage?". */
+export const DAMAGE_EVENTS = /^(SPELL_DAMAGE|SPELL_PERIODIC_DAMAGE|RANGE_DAMAGE|SWING_DAMAGE|SWING_DAMAGE_LANDED)$/;
+
 /** The LogEvent string, e.g. "SPELL_CAST_SUCCESS". Never returns empty — falls back to "UNKNOWN". */
 export function eventType(ev: unknown): string {
   const ll = logLine(ev);
