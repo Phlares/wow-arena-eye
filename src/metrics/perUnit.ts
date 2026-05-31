@@ -12,7 +12,6 @@ interface Acc {
   dispelsTotal: number;
   steals: string[];
   deathMs: number[];
-  positions: { ms: number; x: number; y: number }[];
   interruptsSuffered: string[];
   ccTaken: { category: string }[];
   deathsWhileCcd: string[];
@@ -26,7 +25,7 @@ interface Acc {
 function emptyAcc(): Acc {
   return {
     casts: [], interrupts: [], purgesRemoved: [], cleansesRemoved: [], dispelsTotal: 0,
-    steals: [], deathMs: [], positions: [],
+    steals: [], deathMs: [],
     interruptsSuffered: [], ccTaken: [], deathsWhileCcd: [], defensives: [],
     damageDone: 0, healingDone: 0, absorbDone: 0, samples: [],
   };
@@ -61,8 +60,6 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       if (p && ms !== undefined && startMs !== undefined) {
         acc(s).samples.push({ tSec: (ms - startMs) / 1000, x: p.x, y: p.y, facing: p.facing, hpPct: hpPct(ev) });
       }
-      // legacy positions for movement calculation
-      if (p && ms !== undefined) acc(s).positions.push({ ms, x: p.x, y: p.y });
     }
 
     if (t === 'SPELL_CAST_SUCCESS' && s) {
@@ -113,19 +110,18 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
   const result: UnitMetrics[] = [];
   for (const [id, a] of accs) {
     const u = units[id] ?? {};
-    const samples = a.positions.sort((x, y) => x.ms - y.ms);
-    let distance = 0;
-    let stationarySec = 0;
-    for (let i = 1; i < samples.length; i++) {
-      const dx = samples[i].x - samples[i - 1].x;
-      const dy = samples[i].y - samples[i - 1].y;
-      const step = Math.sqrt(dx * dx + dy * dy);
-      distance += step;
-      if (step < STATIONARY_EPS) stationarySec += (samples[i].ms - samples[i - 1].ms) / 1000;
-    }
     const ownerRaw = typeof u.ownerId === 'string' ? u.ownerId : undefined;
 
     const track = a.samples.sort((x, y) => x.tSec - y.tSec);
+    let distance = 0;
+    let stationarySec = 0;
+    for (let i = 1; i < track.length; i++) {
+      const dx = track[i].x - track[i - 1].x;
+      const dy = track[i].y - track[i - 1].y;
+      const step = Math.sqrt(dx * dx + dy * dy);
+      distance += step;
+      if (step < STATIONARY_EPS) stationarySec += track[i].tSec - track[i - 1].tSec;
+    }
     const ccByCat = new Map<string, number>();
     for (const c of a.ccTaken) ccByCat.set(c.category, (ccByCat.get(c.category) ?? 0) + 1);
 
@@ -159,7 +155,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       deaths: a.deathMs.length,
       deathTimesSec: startMs !== undefined ? a.deathMs.filter((x) => !Number.isNaN(x)).map((x) => Math.round((x - startMs) / 1000)) : [],
       distanceMoved: Math.round(distance * 10) / 10,
-      positionSamples: samples.length,
+      positionSamples: track.length,
       timeStationarySec: Math.round(stationarySec * 10) / 10,
       track,
       interruptsSuffered: a.interruptsSuffered.length,

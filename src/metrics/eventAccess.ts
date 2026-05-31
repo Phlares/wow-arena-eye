@@ -114,18 +114,6 @@ export function spellId(ev: unknown): number | undefined {
 }
 
 /**
- * Extra spell ID for CombatExtraSpellAction events (SPELL_INTERRUPT, SPELL_DISPEL, etc.).
- * Real field name: extraSpellId (string | null — parsed to number).
- */
-export function extraSpellId(ev: unknown): number | undefined {
-  const e = ev as Ev;
-  const v = e?.extraSpellId ?? e?.extraSpellID;
-  if (v === null || v === undefined) return undefined;
-  const n = typeof v === 'number' ? v : Number(v);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-/**
  * Effective damage/heal amount — always non-negative.
  * Real field name: amount (number on CombatHpUpdateAction, negative for damage taken).
  * effectiveAmount is the mitigated value; both are signed negative for damage.
