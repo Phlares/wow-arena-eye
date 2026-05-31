@@ -25,4 +25,9 @@ describe('absorbInfo (real fixture)', () => {
     expect(absorbInfo({ logLine: { event: 'SPELL_DAMAGE' } })).toBeUndefined();
     expect(absorbInfo({})).toBeUndefined();
   });
+
+  it('takes the magnitude of a signed-negative absorbedAmount (not dropped)', () => {
+    const info = absorbInfo({ logLine: { event: 'SPELL_ABSORBED' }, shieldOwnerUnitId: 'Player-1-AB', absorbedAmount: -3998 });
+    expect(info?.amount).toBe(3998);
+  });
 });

@@ -177,8 +177,10 @@ export function absorbInfo(ev: unknown): { shieldOwnerId: string; amount: number
   const amt = e?.absorbedAmount;
   // real WoW GUIDs always contain '-'; rejects parser artifacts like an empty string or "nil"
   if (!owner || !owner.includes('-')) return undefined;
-  const n = typeof amt === 'number' ? amt : Number(amt);
-  if (!Number.isFinite(n) || n <= 0) return undefined;
+  // absorbedAmount is a raw log parameter and is occasionally signed-negative (like the
+  // HP-update amount that amount() normalizes); take the magnitude so those absorbs aren't dropped.
+  const n = Math.abs(typeof amt === 'number' ? amt : Number(amt));
+  if (!Number.isFinite(n) || n === 0) return undefined;
   return { shieldOwnerId: owner, amount: n };
 }
 
