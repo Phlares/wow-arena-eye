@@ -71,6 +71,14 @@ describe('computeCcDurations', () => {
     expect(d.timeControlledSec).toBe(4); // union of identical windows, NOT 8
   });
 
+  it('caps a runaway (unclosed) CC instance at its category max', () => {
+    const d = computeCcDurations(
+      [{ spellId: STUN, name: 'Kidney Shot', start: 0, end: 200000 }], // never-removed -> would clamp to match end
+      [], 1000000,
+    );
+    expect(d.hardCcSec).toBe(10); // capped at the 10s stun instance max, not 200s
+  });
+
   it('tracks disarm in byCategory only, excluded from the three buckets and total', () => {
     const d = computeCcDurations(
       [{ spellId: DISARM, name: 'Disarm', start: 0, end: 3000 }],

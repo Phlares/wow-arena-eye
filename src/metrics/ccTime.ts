@@ -13,6 +13,14 @@ export interface CcDurations {
 
 const HARD = new Set<DrCategory>(['stun', 'incapacitate', 'disorient']);
 
+// Max plausible duration of a SINGLE CC instance (ms). Bounds runaway unclosed auras
+// (applied but never removed -> clamped to match end) without truncating legitimate CC,
+// while the union across instances still accumulates repeated CC correctly.
+const MAX_INSTANCE_MS: Record<DrCategory, number> = {
+  stun: 10000, incapacitate: 10000, disorient: 10000, silence: 10000,
+  root: 30000, disarm: 15000, taunt: 6000, knockback: 5000,
+};
+
 /** Summed length (seconds, 0.1s precision) of the union of [start,end) windows. */
 export function unionSeconds(windows: Window[]): number {
   const valid = windows.filter((w) => w.end > w.start).sort((a, b) => a.start - b.start);
@@ -48,7 +56,7 @@ export function computeCcDurations(
   for (const iv of intervals) {
     const cc = ccInfo(iv.spellId);
     if (!cc) continue;
-    const w: Window = { start: iv.start, end: clampEnd(iv.end) };
+    const w: Window = { start: iv.start, end: Math.min(clampEnd(iv.end), iv.start + MAX_INSTANCE_MS[cc.category]) };
     if (w.end <= w.start) continue;
     pushCat(cc.category, w);
     if (cc.category === 'silence') castDenial.push(w);

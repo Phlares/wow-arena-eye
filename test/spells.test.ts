@@ -22,4 +22,8 @@ describe('spell metadata', () => {
     expect(interruptLockoutSec(47528)).toBe(3); // Mind Freeze
     expect(interruptLockoutSec(118)).toBe(0);   // not an interrupt -> no lockout
   });
+  it('covers newer-class interrupt lockouts', () => {
+    expect(interruptLockoutSec(116705)).toBe(4); // Spear Hand Strike
+    expect(interruptLockoutSec(351338)).toBe(4); // Quell
+  });
 });
