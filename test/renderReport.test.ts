@@ -91,7 +91,8 @@ describe('renderReport metrics block (per-player)', () => {
     const metrics: MatchMetrics = {
       playerUnitId: 'P',
       timeline: [{ tSec: 5, unitId: 'P', unitName: 'You', kind: 'cast', spell: 'Agony' }],
-      coordination: [{ team: 'friendly', summary: { focusFireWindows: 2, topFocusTarget: 'EnemyDps', targetPriority: [{ name: 'EnemyDps', damageTaken: 1000 }], healerPressureDamage: 300, swaps: 4 } }],
+      coordination: [{ team: 'friendly', summary: { topFocusTarget: 'EnemyDps', targetPriority: [{ name: 'EnemyDps', damageTaken: 1000 }], healerPressureDamage: 300, swaps: 4, attackerFocus: [{ attacker: 'A1', attackerName: 'Ally1', swaps: 2, topTarget: 'EnemyDps', topTargetSec: 12.5, engagedSec: 20 }], alignmentFraction: 0.8, alignedTimeSec: 16 } }],
+      focusTracks: { stepMs: 500, tickCount: 0, startMs: 0, tracks: [] },
       teams: [
         {
           team: 'friendly',
@@ -131,5 +132,6 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('120');
     expect(html).toContain('timeline');
     expect(html).toContain('coordination');
+    expect(html).toContain('alignment');
   });
 });
