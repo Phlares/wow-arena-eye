@@ -23,6 +23,7 @@ export function ccInfo(id: number | undefined): { category: DrCategory } | undef
   if (id === undefined) return undefined;
   const fromDb = CC_CATEGORIES[String(id)];
   if (fromDb) return { category: fromDb.drCategory };
+  // fallback: CC spells absent from the DB DR table (e.g. 5782 Warlock Fear) still classified via curated
   const m = spellMeta(id);
   if (m && m.tags.includes('cc') && m.ccCategory) return { category: m.ccCategory };
   return undefined;
