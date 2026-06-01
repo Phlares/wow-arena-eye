@@ -15,6 +15,9 @@
  *   facing       : advancedActorFacing    (number, radians)
  *   shieldOwner  : shieldOwnerUnitId      (SPELL_ABSORBED — absorbing caster GUID, NOT srcUnitId)
  *   absorbAmount : absorbedAmount         (SPELL_ABSORBED — amount absorbed, always positive)
+ *   missType     : logLine.parameters[11] (SPELL_MISSED / SPELL_PERIODIC_MISSED — "IMMUNE", "ABSORB", etc.)
+ *                  logLine.parameters[8]  (SWING_MISSED — no spell-prefix triplet, missType shifts left)
+ *   Grounding Totem: not present in fixture; detection deferred (isGrounded always false)
  */
 
 type Ev = Record<string, unknown>;
@@ -157,6 +160,50 @@ export function position(ev: unknown): { x: number; y: number; facing?: number }
   if (x === 0 && y === 0) return undefined;
   const f = e?.advancedActorFacing ?? e?.advancedActorPositionFacing ?? e?.facing;
   return { x, y, facing: typeof f === 'number' ? f : undefined };
+}
+
+/**
+ * Immune-blocked event → { srcId, destId, kind, spellId, spellName, amount? }, else undefined.
+ *
+ * Immunity: SPELL_MISSED / SPELL_PERIODIC_MISSED / SWING_MISSED with missType === "IMMUNE".
+ * missType is NOT a named class field — it lives in logLine.parameters:
+ *   SPELL_MISSED / SPELL_PERIODIC_MISSED : parameters[11] (after 8 prefix + 3 spell params)
+ *   SWING_MISSED                         : parameters[8]  (no spell-prefix triplet)
+ * Grounding Totem: not present in the fixture; detection deferred (isGrounded always false).
+ * Field positions discovered via TDD (test/eventAccessImmune.test.ts).
+ */
+export function immuneEvent(ev: unknown): {
+  srcId: string;
+  destId: string;
+  kind: 'spell' | 'damage' | 'heal';
+  spellId: number;
+  spellName: string;
+  amount?: number;
+} | undefined {
+  const t = eventType(ev);
+  const ll = logLine(ev);
+  const params: unknown[] = Array.isArray(ll?.parameters) ? (ll!.parameters as unknown[]) : [];
+
+  // missType index depends on whether the event has a spell-prefix triplet
+  const isSwing = t === 'SWING_MISSED';
+  const isMissEvent = t === 'SPELL_MISSED' || t === 'SPELL_PERIODIC_MISSED' || isSwing;
+  if (!isMissEvent) return undefined;
+
+  const missTypeIdx = isSwing ? 8 : 11;
+  const isImmune = str(params[missTypeIdx]) === 'IMMUNE';
+  // grounding: not detectable in this fixture — reserved for future discovery
+  const isGrounded = false;
+  if (!isImmune && !isGrounded) return undefined;
+
+  const e = ev as Ev;
+  const s = strOpt(e?.srcUnitId);
+  const d = strOpt(e?.destUnitId);
+  const sid = spellId(ev);
+  if (!s || !d || sid === undefined) return undefined;
+
+  const kind: 'spell' | 'damage' | 'heal' = 'spell';
+  const amt = amount(ev);
+  return { srcId: s, destId: d, kind, spellId: sid, spellName: spellName(ev), amount: amt > 0 ? amt : undefined };
 }
 
 /**
