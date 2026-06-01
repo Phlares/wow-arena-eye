@@ -795,7 +795,7 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
   return merged.map((w): OffensiveWindow => {
     const openedBy: CdRef[] = w.ivs.map((iv) => ({
       spellId: iv.spellId,
-      name: iv.name,
+      spellName: iv.name,
       unitId: iv.srcId,
       startSec: Math.round((iv.start - matchStart) / 1000),
       endSec: Math.round((iv.end - matchStart) / 1000),
@@ -1212,7 +1212,7 @@ function offensiveWindowsBlock(windows: MatchMetrics['offensiveWindows']): strin
     .slice()
     .sort((a, b) => b.teamDamageTaken - a.teamDamageTaken)
     .map((w) => {
-      const openers = w.openedBy.map((o) => escapeHtml(o.name)).join(', ');
+      const openers = w.openedBy.map((o) => escapeHtml(o.spellName)).join(', ');
       const used = w.mitigation.used.length;
       const avail = w.mitigation.available.length;
       const cc = w.counterPlay.ccOnDefenders.length;
