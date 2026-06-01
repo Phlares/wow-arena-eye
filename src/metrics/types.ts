@@ -22,8 +22,6 @@ export interface ImmuneSide {
   spellsImmuned: SpellTally[];
   ccImmuned: number;
   ccImmunedByCategory: { category: DrCategory; count: number }[];
-  damageImmuned: number;
-  healingImmuned: number;
 }
 
 export interface FocusSegment { target: string; targetName: string; fromSec: number; toSec: number; }

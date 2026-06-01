@@ -15,7 +15,8 @@ function unitRow(u: UnitMetrics, label: string): string {
     `<td>${u.damageDone}</td><td>${u.healingDone}</td>` +
     `<td>CC recv: ${u.ccReceived.timeSec}s (${u.ccReceived.castDenialSec}/${u.ccReceived.hardCcSec}/${u.ccReceived.rootSec})<br>` +
     `CC done: ${u.ccDone.timeSec}s (${u.ccDone.castDenialSec}/${u.ccDone.hardCcSec}/${u.ccDone.rootSec})<br>` +
-    `immuned recv ${u.immuneReceived.ccImmuned}cc/${u.immuneReceived.damageImmuned}dmg · done ${u.immuneDone.ccImmuned}cc/${u.immuneDone.damageImmuned}dmg</td>` +
+    `immuned recv ${u.immuneReceived.ccImmuned}cc${u.immuneReceived.spellsImmuned.length ? ' (' + tallyStr(u.immuneReceived.spellsImmuned) + ')' : ''} · ` +
+    `done ${u.immuneDone.ccImmuned}cc${u.immuneDone.spellsImmuned.length ? ' (' + tallyStr(u.immuneDone.spellsImmuned) + ')' : ''}</td>` +
     `<td>${u.deathsWhileCcd}</td><td>${u.defensivesUsed}/${u.defensivesIntoBurst}</td></tr>`;
 }
 

@@ -108,8 +108,8 @@ describe('renderReport metrics block (per-player)', () => {
                 deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
                 ccReceived: { timeSec: 12.5, castDenialSec: 6, hardCcSec: 4.5, rootSec: 2, count: 5, byCategory: [] },
                 ccDone: { timeSec: 8, castDenialSec: 2, hardCcSec: 6, rootSec: 0, count: 4, byCategory: [] },
-                immuneReceived: { spellsImmuned: [{ spellName: 'Polymorph', count: 1 }], ccImmuned: 1, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 },
-                immuneDone: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 },
+                immuneReceived: { spellsImmuned: [{ spellName: 'Polymorph', count: 1 }], ccImmuned: 1, ccImmunedByCategory: [] },
+                immuneDone: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] },
                 damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
               },
               pets: [
@@ -120,7 +120,7 @@ describe('renderReport metrics block (per-player)', () => {
                   spellsteals: 0, spellstealsBySpell: [], deaths: 0, deathTimesSec: [], distanceMoved: 0, positionSamples: 0, timeStationarySec: 0,
                   track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [],
                   deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
-                  ccReceived: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, ccDone: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, immuneReceived: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 }, immuneDone: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 },
+                  ccReceived: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, ccDone: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, immuneReceived: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] }, immuneDone: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] },
                   damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
                 },
               ],
@@ -147,5 +147,6 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('CC recv');
     expect(html).toContain('CC done');
     expect(html).toContain('immuned');
+    expect(html).toContain('Polymorph');
   });
 });

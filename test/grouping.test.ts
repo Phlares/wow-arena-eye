@@ -3,7 +3,7 @@ import { groupUnits } from '../src/metrics/grouping.js';
 import type { UnitMetrics } from '../src/metrics/types.js';
 
 const emptyCcSide = () => ({ timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] });
-const emptyImmuneSide = () => ({ spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 });
+const emptyImmuneSide = () => ({ spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] });
 
 function u(over: Partial<UnitMetrics> & Pick<UnitMetrics, 'unitId' | 'kind' | 'team'>): UnitMetrics {
   return {
