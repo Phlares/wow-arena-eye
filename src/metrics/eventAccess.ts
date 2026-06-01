@@ -15,8 +15,7 @@
  *   facing       : advancedActorFacing    (number, radians)
  *   shieldOwner  : shieldOwnerUnitId      (SPELL_ABSORBED — absorbing caster GUID, NOT srcUnitId)
  *   absorbAmount : absorbedAmount         (SPELL_ABSORBED — amount absorbed, always positive)
- *   missType     : logLine.parameters[11] (SPELL_MISSED / SPELL_PERIODIC_MISSED — "IMMUNE", "ABSORB", etc.)
- *                  logLine.parameters[8]  (SWING_MISSED — no spell-prefix triplet, missType shifts left)
+ *   missType     : logLine.parameters[11] (SPELL_MISSED / SPELL_PERIODIC_MISSED / RANGE_MISSED — "IMMUNE", "ABSORB", etc.)
  *   Grounding Totem: not present in fixture; detection deferred (isGrounded always false)
  */
 
@@ -165,10 +164,10 @@ export function position(ev: unknown): { x: number; y: number; facing?: number }
 /**
  * Immune-blocked event → { srcId, destId, kind, spellId, spellName }, else undefined.
  *
- * Immunity: SPELL_MISSED / SPELL_PERIODIC_MISSED / RANGE_MISSED / SWING_MISSED with
- * missType === "IMMUNE". missType is NOT a named class field — it lives in logLine.parameters:
- *   SPELL_MISSED / SPELL_PERIODIC_MISSED / RANGE_MISSED : parameters[11] (after 8 prefix + 3 spell params)
- *   SWING_MISSED                                        : parameters[8]  (no spell-prefix triplet)
+ * Immunity: SPELL_MISSED / SPELL_PERIODIC_MISSED / RANGE_MISSED with missType === "IMMUNE".
+ * missType is NOT a named class field — it lives in logLine.parameters[11] (after the
+ * 8-field prefix + 3 spell params). SWING_MISSED is excluded: auto-attacks have no spellId
+ * and are not CC abilities.
  *
  * kind is always 'spell': immune events are always *_MISSED events which carry no damage/heal
  * amount. Distinguishing damage-immuned vs heal-immuned (element B of the design) is not
@@ -186,17 +185,15 @@ export function immuneEvent(ev: unknown): {
 } | undefined {
   // Gate on event type first — non-miss events (the common case) bail cheaply.
   const t = eventType(ev);
-  const isSwing = t === 'SWING_MISSED';
   const isSpellMiss = t === 'SPELL_MISSED' || t === 'SPELL_PERIODIC_MISSED' || t === 'RANGE_MISSED';
-  if (!isSpellMiss && !isSwing) return undefined;
+  if (!isSpellMiss) return undefined;
 
   const ll = logLine(ev);
   const params = ll?.parameters;
   if (!Array.isArray(params)) return undefined;
 
-  // missType index depends on whether the event has a spell-prefix triplet
-  const missTypeIdx = isSwing ? 8 : 11;
-  const isImmune = str(params[missTypeIdx]) === 'IMMUNE';
+  // missType is at index 11: 8 prefix params + spell triplet (spellId, spellName, spellSchool)
+  const isImmune = str(params[11]) === 'IMMUNE';
   // grounding: not detectable in this fixture — reserved for future discovery
   if (!isImmune) return undefined;
 

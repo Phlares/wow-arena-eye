@@ -6,6 +6,7 @@ const units = {
   P: { type: 1, reaction: 1 }, Pet: { type: 3, reaction: 1, ownerId: 'P' },
   E1: { type: 1, reaction: 2 }, E2: { type: 1, reaction: 2 },
   NPC: { type: 2, reaction: 2 },
+  EPet: { type: 3, reaction: 2, ownerId: 'E1' },
 };
 const cc = (src: string, dst: string, start: number, end: number) => [
   { logLine: { event: 'SPELL_AURA_APPLIED' }, srcUnitId: src, destUnitId: dst, spellId: '408', spellName: 'Kidney Shot', timestamp: start },
@@ -35,6 +36,12 @@ describe('ccSides', () => {
     const auras = buildAuraState({ events });
     expect(ccReceivedSide('P', units, auras, [], 100000).hardCcSec).toBe(0); // CC from NPC ignored
     expect(ccDoneSide('P', [], units, auras, [], 100000).hardCcSec).toBe(0); // CC on NPC ignored
+  });
+
+  it('does not credit CC on an enemy pet as CC done on the enemy player', () => {
+    const events = [...cc('P', 'EPet', 0, 5000)]; // P stuns enemy E1's pet
+    const auras = buildAuraState({ events });
+    expect(ccDoneSide('P', [], units, auras, [], 100000).hardCcSec).toBe(0); // pet target not a player
   });
 
   it('returns empty CC for a non-player subject (pet/NPC recipient or caster excluded)', () => {

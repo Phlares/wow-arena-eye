@@ -26,33 +26,8 @@ describe('immuneEvent (real fixture)', () => {
 });
 
 describe('immuneEvent (synthetic)', () => {
-  it('reads SWING_MISSED missType from param index 8', () => {
-    const ev = {
-      logLine: {
-        event: 'SWING_MISSED',
-        parameters: ['Player-1-A', 'Atk', '0x0', '0x0', 'Player-2-B', 'Def', '0x0', '0x0', 'IMMUNE'],
-      },
-      srcUnitId: 'Player-1-A',
-      destUnitId: 'Player-2-B',
-      spellId: '6603',
-    };
-    const info = immuneEvent(ev)!;
-    expect(info).toBeTruthy();
-    expect(info.kind).toBe('spell');
-    expect(info.srcId).toBe('Player-1-A');
-  });
-
-  it('returns undefined for SWING_MISSED when missType at index 8 is not IMMUNE', () => {
-    const ev = {
-      logLine: {
-        event: 'SWING_MISSED',
-        parameters: ['Player-1-A', 'Atk', '0x0', '0x0', 'Player-2-B', 'Def', '0x0', '0x0', 'DODGE'],
-      },
-      srcUnitId: 'Player-1-A',
-      destUnitId: 'Player-2-B',
-      spellId: '6603',
-    };
-    expect(immuneEvent(ev)).toBeUndefined();
+  it('returns undefined for SWING_MISSED (no spell — auto-attack immune is not a CC ability)', () => {
+    expect(immuneEvent({ logLine: { event: 'SWING_MISSED', parameters: ['A','x','0x0','0x0','B','y','0x0','0x0','IMMUNE'] }, srcUnitId: 'A', destUnitId: 'B' })).toBeUndefined();
   });
 
   it('handles RANGE_MISSED with missType at param index 11', () => {

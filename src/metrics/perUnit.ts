@@ -159,7 +159,8 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
 
     const petIds = petsByOwner.get(id) ?? [];
     const ccReceived = ccReceivedSide(id, units, auras, a.interruptsSuffered, endMs);
-    const ccDone = ccDoneSide(id, petIds, units, auras, a.interruptsLandedDetail, endMs);
+    const landed = [id, ...petIds].flatMap((uid) => accs.get(uid)?.interruptsLandedDetail ?? []);
+    const ccDone = ccDoneSide(id, petIds, units, auras, landed, endMs);
     const immuneReceived: ImmuneSide = { spellsImmuned: tally(a.immuneRecvSpells), ccImmuned: a.immuneRecvCc.length, ccImmunedByCategory: immByCat(a.immuneRecvCc), damageImmuned: 0, healingImmuned: 0 };
     const immuneDone: ImmuneSide = { spellsImmuned: tally(a.immuneDoneSpells), ccImmuned: a.immuneDoneCc.length, ccImmunedByCategory: immByCat(a.immuneDoneCc), damageImmuned: 0, healingImmuned: 0 };
 

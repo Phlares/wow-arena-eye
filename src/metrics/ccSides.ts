@@ -55,16 +55,16 @@ export function ccDoneSide(playerId: string, petIds: string[], units: Units, aur
   const allIntervals: Interval[] = [];
   for (const casterId of [playerId, ...petIds]) {
     for (const iv of auras.intervalsBy(casterId)) {
-      const tgt = resolvePlayer(units, iv.destId);
-      if (!tgt || teamOf(units, tgt) === myTeam) continue;
+      const tgt = iv.destId;
+      if (unitKind((units[tgt] ?? {}).type) !== 'player' || teamOf(units, tgt) === myTeam) continue;
       const arr = byTarget.get(tgt) ?? []; arr.push(iv); byTarget.set(tgt, arr);
       allIntervals.push(iv);
     }
   }
   const windowsByTarget = new Map<string, Window[]>();
   for (const x of landed) {
-    const tgt = resolvePlayer(units, x.targetId);
-    if (!tgt || teamOf(units, tgt) === myTeam) continue;
+    const tgt = x.targetId;
+    if (unitKind((units[tgt] ?? {}).type) !== 'player' || teamOf(units, tgt) === myTeam) continue;
     const arr = windowsByTarget.get(tgt) ?? []; arr.push({ start: x.ms, end: x.ms + interruptLockoutSec(x.spellId) * 1000 }); windowsByTarget.set(tgt, arr);
   }
   const targets = new Set([...byTarget.keys(), ...windowsByTarget.keys()]);

@@ -173,6 +173,20 @@ describe('CC received/done + immune (perUnit)', () => {
     expect(enemy.immuneDone.ccImmuned).toBe(1);
     expect(you.immuneReceived.spellsImmuned[0].spellName).toBe('Polymorph');
   });
+
+  it("rolls a pet's interrupt lockout into the owner's ccDone cast-denial", () => {
+    const match = {
+      durationInSeconds: 100,
+      units: { P: { name: 'You', type: 1, reaction: 1 }, Pet: { name: 'Felhunter', type: 3, reaction: 1, ownerId: 'P' }, E: { name: 'Enemy', type: 1, reaction: 2 } },
+      events: [
+        // Felhunter Spell Lock (19647, 6s lockout) interrupts enemy E
+        { logLine: { event: 'SPELL_INTERRUPT' }, srcUnitId: 'Pet', destUnitId: 'E', spellId: '19647', spellName: 'Spell Lock', extraSpellName: 'Polymorph', timestamp: 1000 },
+        { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', spellName: 'Filler', timestamp: 20000 },
+      ],
+    };
+    const you = computeUnitMetrics(match, buildAuraState(match)).find((u) => u.unitId === 'P')!;
+    expect(you.ccDone.castDenialSec).toBe(6); // pet's Spell Lock lockout rolled to owner
+  });
 });
 
 describe('absorbDone attribution', () => {
