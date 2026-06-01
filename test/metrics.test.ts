@@ -34,6 +34,9 @@ describe('computeMatchMetrics phases 4-6 (real fixture)', () => {
     // CC-tracking wiring stays live against real data (regression guard for the aura/cc path).
     expect(typeof me.player.ccTaken).toBe('number');
     expect(typeof me.player.deathsWhileCcd).toBe('number');
+    expect(me.player.timeControlledSec).toBeGreaterThanOrEqual(0);
+    expect(me.player.castDenialSec + me.player.hardCcSec + me.player.rootSec).toBeGreaterThanOrEqual(me.player.timeControlledSec); // bucket sum >= union
+    expect(me.player.ccTakenByCategory.every((c) => c.durationSec >= 0)).toBe(true);
 
     expect(mm.coordination.length).toBe(2);
     const friendly = mm.coordination.find((c) => c.team === 'friendly')!.summary;

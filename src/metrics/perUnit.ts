@@ -1,8 +1,9 @@
 import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS } from './eventAccess.js';
 import { tally, unitKind, unitTeam, ownerIdOf, type UnitMetrics, type Sample, type CcTakenEntry } from './types.js';
-import { isDefensive, ccInfo } from '../metadata/spells.js';
+import { isDefensive, ccInfo, interruptLockoutSec } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
 import { sampleAt } from './sampleAt.js';
+import { computeCcDurations, type Window } from './ccTime.js';
 
 interface Acc {
   casts: string[];
@@ -12,7 +13,7 @@ interface Acc {
   dispelsTotal: number;
   steals: string[];
   deathMs: number[];
-  interruptsSuffered: string[];
+  interruptsSuffered: { name: string; ms: number; spellId: number }[];
   ccTaken: { category: string }[];
   deathsWhileCcd: string[];
   defensives: { spell: string; ms: number }[];
@@ -38,6 +39,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
   const events = Array.isArray(m.events) ? m.events : [];
   const units = m.units ?? {};
   const startMs = matchStartMs(events);
+  let endMs = startMs ?? 0;
 
   const teamOf = (id: string | undefined): string => unitTeam((units[id ?? ''] ?? {}).reaction);
 
@@ -53,6 +55,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
     const s = srcId(ev);
     const d = destId(ev);
     const ms = eventTimeMs(ev);
+    if (ms !== undefined && ms > endMs) endMs = ms;
 
     // Sample capture for position tracking
     if (s) {
@@ -67,7 +70,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       if (isDefensive(spellId(ev))) acc(s).defensives.push({ spell: spellName(ev), ms: ms ?? 0 });
     } else if (t === 'SPELL_INTERRUPT' && s) {
       acc(s).interrupts.push(extraSpellName(ev) ?? spellName(ev));
-      if (d) acc(d).interruptsSuffered.push(extraSpellName(ev) ?? spellName(ev));
+      if (d) acc(d).interruptsSuffered.push({ name: extraSpellName(ev) ?? spellName(ev), ms: ms ?? 0, spellId: spellId(ev) ?? 0 });
     } else if (t === 'SPELL_DISPEL' && s) {
       acc(s).dispelsTotal += 1;
       const removed = extraSpellName(ev) ?? spellName(ev);
@@ -134,6 +137,9 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       if (before !== undefined && after !== undefined && before - after >= 0.15) defensivesIntoBurst += 1;
     }
 
+    const interruptWindows: Window[] = a.interruptsSuffered.map((x) => ({ start: x.ms, end: x.ms + interruptLockoutSec(x.spellId) * 1000 }));
+    const cc = computeCcDurations(auras.intervalsOn(id), interruptWindows, endMs);
+
     result.push({
       unitId: id,
       name: typeof u.name === 'string' && u.name.length > 0 ? u.name : id,
@@ -159,14 +165,18 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       timeStationarySec: Math.round(stationarySec * 10) / 10,
       track,
       interruptsSuffered: a.interruptsSuffered.length,
-      interruptsSufferedBySpell: tally(a.interruptsSuffered),
+      interruptsSufferedBySpell: tally(a.interruptsSuffered.map((x) => x.name)),
       ccTaken: a.ccTaken.length,
-      ccTakenByCategory: [...ccByCat.entries()].map(([category, count]) => ({ category, count, durationSec: 0 })) as CcTakenEntry[],
+      ccTakenByCategory: [...ccByCat.entries()].map(([category, count]) => ({ category, count, durationSec: cc.byCategory.find((b) => b.category === category)?.durationSec ?? 0 })) as CcTakenEntry[],
       deathsWhileCcd: a.deathsWhileCcd.length,
       deathsWhileCcdBySpell: tally(a.deathsWhileCcd),
       defensivesUsed: a.defensives.length,
       defensivesUsedBySpell: tally(a.defensives.map((def) => def.spell)),
       defensivesIntoBurst,
+      timeControlledSec: cc.timeControlledSec,
+      castDenialSec: cc.castDenialSec,
+      hardCcSec: cc.hardCcSec,
+      rootSec: cc.rootSec,
       damageDone: Math.round(a.damageDone),
       healingDone: Math.round(a.healingDone),
       absorbDone: Math.round(a.absorbDone),
