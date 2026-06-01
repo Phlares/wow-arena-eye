@@ -163,31 +163,36 @@ export function position(ev: unknown): { x: number; y: number; facing?: number }
 }
 
 /**
- * Immune-blocked event → { srcId, destId, kind, spellId, spellName, amount? }, else undefined.
+ * Immune-blocked event → { srcId, destId, kind, spellId, spellName }, else undefined.
  *
- * Immunity: SPELL_MISSED / SPELL_PERIODIC_MISSED / SWING_MISSED with missType === "IMMUNE".
- * missType is NOT a named class field — it lives in logLine.parameters:
- *   SPELL_MISSED / SPELL_PERIODIC_MISSED : parameters[11] (after 8 prefix + 3 spell params)
- *   SWING_MISSED                         : parameters[8]  (no spell-prefix triplet)
+ * Immunity: SPELL_MISSED / SPELL_PERIODIC_MISSED / RANGE_MISSED / SWING_MISSED with
+ * missType === "IMMUNE". missType is NOT a named class field — it lives in logLine.parameters:
+ *   SPELL_MISSED / SPELL_PERIODIC_MISSED / RANGE_MISSED : parameters[11] (after 8 prefix + 3 spell params)
+ *   SWING_MISSED                                        : parameters[8]  (no spell-prefix triplet)
+ *
+ * kind is always 'spell': immune events are always *_MISSED events which carry no damage/heal
+ * amount. Distinguishing damage-immuned vs heal-immuned (element B of the design) is not
+ * derivable from miss events (they carry no amount) and is deferred.
+ *
  * Grounding Totem: not present in the fixture; detection deferred (isGrounded always false).
  * Field positions discovered via TDD (test/eventAccessImmune.test.ts).
  */
 export function immuneEvent(ev: unknown): {
   srcId: string;
   destId: string;
-  kind: 'spell' | 'damage' | 'heal';
+  kind: 'spell';
   spellId: number;
   spellName: string;
-  amount?: number;
 } | undefined {
   const t = eventType(ev);
   const ll = logLine(ev);
-  const params: unknown[] = Array.isArray(ll?.parameters) ? (ll!.parameters as unknown[]) : [];
+  const params = ll?.parameters;
+  if (!Array.isArray(params)) return undefined;
 
   // missType index depends on whether the event has a spell-prefix triplet
   const isSwing = t === 'SWING_MISSED';
-  const isMissEvent = t === 'SPELL_MISSED' || t === 'SPELL_PERIODIC_MISSED' || isSwing;
-  if (!isMissEvent) return undefined;
+  const isSpellMiss = t === 'SPELL_MISSED' || t === 'SPELL_PERIODIC_MISSED' || t === 'RANGE_MISSED';
+  if (!isSpellMiss && !isSwing) return undefined;
 
   const missTypeIdx = isSwing ? 8 : 11;
   const isImmune = str(params[missTypeIdx]) === 'IMMUNE';
@@ -201,9 +206,7 @@ export function immuneEvent(ev: unknown): {
   const sid = spellId(ev);
   if (!s || !d || sid === undefined) return undefined;
 
-  const kind: 'spell' | 'damage' | 'heal' = 'spell';
-  const amt = amount(ev);
-  return { srcId: s, destId: d, kind, spellId: sid, spellName: spellName(ev), amount: amt > 0 ? amt : undefined };
+  return { srcId: s, destId: d, kind: 'spell', spellId: sid, spellName: spellName(ev) };
 }
 
 /**
