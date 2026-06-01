@@ -56,6 +56,7 @@ export function ccDoneSide(playerId: string, petIds: string[], units: Units, aur
   for (const casterId of [playerId, ...petIds]) {
     for (const iv of auras.intervalsBy(casterId)) {
       const tgt = iv.destId;
+      // CC-aura target must be a DIRECT enemy player — CC landed on a pet is noise, not counted.
       if (unitKind((units[tgt] ?? {}).type) !== 'player' || teamOf(units, tgt) === myTeam) continue;
       const arr = byTarget.get(tgt) ?? []; arr.push(iv); byTarget.set(tgt, arr);
       allIntervals.push(iv);
@@ -63,7 +64,8 @@ export function ccDoneSide(playerId: string, petIds: string[], units: Units, aur
   }
   const windowsByTarget = new Map<string, Window[]>();
   for (const x of landed) {
-    // interrupting an enemy OR their pet (e.g. a Succubus's Seduction channel) is valid cast-denial
+    // Interrupt target via resolvePlayer: interrupting an enemy OR their pet (e.g. a Succubus Seduction channel) is valid cast-denial;
+    // NPC/totem targets (resolvePlayer→undefined) are excluded.
     const tgt = resolvePlayer(units, x.targetId);
     if (!tgt || teamOf(units, tgt) === myTeam) continue;
     const arr = windowsByTarget.get(tgt) ?? []; arr.push({ start: x.ms, end: x.ms + interruptLockoutSec(x.spellId) * 1000 }); windowsByTarget.set(tgt, arr);

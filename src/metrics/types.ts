@@ -18,6 +18,10 @@ export interface CcSide {
   byCategory: CcCategoryStat[];
 }
 
+/**
+ * `spellsImmuned` is ALL immuned/blocked abilities by spell — CC attempts AND non-CC (e.g. immuned damage spells).
+ * `ccImmuned`/`ccImmunedByCategory` are the CC-only subset (count), a superset of which `spellsImmuned` is the broad detail.
+ */
 export interface ImmuneSide {
   spellsImmuned: SpellTally[];
   ccImmuned: number;

@@ -7,23 +7,25 @@ function tallyStr(t: { spellName: string; count: number }[]): string {
   return t.length ? t.map((x) => `${escapeHtml(x.spellName)}×${x.count}`).join(', ') : '—';
 }
 
+const optTally = (t: { spellName: string; count: number }[]): string => (t.length ? ' (' + tallyStr(t) + ')' : '');
+
 function unitRow(u: UnitMetrics, label: string): string {
   return `<tr><td>${escapeHtml(label)}${escapeHtml(u.name)}</td>` +
-    `<td>${u.casts}</td><td>${u.interruptsLanded}${u.interruptsLandedBySpell.length ? ' (' + tallyStr(u.interruptsLandedBySpell) + ')' : ''}</td>` +
-    `<td>${u.purges}/${u.cleanses}${u.purgesBySpell.length ? ' (' + tallyStr(u.purgesBySpell) + ')' : ''}</td>` +
+    `<td>${u.casts}</td><td>${u.interruptsLanded}${optTally(u.interruptsLandedBySpell)}</td>` +
+    `<td>${u.purges}/${u.cleanses}${optTally(u.purgesBySpell)}</td>` +
     `<td>${u.spellsteals}</td><td>${u.deaths}</td><td>${u.distanceMoved} (${u.timeStationarySec}s still)</td>` +
     `<td>${u.damageDone}</td><td>${u.healingDone}</td>` +
     `<td>CC recv: ${u.ccReceived.timeSec}s (${u.ccReceived.castDenialSec}/${u.ccReceived.hardCcSec}/${u.ccReceived.rootSec})<br>` +
     `CC done: ${u.ccDone.timeSec}s (${u.ccDone.castDenialSec}/${u.ccDone.hardCcSec}/${u.ccDone.rootSec})<br>` +
-    `immuned recv ${u.immuneReceived.ccImmuned}cc${u.immuneReceived.spellsImmuned.length ? ' (' + tallyStr(u.immuneReceived.spellsImmuned) + ')' : ''} · ` +
-    `done ${u.immuneDone.ccImmuned}cc${u.immuneDone.spellsImmuned.length ? ' (' + tallyStr(u.immuneDone.spellsImmuned) + ')' : ''}</td>` +
+    `immuned recv ${u.immuneReceived.ccImmuned}cc${u.immuneReceived.spellsImmuned.length ? ' · spells: ' + tallyStr(u.immuneReceived.spellsImmuned) : ''} · ` +
+    `done ${u.immuneDone.ccImmuned}cc${u.immuneDone.spellsImmuned.length ? ' · spells: ' + tallyStr(u.immuneDone.spellsImmuned) : ''}</td>` +
     `<td>${u.deathsWhileCcd}</td><td>${u.defensivesUsed}/${u.defensivesIntoBurst}</td></tr>`;
 }
 
 function playerGroupBlock(pg: PlayerGroup, isYou: boolean): string {
   const c = pg.combined;
   const head = `<tr class="pg-head"><td><b>${isYou ? '★ ' : ''}${escapeHtml(pg.player.name)}</b>${pg.player.spec ? ' (' + escapeHtml(pg.player.spec) + ')' : ''}${pg.pets.length ? ` [+${pg.pets.length} pet]` : ''}</td>` +
-    `<td>${c.casts}</td><td>${c.interruptsLanded}${c.interruptsLandedBySpell.length ? ' (' + tallyStr(c.interruptsLandedBySpell) + ')' : ''}</td>` +
+    `<td>${c.casts}</td><td>${c.interruptsLanded}${optTally(c.interruptsLandedBySpell)}</td>` +
     `<td>${c.purges}/${c.cleanses}</td><td>${c.spellsteals}</td><td>${c.deaths}</td><td></td>` +
     `<td>${c.damageDone}</td><td>${c.healingDone}</td><td></td><td></td><td></td></tr>`;
   const own = unitRow(pg.player, '↳ self: ');
