@@ -136,3 +136,13 @@ export function ownerIdOf(unit: { ownerId?: unknown } | undefined): string | und
   const raw = unit && typeof unit.ownerId === 'string' ? unit.ownerId : undefined;
   return raw && !OWNER_SENTINELS.has(raw) ? raw : undefined;
 }
+
+/** The owning PLAYER unitId for a source: the unit itself if it's a player, else its
+ *  owner if that owner is a player, else undefined (pet→owner; NPC/totem→undefined). */
+export function resolvePlayer(units: Record<string, { type?: unknown; ownerId?: unknown }>, id: string | undefined): string | undefined {
+  const u = id ? units[id] : undefined;
+  if (!u) return undefined;
+  const owner = ownerIdOf(u);
+  if (owner) { const ou = units[owner]; return ou && unitKind(ou.type) === 'player' ? owner : undefined; }
+  return unitKind(u.type) === 'player' ? id : undefined;
+}
