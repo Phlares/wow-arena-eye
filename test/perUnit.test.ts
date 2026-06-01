@@ -124,8 +124,8 @@ describe('CC durations', () => {
       durationInSeconds: 100,
       units: { 'Player-A': { name: 'You', type: 1, reaction: 1 }, 'Player-E': { name: 'Enemy', type: 1, reaction: 2 } },
       events: [
-        { logLine: { event: 'SPELL_AURA_APPLIED' }, destUnitId: 'Player-A', spellId: '408', spellName: 'Kidney Shot', timestamp: 0 },
-        { logLine: { event: 'SPELL_AURA_REMOVED' }, destUnitId: 'Player-A', spellId: '408', spellName: 'Kidney Shot', timestamp: 2000 },
+        { logLine: { event: 'SPELL_AURA_APPLIED' }, srcUnitId: 'Player-E', destUnitId: 'Player-A', spellId: '408', spellName: 'Kidney Shot', timestamp: 0 },
+        { logLine: { event: 'SPELL_AURA_REMOVED' }, srcUnitId: 'Player-E', destUnitId: 'Player-A', spellId: '408', spellName: 'Kidney Shot', timestamp: 2000 },
         { logLine: { event: 'SPELL_INTERRUPT' }, srcUnitId: 'Player-E', destUnitId: 'Player-A', spellId: '2139', spellName: 'Counterspell', extraSpellName: 'Chaos Bolt', timestamp: 10000 },
         // match continues past the kick so the 6s lockout fits within match end (endMs = 20000)
         { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'Player-E', spellName: 'Filler', timestamp: 20000 },
@@ -133,11 +133,11 @@ describe('CC durations', () => {
     };
     const units = computeUnitMetrics(match, buildAuraState(match));
     const you = units.find((u) => u.unitId === 'Player-A')!;
-    expect(you.hardCcSec).toBe(2);       // Kidney Shot 0-2s
-    expect(you.castDenialSec).toBe(6);   // Counterspell 6s lockout at 10s
-    expect(you.rootSec).toBe(0);
-    expect(you.timeControlledSec).toBe(8); // disjoint: 2 + 6
-    expect(you.ccTakenByCategory.find((c) => c.category === 'stun')?.durationSec).toBe(2);
+    expect(you.ccReceived.hardCcSec).toBe(2);       // Kidney Shot 0-2s
+    expect(you.ccReceived.castDenialSec).toBe(6);   // Counterspell 6s lockout at 10s
+    expect(you.ccReceived.rootSec).toBe(0);
+    expect(you.ccReceived.timeSec).toBe(8); // disjoint: 2 + 6
+    expect(you.ccReceived.byCategory.find((c) => c.category === 'stun')?.durationSec).toBe(2);
   });
 });
 

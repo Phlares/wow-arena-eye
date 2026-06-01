@@ -8,7 +8,6 @@ export interface Sample { tSec: number; x: number; y: number; facing?: number; h
 export type DrCategory = 'stun' | 'incapacitate' | 'disorient' | 'silence' | 'root' | 'disarm' | 'taunt' | 'knockback';
 
 export interface CcCategoryStat { category: DrCategory; count: number; durationSec: number; }
-export type CcTakenEntry = CcCategoryStat; // back-compat alias (removed in a later task)
 
 export interface CcSide {
   timeSec: number;
@@ -84,17 +83,11 @@ export interface UnitMetrics {
   track: Sample[];
   interruptsSuffered: number;
   interruptsSufferedBySpell: SpellTally[];
-  ccTaken: number;
-  ccTakenByCategory: CcTakenEntry[];
   deathsWhileCcd: number;
   deathsWhileCcdBySpell: SpellTally[];
   defensivesUsed: number;
   defensivesUsedBySpell: SpellTally[];
   defensivesIntoBurst: number;
-  timeControlledSec: number;
-  castDenialSec: number;
-  hardCcSec: number;
-  rootSec: number;
   ccReceived: CcSide;
   ccDone: CcSide;
   immuneReceived: ImmuneSide;
