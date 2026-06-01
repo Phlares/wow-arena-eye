@@ -7,7 +7,25 @@ export interface Sample { tSec: number; x: number; y: number; facing?: number; h
 
 export type DrCategory = 'stun' | 'incapacitate' | 'disorient' | 'silence' | 'root' | 'disarm' | 'taunt' | 'knockback';
 
-export interface CcTakenEntry { category: DrCategory; count: number; durationSec: number; }
+export interface CcCategoryStat { category: DrCategory; count: number; durationSec: number; }
+export type CcTakenEntry = CcCategoryStat; // back-compat alias (removed in a later task)
+
+export interface CcSide {
+  timeSec: number;
+  castDenialSec: number;
+  hardCcSec: number;
+  rootSec: number;
+  count: number;
+  byCategory: CcCategoryStat[];
+}
+
+export interface ImmuneSide {
+  spellsImmuned: SpellTally[];
+  ccImmuned: number;
+  ccImmunedByCategory: { category: DrCategory; count: number }[];
+  damageImmuned: number;
+  healingImmuned: number;
+}
 
 export interface FocusSegment { target: string; targetName: string; fromSec: number; toSec: number; }
 
@@ -77,6 +95,10 @@ export interface UnitMetrics {
   castDenialSec: number;
   hardCcSec: number;
   rootSec: number;
+  ccReceived: CcSide;
+  ccDone: CcSide;
+  immuneReceived: ImmuneSide;
+  immuneDone: ImmuneSide;
   damageDone: number;
   healingDone: number;
   absorbDone: number;

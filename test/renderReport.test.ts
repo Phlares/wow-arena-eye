@@ -107,6 +107,7 @@ describe('renderReport metrics block (per-player)', () => {
                 track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0, ccTakenByCategory: [],
                 deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
                 timeControlledSec: 12.5, castDenialSec: 6, hardCcSec: 4.5, rootSec: 2,
+                ccReceived: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, ccDone: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, immuneReceived: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 }, immuneDone: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 },
                 damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
               },
               pets: [
@@ -118,6 +119,7 @@ describe('renderReport metrics block (per-player)', () => {
                   track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0, ccTakenByCategory: [],
                   deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
                   timeControlledSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0,
+                  ccReceived: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, ccDone: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, immuneReceived: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 }, immuneDone: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [], damageImmuned: 0, healingImmuned: 0 },
                   damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
                 },
               ],
