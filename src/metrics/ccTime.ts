@@ -77,3 +77,24 @@ export function computeCcDurations(
     byCategory: [...byCat.entries()].map(([category, ws]) => ({ category, durationSec: unionSeconds(ws) })),
   };
 }
+
+/** Sum several CcDurations: bucket fields add; byCategory merges per category. Used for "done" across targets. */
+export function sumCcDurations(parts: CcDurations[]): CcDurations {
+  const byCat = new Map<DrCategory, number>();
+  let timeControlledSec = 0, castDenialSec = 0, hardCcSec = 0, rootSec = 0;
+  for (const p of parts) {
+    timeControlledSec += p.timeControlledSec;
+    castDenialSec += p.castDenialSec;
+    hardCcSec += p.hardCcSec;
+    rootSec += p.rootSec;
+    for (const b of p.byCategory) byCat.set(b.category, (byCat.get(b.category) ?? 0) + b.durationSec);
+  }
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  return {
+    timeControlledSec: round1(timeControlledSec),
+    castDenialSec: round1(castDenialSec),
+    hardCcSec: round1(hardCcSec),
+    rootSec: round1(rootSec),
+    byCategory: [...byCat.entries()].map(([category, durationSec]) => ({ category, durationSec: round1(durationSec) })),
+  };
+}

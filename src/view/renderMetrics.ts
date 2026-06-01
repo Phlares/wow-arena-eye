@@ -12,7 +12,12 @@ function unitRow(u: UnitMetrics, label: string): string {
     `<td>${u.casts}</td><td>${u.interruptsLanded}${u.interruptsLandedBySpell.length ? ' (' + tallyStr(u.interruptsLandedBySpell) + ')' : ''}</td>` +
     `<td>${u.purges}/${u.cleanses}${u.purgesBySpell.length ? ' (' + tallyStr(u.purgesBySpell) + ')' : ''}</td>` +
     `<td>${u.spellsteals}</td><td>${u.deaths}</td><td>${u.distanceMoved} (${u.timeStationarySec}s still)</td>` +
-    `<td>${u.damageDone}</td><td>${u.healingDone}</td><td>${u.timeControlledSec}s (${u.castDenialSec}/${u.hardCcSec}/${u.rootSec})</td><td>${u.deathsWhileCcd}</td><td>${u.defensivesUsed}/${u.defensivesIntoBurst}</td></tr>`;
+    `<td>${u.damageDone}</td><td>${u.healingDone}</td>` +
+    `<td>CC recv: ${u.ccReceived.timeSec}s (${u.ccReceived.castDenialSec}/${u.ccReceived.hardCcSec}/${u.ccReceived.rootSec})<br>` +
+    `CC done: ${u.ccDone.timeSec}s (${u.ccDone.castDenialSec}/${u.ccDone.hardCcSec}/${u.ccDone.rootSec})<br>` +
+    `immuned recv ${u.immuneReceived.ccImmuned}cc${u.immuneReceived.spellsImmuned.length ? ' (' + tallyStr(u.immuneReceived.spellsImmuned) + ')' : ''} · ` +
+    `done ${u.immuneDone.ccImmuned}cc${u.immuneDone.spellsImmuned.length ? ' (' + tallyStr(u.immuneDone.spellsImmuned) + ')' : ''}</td>` +
+    `<td>${u.deathsWhileCcd}</td><td>${u.defensivesUsed}/${u.defensivesIntoBurst}</td></tr>`;
 }
 
 function playerGroupBlock(pg: PlayerGroup, isYou: boolean): string {
@@ -30,7 +35,7 @@ function teamBlock(tg: TeamGroup, playerUnitId: string | undefined): string {
   const rows = tg.players.map((pg) => playerGroupBlock(pg, pg.player.unitId === playerUnitId)).join('') +
     tg.unownedPets.map((p) => unitRow(p, '(unowned) ')).join('');
   return `<h5>${escapeHtml(TEAM_LABEL[tg.team] ?? tg.team)}</h5>
-  <table><tr><th>unit</th><th>casts</th><th>interrupts</th><th>purge/cleanse</th><th>steals</th><th>deaths</th><th>move</th><th>dmg</th><th>heal</th><th>CC time (cd/hard/root)</th><th>died-CC</th><th>defensives (used/burst)</th></tr>${rows}</table>`;
+  <table><tr><th>unit</th><th>casts</th><th>interrupts</th><th>purge/cleanse</th><th>steals</th><th>deaths</th><th>move</th><th>dmg</th><th>heal</th><th>CC recv/done · immuned</th><th>died-CC</th><th>defensives (used/burst)</th></tr>${rows}</table>`;
 }
 
 function timelineBlock(tl: TimelineEvent[]): string {

@@ -1,5 +1,5 @@
 import { eventType, srcId, destId, amount, eventTimeMs, DAMAGE_EVENTS } from './eventAccess.js';
-import { unitTeam, unitKind, ownerIdOf, type Team, type FocusTracks, type AttackerTrack, type FocusSegment } from './types.js';
+import { unitTeam, resolvePlayer, type Team, type FocusTracks, type AttackerTrack, type FocusSegment } from './types.js';
 
 const WINDOW_MS = 5000;
 const STEP_MS = 500;
@@ -58,16 +58,7 @@ export function computeFocusTracks(match: unknown, opts: FocusOpts = {}): FocusT
   const units = m.units ?? {};
   const teamOf = (id: string | undefined): Team => unitTeam((units[id ?? ''] ?? {}).reaction);
   const nameOf = (id: string): string => { const u = units[id]; return u && typeof u.name === 'string' ? u.name : id; };
-  const isPlayer = (u: Record<string, unknown> | undefined): boolean => !!u && unitKind(u.type) === 'player';
-
-  // Resolve a damage source to its owning PLAYER (pet damage rolls to owner); undefined if not a player-attributable source.
-  const attackerOf = (id: string | undefined): string | undefined => {
-    const u = units[id ?? ''];
-    if (!u) return undefined;
-    const ownerRaw = ownerIdOf(u);
-    if (ownerRaw) return isPlayer(units[ownerRaw]) ? ownerRaw : undefined;
-    return isPlayer(u) ? id : undefined;
-  };
+  const attackerOf = (id: string | undefined): string | undefined => resolvePlayer(units, id);
 
   // Bucket hits per attacker; track match damage span.
   const hitsByAttacker = new Map<string, Hit[]>();

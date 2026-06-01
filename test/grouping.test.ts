@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { groupUnits } from '../src/metrics/grouping.js';
 import type { UnitMetrics } from '../src/metrics/types.js';
 
+const emptyCcSide = () => ({ timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] });
+const emptyImmuneSide = () => ({ spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] });
+
 function u(over: Partial<UnitMetrics> & Pick<UnitMetrics, 'unitId' | 'kind' | 'team'>): UnitMetrics {
   return {
     name: over.unitId, spec: undefined, ownerId: undefined,
@@ -9,10 +12,10 @@ function u(over: Partial<UnitMetrics> & Pick<UnitMetrics, 'unitId' | 'kind' | 't
     dispels: 0, purges: 0, purgesBySpell: [], cleanses: 0, cleansesBySpell: [],
     spellsteals: 0, spellstealsBySpell: [], deaths: 0, deathTimesSec: [],
     distanceMoved: 0, positionSamples: 0, timeStationarySec: 0,
-    track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [], ccTaken: 0,
-    ccTakenByCategory: [], deathsWhileCcd: 0, deathsWhileCcdBySpell: [],
+    track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [],
+    deathsWhileCcd: 0, deathsWhileCcdBySpell: [],
     defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
-    timeControlledSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0,
+    ccReceived: emptyCcSide(), ccDone: emptyCcSide(), immuneReceived: emptyImmuneSide(), immuneDone: emptyImmuneSide(),
     damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0, ...over,
   } as UnitMetrics;
 }

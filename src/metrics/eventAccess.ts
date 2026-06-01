@@ -15,6 +15,8 @@
  *   facing       : advancedActorFacing    (number, radians)
  *   shieldOwner  : shieldOwnerUnitId      (SPELL_ABSORBED — absorbing caster GUID, NOT srcUnitId)
  *   absorbAmount : absorbedAmount         (SPELL_ABSORBED — amount absorbed, always positive)
+ *   missType     : logLine.parameters[11] (SPELL_MISSED / SPELL_PERIODIC_MISSED / RANGE_MISSED — "IMMUNE", "ABSORB", etc.)
+ *   Grounding Totem: not present in fixture; detection deferred (isGrounded always false)
  */
 
 type Ev = Record<string, unknown>;
@@ -157,6 +159,50 @@ export function position(ev: unknown): { x: number; y: number; facing?: number }
   if (x === 0 && y === 0) return undefined;
   const f = e?.advancedActorFacing ?? e?.advancedActorPositionFacing ?? e?.facing;
   return { x, y, facing: typeof f === 'number' ? f : undefined };
+}
+
+/**
+ * Immune-blocked event → { srcId, destId, kind, spellId, spellName }, else undefined.
+ *
+ * Immunity: SPELL_MISSED / SPELL_PERIODIC_MISSED / RANGE_MISSED with missType === "IMMUNE".
+ * missType is NOT a named class field — it lives in logLine.parameters[11] (after the
+ * 8-field prefix + 3 spell params). SWING_MISSED is excluded: auto-attacks have no spellId
+ * and are not CC abilities.
+ *
+ * kind is always 'spell': immune events are always *_MISSED events which carry no damage/heal
+ * amount. Distinguishing damage-immuned vs heal-immuned (element B of the design) is not
+ * derivable from miss events (they carry no amount) and is deferred.
+ *
+ * Grounding Totem: not present in the fixture; detection deferred (isGrounded always false).
+ * Field positions discovered via TDD (test/eventAccessImmune.test.ts).
+ */
+export function immuneEvent(ev: unknown): {
+  srcId: string;
+  destId: string;
+  kind: 'spell';
+  spellId: number;
+  spellName: string;
+} | undefined {
+  // Gate on event type first — non-miss events (the common case) bail cheaply.
+  const t = eventType(ev);
+  const isSpellMiss = t === 'SPELL_MISSED' || t === 'SPELL_PERIODIC_MISSED' || t === 'RANGE_MISSED';
+  if (!isSpellMiss) return undefined;
+
+  const ll = logLine(ev);
+  const params = ll?.parameters;
+  if (!Array.isArray(params)) return undefined;
+
+  // missType is at index 11: 8 prefix params + spell triplet (spellId, spellName, spellSchool)
+  const isImmune = str(params[11]) === 'IMMUNE';
+  // grounding: not detectable in this fixture — reserved for future discovery
+  if (!isImmune) return undefined;
+
+  const s = srcId(ev);
+  const d = destId(ev);
+  const sid = spellId(ev);
+  if (!s || !d || sid === undefined) return undefined;
+
+  return { srcId: s, destId: d, kind: 'spell', spellId: sid, spellName: spellName(ev) };
 }
 
 /**

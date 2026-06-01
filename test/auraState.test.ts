@@ -41,4 +41,20 @@ describe('buildAuraState', () => {
     expect(ivs[0].start).toBe(500);
     expect(ivs[0].end).toBe(Number.MAX_SAFE_INTEGER);
   });
+
+  it('captures the caster (srcId) and indexes intervals by source', () => {
+    const st = buildAuraState({
+      events: [
+        { logLine: { event: 'SPELL_AURA_APPLIED' }, srcUnitId: 'Mage', destUnitId: 'Victim', spellId: '118', spellName: 'Polymorph', timestamp: 1000 },
+        { logLine: { event: 'SPELL_AURA_REMOVED' }, srcUnitId: 'Mage', destUnitId: 'Victim', spellId: '118', spellName: 'Polymorph', timestamp: 4000 },
+      ],
+    });
+    const on = st.intervalsOn('Victim');
+    expect(on).toHaveLength(1);
+    expect(on[0]).toMatchObject({ srcId: 'Mage', destId: 'Victim', spellId: 118, start: 1000, end: 4000 });
+    const by = st.intervalsBy('Mage');
+    expect(by).toHaveLength(1);
+    expect(by[0]).toMatchObject({ srcId: 'Mage', destId: 'Victim', spellId: 118 });
+    expect(st.intervalsBy('Nobody')).toEqual([]);
+  });
 });

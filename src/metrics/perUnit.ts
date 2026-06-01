@@ -1,38 +1,48 @@
-import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS } from './eventAccess.js';
-import { tally, unitKind, unitTeam, ownerIdOf, type UnitMetrics, type Sample, type CcTakenEntry } from './types.js';
-import { isDefensive, ccInfo, interruptLockoutSec } from '../metadata/spells.js';
+import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS, immuneEvent } from './eventAccess.js';
+import { tally, unitKind, unitTeam, ownerIdOf, resolvePlayer, type UnitMetrics, type Sample, type CcSide, type ImmuneSide, type DrCategory } from './types.js';
+import { isDefensive, ccInfo } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
 import { sampleAt } from './sampleAt.js';
-import { computeCcDurations, type Window } from './ccTime.js';
+import { ccReceivedSide, ccDoneSide, type LandedInterrupt } from './ccSides.js';
 
 interface Acc {
   casts: string[];
-  interrupts: string[];
+  interruptsLandedDetail: { name: string; ms: number; spellId: number; targetId: string }[];
   purgesRemoved: string[];
   cleansesRemoved: string[];
   dispelsTotal: number;
   steals: string[];
   deathMs: number[];
   interruptsSuffered: { name: string; ms: number; spellId: number }[];
-  ccTaken: { category: string }[];
   deathsWhileCcd: string[];
   defensives: { spell: string; ms: number }[];
   damageDone: number;
   healingDone: number;
   absorbDone: number;
   samples: Sample[];
+  immuneDoneSpells: string[];
+  immuneDoneCc: DrCategory[];
+  immuneRecvSpells: string[];
+  immuneRecvCc: DrCategory[];
 }
 
 function emptyAcc(): Acc {
   return {
-    casts: [], interrupts: [], purgesRemoved: [], cleansesRemoved: [], dispelsTotal: 0,
+    casts: [], interruptsLandedDetail: [], purgesRemoved: [], cleansesRemoved: [], dispelsTotal: 0,
     steals: [], deathMs: [],
-    interruptsSuffered: [], ccTaken: [], deathsWhileCcd: [], defensives: [],
+    interruptsSuffered: [], deathsWhileCcd: [], defensives: [],
     damageDone: 0, healingDone: 0, absorbDone: 0, samples: [],
+    immuneDoneSpells: [], immuneDoneCc: [], immuneRecvSpells: [], immuneRecvCc: [],
   };
 }
 
 const STATIONARY_EPS = 0.5;
+
+function immByCat(cats: DrCategory[]): { category: DrCategory; count: number }[] {
+  const m = new Map<DrCategory, number>();
+  for (const c of cats) m.set(c, (m.get(c) ?? 0) + 1);
+  return [...m.entries()].map(([category, count]) => ({ category, count }));
+}
 
 export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetrics[] {
   const m = match as { events?: unknown[]; units?: Record<string, Record<string, unknown>>; durationInSeconds?: unknown };
@@ -69,7 +79,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       acc(s).casts.push(spellName(ev));
       if (isDefensive(spellId(ev))) acc(s).defensives.push({ spell: spellName(ev), ms: ms ?? 0 });
     } else if (t === 'SPELL_INTERRUPT' && s) {
-      acc(s).interrupts.push(extraSpellName(ev) ?? spellName(ev));
+      acc(s).interruptsLandedDetail.push({ name: extraSpellName(ev) ?? spellName(ev), ms: ms ?? 0, spellId: spellId(ev) ?? 0, targetId: d ?? '' });
       if (d) acc(d).interruptsSuffered.push({ name: extraSpellName(ev) ?? spellName(ev), ms: ms ?? 0, spellId: spellId(ev) ?? 0 });
     } else if (t === 'SPELL_DISPEL' && s) {
       acc(s).dispelsTotal += 1;
@@ -83,13 +93,6 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       const active = auras.activeOn(d, ms ?? -1);
       const ccHit = active.find((a) => ccInfo(a.spellId));
       if (ccHit) acc(d).deathsWhileCcd.push(ccHit.name);
-    }
-
-    // CC taken tracking
-    // Counts both APPLIED and REFRESH: a CC reapply restarts the DR clock (a new CC instance). Safe for the current curated CC set (no channel-sustained CCs that refresh as ticks).
-    if ((t === 'SPELL_AURA_APPLIED' || t === 'SPELL_AURA_REFRESH') && d) {
-      const cc = ccInfo(spellId(ev));
-      if (cc) acc(d).ccTaken.push({ category: cc.category });
     }
 
     // Damage (enemy-only, exclude friendly fire; dest may be neutral e.g. enemy summons)
@@ -107,9 +110,28 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       const info = absorbInfo(ev);
       if (info) acc(info.shieldOwnerId).absorbDone += info.amount;
     }
+
+    // Immune events: route to both sides (kind is always 'spell' — no amount available).
+    const imm = immuneEvent(ev);
+    if (imm) {
+      const isrc = resolvePlayer(units, imm.srcId);
+      const idst = resolvePlayer(units, imm.destId);
+      if (isrc && idst && teamOf(isrc) !== teamOf(idst)) {
+        const cc = ccInfo(imm.spellId);
+        acc(isrc).immuneDoneSpells.push(imm.spellName);
+        acc(idst).immuneRecvSpells.push(imm.spellName);
+        if (cc) { acc(isrc).immuneDoneCc.push(cc.category); acc(idst).immuneRecvCc.push(cc.category); }
+      }
+    }
   }
 
   const durationSec = typeof m.durationInSeconds === 'number' ? m.durationInSeconds : 0;
+
+  const petsByOwner = new Map<string, string[]>();
+  for (const [uid, u] of Object.entries(units)) {
+    const ow = ownerIdOf(u);
+    if (ow) { const arr = petsByOwner.get(ow) ?? []; arr.push(uid); petsByOwner.set(ow, arr); }
+  }
 
   const result: UnitMetrics[] = [];
   for (const [id, a] of accs) {
@@ -125,8 +147,6 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       distance += step;
       if (step < STATIONARY_EPS) stationarySec += track[i].tSec - track[i - 1].tSec;
     }
-    const ccByCat = new Map<string, number>();
-    for (const c of a.ccTaken) ccByCat.set(c.category, (ccByCat.get(c.category) ?? 0) + 1);
 
     let defensivesIntoBurst = 0;
     for (const def of a.defensives) {
@@ -137,8 +157,12 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       if (before !== undefined && after !== undefined && before - after >= 0.15) defensivesIntoBurst += 1;
     }
 
-    const interruptWindows: Window[] = a.interruptsSuffered.map((x) => ({ start: x.ms, end: x.ms + interruptLockoutSec(x.spellId) * 1000 }));
-    const cc = computeCcDurations(auras.intervalsOn(id), interruptWindows, endMs);
+    const petIds = petsByOwner.get(id) ?? [];
+    const ccReceived = ccReceivedSide(id, units, auras, a.interruptsSuffered, endMs);
+    const landed = [id, ...petIds].flatMap((uid) => accs.get(uid)?.interruptsLandedDetail ?? []);
+    const ccDone = ccDoneSide(id, petIds, units, auras, landed, endMs);
+    const immuneReceived: ImmuneSide = { spellsImmuned: tally(a.immuneRecvSpells), ccImmuned: a.immuneRecvCc.length, ccImmunedByCategory: immByCat(a.immuneRecvCc) };
+    const immuneDone: ImmuneSide = { spellsImmuned: tally(a.immuneDoneSpells), ccImmuned: a.immuneDoneCc.length, ccImmunedByCategory: immByCat(a.immuneDoneCc) };
 
     result.push({
       unitId: id,
@@ -149,8 +173,8 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       ownerId: ownerIdOf(u),
       casts: a.casts.length,
       topCasts: tally(a.casts).slice(0, 8),
-      interruptsLanded: a.interrupts.length,
-      interruptsLandedBySpell: tally(a.interrupts),
+      interruptsLanded: a.interruptsLandedDetail.length,
+      interruptsLandedBySpell: tally(a.interruptsLandedDetail.map((x) => x.name)),
       dispels: a.dispelsTotal,
       purges: a.purgesRemoved.length,
       purgesBySpell: tally(a.purgesRemoved),
@@ -166,17 +190,15 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       track,
       interruptsSuffered: a.interruptsSuffered.length,
       interruptsSufferedBySpell: tally(a.interruptsSuffered.map((x) => x.name)),
-      ccTaken: a.ccTaken.length,
-      ccTakenByCategory: [...ccByCat.entries()].map(([category, count]) => ({ category, count, durationSec: cc.byCategory.find((b) => b.category === category)?.durationSec ?? 0 })) as CcTakenEntry[],
       deathsWhileCcd: a.deathsWhileCcd.length,
       deathsWhileCcdBySpell: tally(a.deathsWhileCcd),
       defensivesUsed: a.defensives.length,
       defensivesUsedBySpell: tally(a.defensives.map((def) => def.spell)),
       defensivesIntoBurst,
-      timeControlledSec: cc.timeControlledSec,
-      castDenialSec: cc.castDenialSec,
-      hardCcSec: cc.hardCcSec,
-      rootSec: cc.rootSec,
+      ccReceived,
+      ccDone,
+      immuneReceived,
+      immuneDone,
       damageDone: Math.round(a.damageDone),
       healingDone: Math.round(a.healingDone),
       absorbDone: Math.round(a.absorbDone),

@@ -7,7 +7,22 @@ export interface Sample { tSec: number; x: number; y: number; facing?: number; h
 
 export type DrCategory = 'stun' | 'incapacitate' | 'disorient' | 'silence' | 'root' | 'disarm' | 'taunt' | 'knockback';
 
-export interface CcTakenEntry { category: DrCategory; count: number; durationSec: number; }
+export interface CcCategoryStat { category: DrCategory; count: number; durationSec: number; }
+
+export interface CcSide {
+  timeSec: number;
+  castDenialSec: number;
+  hardCcSec: number;
+  rootSec: number;
+  count: number;
+  byCategory: CcCategoryStat[];
+}
+
+export interface ImmuneSide {
+  spellsImmuned: SpellTally[];
+  ccImmuned: number;
+  ccImmunedByCategory: { category: DrCategory; count: number }[];
+}
 
 export interface FocusSegment { target: string; targetName: string; fromSec: number; toSec: number; }
 
@@ -66,17 +81,15 @@ export interface UnitMetrics {
   track: Sample[];
   interruptsSuffered: number;
   interruptsSufferedBySpell: SpellTally[];
-  ccTaken: number;
-  ccTakenByCategory: CcTakenEntry[];
   deathsWhileCcd: number;
   deathsWhileCcdBySpell: SpellTally[];
   defensivesUsed: number;
   defensivesUsedBySpell: SpellTally[];
   defensivesIntoBurst: number;
-  timeControlledSec: number;
-  castDenialSec: number;
-  hardCcSec: number;
-  rootSec: number;
+  ccReceived: CcSide;
+  ccDone: CcSide;
+  immuneReceived: ImmuneSide;
+  immuneDone: ImmuneSide;
   damageDone: number;
   healingDone: number;
   absorbDone: number;
@@ -135,4 +148,14 @@ const OWNER_SENTINELS = new Set(['0', '0000000000000000']);
 export function ownerIdOf(unit: { ownerId?: unknown } | undefined): string | undefined {
   const raw = unit && typeof unit.ownerId === 'string' ? unit.ownerId : undefined;
   return raw && !OWNER_SENTINELS.has(raw) ? raw : undefined;
+}
+
+/** The owning PLAYER unitId for a source: the unit itself if it's a player, else its
+ *  owner if that owner is a player, else undefined (pet→owner; NPC/totem→undefined). */
+export function resolvePlayer(units: Record<string, { type?: unknown; ownerId?: unknown }>, id: string | undefined): string | undefined {
+  const u = id ? units[id] : undefined;
+  if (!u) return undefined;
+  const owner = ownerIdOf(u);
+  if (owner) { const ou = units[owner]; return ou && unitKind(ou.type) === 'player' ? owner : undefined; }
+  return unitKind(u.type) === 'player' ? id : undefined;
 }

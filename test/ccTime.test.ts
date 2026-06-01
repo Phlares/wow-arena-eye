@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { unionSeconds, computeCcDurations } from '../src/metrics/ccTime.js';
+import { unionSeconds, computeCcDurations, sumCcDurations } from '../src/metrics/ccTime.js';
 
 const ccCats = JSON.parse(
   readFileSync(fileURLToPath(new URL('../src/metadata/ccCategories.json', import.meta.url)), 'utf8'),
@@ -96,5 +96,24 @@ describe('computeCcDurations', () => {
     expect(d.hardCcSec).toBe(0);
     expect(d.rootSec).toBe(0);
     expect(d.timeControlledSec).toBe(0);
+  });
+});
+
+describe('sumCcDurations', () => {
+  it('adds bucket fields and merges byCategory across parts', () => {
+    const a = { timeControlledSec: 4, castDenialSec: 1, hardCcSec: 3, rootSec: 0, byCategory: [{ category: 'stun' as const, durationSec: 3 }, { category: 'silence' as const, durationSec: 1 }] };
+    const b = { timeControlledSec: 5, castDenialSec: 0, hardCcSec: 2, rootSec: 3, byCategory: [{ category: 'stun' as const, durationSec: 2 }, { category: 'root' as const, durationSec: 3 }] };
+    const s = sumCcDurations([a, b]);
+    expect(s.timeControlledSec).toBe(9);
+    expect(s.castDenialSec).toBe(1);
+    expect(s.hardCcSec).toBe(5);
+    expect(s.rootSec).toBe(3);
+    expect(s.byCategory.find((c) => c.category === 'stun')?.durationSec).toBe(5);
+    expect(s.byCategory.find((c) => c.category === 'root')?.durationSec).toBe(3);
+    expect(s.byCategory.find((c) => c.category === 'silence')?.durationSec).toBe(1);
+  });
+  it('returns zeros for empty input', () => {
+    const s = sumCcDurations([]);
+    expect(s).toEqual({ timeControlledSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, byCategory: [] });
   });
 });
