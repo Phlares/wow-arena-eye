@@ -24,6 +24,12 @@ describe('ccSides', () => {
     expect(recv.count).toBe(1);
   });
 
+  it('folds a landed interrupt lockout into done cast-denial', () => {
+    const auras = buildAuraState({ events: [] });
+    const done = ccDoneSide('P', [], units, auras, [{ ms: 0, spellId: 2139, targetId: 'E1' }], 100000);
+    expect(done.castDenialSec).toBe(6); // Counterspell (2139) 6s lockout on enemy E1
+  });
+
   it('ignores CC on/from non-players (player-on-player only)', () => {
     const events = [...cc('NPC', 'P', 0, 5000), ...cc('P', 'NPC', 0, 5000)];
     const auras = buildAuraState({ events });

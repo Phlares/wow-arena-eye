@@ -1,5 +1,5 @@
 import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS, immuneEvent } from './eventAccess.js';
-import { tally, unitKind, unitTeam, ownerIdOf, resolvePlayer, type UnitMetrics, type Sample, type CcTakenEntry, type CcSide, type ImmuneSide } from './types.js';
+import { tally, unitKind, unitTeam, ownerIdOf, resolvePlayer, type UnitMetrics, type Sample, type CcTakenEntry, type CcSide, type ImmuneSide, type DrCategory } from './types.js';
 import { isDefensive, ccInfo, interruptLockoutSec } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
 import { sampleAt } from './sampleAt.js';
@@ -23,9 +23,9 @@ interface Acc {
   absorbDone: number;
   samples: Sample[];
   immuneDoneSpells: string[];
-  immuneDoneCc: { category: string }[];
+  immuneDoneCc: { category: DrCategory }[];
   immuneRecvSpells: string[];
-  immuneRecvCc: { category: string }[];
+  immuneRecvCc: { category: DrCategory }[];
 }
 
 function emptyAcc(): Acc {
@@ -162,10 +162,10 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
     const petIds = Object.keys(units).filter((uid) => ownerIdOf(units[uid]) === id);
     const ccReceived = ccReceivedSide(id, units, auras, a.interruptsSuffered, endMs);
     const ccDone = ccDoneSide(id, petIds, units, auras, a.interruptsLandedDetail, endMs);
-    const immByCat = (list: { category: string }[]): ImmuneSide['ccImmunedByCategory'] => {
-      const mm2 = new Map<string, number>();
+    const immByCat = (list: { category: DrCategory }[]): ImmuneSide['ccImmunedByCategory'] => {
+      const mm2 = new Map<DrCategory, number>();
       for (const c of list) mm2.set(c.category, (mm2.get(c.category) ?? 0) + 1);
-      return [...mm2.entries()].map(([category, count]) => ({ category: category as ImmuneSide['ccImmunedByCategory'][number]['category'], count }));
+      return [...mm2.entries()].map(([category, count]) => ({ category, count }));
     };
     const immuneReceived: ImmuneSide = { spellsImmuned: tally(a.immuneRecvSpells), ccImmuned: a.immuneRecvCc.length, ccImmunedByCategory: immByCat(a.immuneRecvCc), damageImmuned: 0, healingImmuned: 0 };
     const immuneDone: ImmuneSide = { spellsImmuned: tally(a.immuneDoneSpells), ccImmuned: a.immuneDoneCc.length, ccImmunedByCategory: immByCat(a.immuneDoneCc), damageImmuned: 0, healingImmuned: 0 };

@@ -1,6 +1,6 @@
 import { eventType, srcId, destId, spellId, spellName, eventTimeMs } from './eventAccess.js';
 
-interface Interval { srcId: string; destId: string; spellId: number; name: string; start: number; end: number; }
+export interface Interval { srcId: string; destId: string; spellId: number; name: string; start: number; end: number; }
 export interface AuraState {
   activeOn(unitId: string, ms: number): { spellId: number; name: string }[];
   intervalsOn(unitId: string): Interval[];   // auras ON this unit (by dest)

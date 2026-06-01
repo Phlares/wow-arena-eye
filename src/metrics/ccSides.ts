@@ -1,16 +1,13 @@
-import { computeCcDurations, sumCcDurations, type Window } from './ccTime.js';
+import { computeCcDurations, sumCcDurations, type Window, type CcDurations } from './ccTime.js';
 import { ccInfo, interruptLockoutSec } from '../metadata/spells.js';
-import { resolvePlayer, unitTeam, type CcSide, type DrCategory } from './types.js';
-import type { AuraState } from './auraState.js';
+import { resolvePlayer, unitTeam, type CcSide } from './types.js';
+import type { AuraState, Interval } from './auraState.js';
 
 type Units = Record<string, { type?: unknown; reaction?: unknown; ownerId?: unknown }>;
 export interface LandedInterrupt { ms: number; spellId: number; targetId: string; }
 export interface SufferedInterrupt { ms: number; spellId: number; }
 
 const teamOf = (units: Units, id: string) => unitTeam((units[id] ?? {}).reaction);
-
-interface Iv { spellId: number; name: string; start: number; end: number; }
-interface CcD { timeControlledSec: number; castDenialSec: number; hardCcSec: number; rootSec: number; byCategory: { category: DrCategory; durationSec: number }[]; }
 
 function counts(intervals: { spellId: number }[]): { count: number; byCount: Map<string, number> } {
   let count = 0;
@@ -24,7 +21,7 @@ function counts(intervals: { spellId: number }[]): { count: number; byCount: Map
   return { count, byCount };
 }
 
-function toCcSide(d: CcD, count: number, byCount: Map<string, number>): CcSide {
+function toCcSide(d: CcDurations, count: number, byCount: Map<string, number>): CcSide {
   return {
     timeSec: d.timeControlledSec,
     castDenialSec: d.castDenialSec,
@@ -43,7 +40,7 @@ export function ccReceivedSide(playerId: string, units: Units, auras: AuraState,
     return !!caster && teamOf(units, caster) !== myTeam;
   });
   const windows: Window[] = suffered.map((x) => ({ start: x.ms, end: x.ms + interruptLockoutSec(x.spellId) * 1000 }));
-  const d = computeCcDurations(intervals as Iv[], windows, matchEndMs);
+  const d = computeCcDurations(intervals, windows, matchEndMs);
   const { count, byCount } = counts(intervals);
   return toCcSide(d, count, byCount);
 }
@@ -51,7 +48,7 @@ export function ccReceivedSide(playerId: string, units: Units, auras: AuraState,
 /** CC playerId (+pets) landed on enemy players: per-target union, summed across targets. */
 export function ccDoneSide(playerId: string, petIds: string[], units: Units, auras: AuraState, landed: LandedInterrupt[], matchEndMs: number): CcSide {
   const myTeam = teamOf(units, playerId);
-  const byTarget = new Map<string, Iv[]>();
+  const byTarget = new Map<string, Interval[]>();
   for (const casterId of [playerId, ...petIds]) {
     for (const iv of auras.intervalsBy(casterId)) {
       const tgt = resolvePlayer(units, iv.destId);
