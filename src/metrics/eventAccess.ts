@@ -184,25 +184,24 @@ export function immuneEvent(ev: unknown): {
   spellId: number;
   spellName: string;
 } | undefined {
+  // Gate on event type first — non-miss events (the common case) bail cheaply.
   const t = eventType(ev);
+  const isSwing = t === 'SWING_MISSED';
+  const isSpellMiss = t === 'SPELL_MISSED' || t === 'SPELL_PERIODIC_MISSED' || t === 'RANGE_MISSED';
+  if (!isSpellMiss && !isSwing) return undefined;
+
   const ll = logLine(ev);
   const params = ll?.parameters;
   if (!Array.isArray(params)) return undefined;
 
   // missType index depends on whether the event has a spell-prefix triplet
-  const isSwing = t === 'SWING_MISSED';
-  const isSpellMiss = t === 'SPELL_MISSED' || t === 'SPELL_PERIODIC_MISSED' || t === 'RANGE_MISSED';
-  if (!isSpellMiss && !isSwing) return undefined;
-
   const missTypeIdx = isSwing ? 8 : 11;
   const isImmune = str(params[missTypeIdx]) === 'IMMUNE';
   // grounding: not detectable in this fixture — reserved for future discovery
-  const isGrounded = false;
-  if (!isImmune && !isGrounded) return undefined;
+  if (!isImmune) return undefined;
 
-  const e = ev as Ev;
-  const s = strOpt(e?.srcUnitId);
-  const d = strOpt(e?.destUnitId);
+  const s = srcId(ev);
+  const d = destId(ev);
   const sid = spellId(ev);
   if (!s || !d || sid === undefined) return undefined;
 

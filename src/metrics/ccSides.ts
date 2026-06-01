@@ -33,7 +33,7 @@ function toCcSide(d: CcDurations, count: number, byCount: Map<string, number>): 
   };
 }
 
-/** CC suffered by playerId from enemy players (single union). */
+/** CC suffered by playerId from enemy players (single union). Received CC is the player's own — no petIds (pets don't receive owner-credited CC), unlike ccDoneSide. */
 export function ccReceivedSide(playerId: string, units: Units, auras: AuraState, suffered: SufferedInterrupt[], matchEndMs: number): CcSide {
   if (unitKind((units[playerId] ?? {}).type) !== 'player') return emptyCcSide();
   const myTeam = teamOf(units, playerId);
@@ -52,11 +52,13 @@ export function ccDoneSide(playerId: string, petIds: string[], units: Units, aur
   if (unitKind((units[playerId] ?? {}).type) !== 'player') return emptyCcSide();
   const myTeam = teamOf(units, playerId);
   const byTarget = new Map<string, Interval[]>();
+  const allIntervals: Interval[] = [];
   for (const casterId of [playerId, ...petIds]) {
     for (const iv of auras.intervalsBy(casterId)) {
       const tgt = resolvePlayer(units, iv.destId);
       if (!tgt || teamOf(units, tgt) === myTeam) continue;
       const arr = byTarget.get(tgt) ?? []; arr.push(iv); byTarget.set(tgt, arr);
+      allIntervals.push(iv);
     }
   }
   const windowsByTarget = new Map<string, Window[]>();
@@ -68,6 +70,6 @@ export function ccDoneSide(playerId: string, petIds: string[], units: Units, aur
   const targets = new Set([...byTarget.keys(), ...windowsByTarget.keys()]);
   const parts = [...targets].map((tgt) => computeCcDurations(byTarget.get(tgt) ?? [], windowsByTarget.get(tgt) ?? [], matchEndMs));
   const summed = sumCcDurations(parts);
-  const { count, byCount } = counts([...byTarget.values()].flat());
+  const { count, byCount } = counts(allIntervals);
   return toCcSide(summed, count, byCount);
 }

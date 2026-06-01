@@ -21,9 +21,9 @@ interface Acc {
   absorbDone: number;
   samples: Sample[];
   immuneDoneSpells: string[];
-  immuneDoneCc: { category: DrCategory }[];
+  immuneDoneCc: DrCategory[];
   immuneRecvSpells: string[];
-  immuneRecvCc: { category: DrCategory }[];
+  immuneRecvCc: DrCategory[];
 }
 
 function emptyAcc(): Acc {
@@ -37,6 +37,12 @@ function emptyAcc(): Acc {
 }
 
 const STATIONARY_EPS = 0.5;
+
+function immByCat(cats: DrCategory[]): { category: DrCategory; count: number }[] {
+  const m = new Map<DrCategory, number>();
+  for (const c of cats) m.set(c, (m.get(c) ?? 0) + 1);
+  return [...m.entries()].map(([category, count]) => ({ category, count }));
+}
 
 export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetrics[] {
   const m = match as { events?: unknown[]; units?: Record<string, Record<string, unknown>>; durationInSeconds?: unknown };
@@ -114,12 +120,18 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
         const cc = ccInfo(imm.spellId);
         acc(isrc).immuneDoneSpells.push(imm.spellName);
         acc(idst).immuneRecvSpells.push(imm.spellName);
-        if (cc) { acc(isrc).immuneDoneCc.push({ category: cc.category }); acc(idst).immuneRecvCc.push({ category: cc.category }); }
+        if (cc) { acc(isrc).immuneDoneCc.push(cc.category); acc(idst).immuneRecvCc.push(cc.category); }
       }
     }
   }
 
   const durationSec = typeof m.durationInSeconds === 'number' ? m.durationInSeconds : 0;
+
+  const petsByOwner = new Map<string, string[]>();
+  for (const [uid, u] of Object.entries(units)) {
+    const ow = ownerIdOf(u);
+    if (ow) { const arr = petsByOwner.get(ow) ?? []; arr.push(uid); petsByOwner.set(ow, arr); }
+  }
 
   const result: UnitMetrics[] = [];
   for (const [id, a] of accs) {
@@ -145,14 +157,9 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       if (before !== undefined && after !== undefined && before - after >= 0.15) defensivesIntoBurst += 1;
     }
 
-    const petIds = Object.keys(units).filter((uid) => ownerIdOf(units[uid]) === id);
+    const petIds = petsByOwner.get(id) ?? [];
     const ccReceived = ccReceivedSide(id, units, auras, a.interruptsSuffered, endMs);
     const ccDone = ccDoneSide(id, petIds, units, auras, a.interruptsLandedDetail, endMs);
-    const immByCat = (list: { category: DrCategory }[]): ImmuneSide['ccImmunedByCategory'] => {
-      const mm2 = new Map<DrCategory, number>();
-      for (const c of list) mm2.set(c.category, (mm2.get(c.category) ?? 0) + 1);
-      return [...mm2.entries()].map(([category, count]) => ({ category, count }));
-    };
     const immuneReceived: ImmuneSide = { spellsImmuned: tally(a.immuneRecvSpells), ccImmuned: a.immuneRecvCc.length, ccImmunedByCategory: immByCat(a.immuneRecvCc), damageImmuned: 0, healingImmuned: 0 };
     const immuneDone: ImmuneSide = { spellsImmuned: tally(a.immuneDoneSpells), ccImmuned: a.immuneDoneCc.length, ccImmunedByCategory: immByCat(a.immuneDoneCc), damageImmuned: 0, healingImmuned: 0 };
 
