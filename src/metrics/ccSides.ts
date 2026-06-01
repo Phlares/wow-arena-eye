@@ -1,6 +1,6 @@
 import { computeCcDurations, sumCcDurations, type Window, type CcDurations } from './ccTime.js';
 import { ccInfo, interruptLockoutSec } from '../metadata/spells.js';
-import { resolvePlayer, unitTeam, type CcSide } from './types.js';
+import { resolvePlayer, unitTeam, unitKind, type CcSide } from './types.js';
 import type { AuraState, Interval } from './auraState.js';
 
 type Units = Record<string, { type?: unknown; reaction?: unknown; ownerId?: unknown }>;
@@ -8,6 +8,7 @@ export interface LandedInterrupt { ms: number; spellId: number; targetId: string
 export interface SufferedInterrupt { ms: number; spellId: number; }
 
 const teamOf = (units: Units, id: string) => unitTeam((units[id] ?? {}).reaction);
+const emptyCcSide = (): CcSide => ({ timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] });
 
 function counts(intervals: { spellId: number }[]): { count: number; byCount: Map<string, number> } {
   let count = 0;
@@ -34,6 +35,7 @@ function toCcSide(d: CcDurations, count: number, byCount: Map<string, number>): 
 
 /** CC suffered by playerId from enemy players (single union). */
 export function ccReceivedSide(playerId: string, units: Units, auras: AuraState, suffered: SufferedInterrupt[], matchEndMs: number): CcSide {
+  if (unitKind((units[playerId] ?? {}).type) !== 'player') return emptyCcSide();
   const myTeam = teamOf(units, playerId);
   const intervals = auras.intervalsOn(playerId).filter((iv) => {
     const caster = resolvePlayer(units, iv.srcId);
@@ -47,6 +49,7 @@ export function ccReceivedSide(playerId: string, units: Units, auras: AuraState,
 
 /** CC playerId (+pets) landed on enemy players: per-target union, summed across targets. */
 export function ccDoneSide(playerId: string, petIds: string[], units: Units, auras: AuraState, landed: LandedInterrupt[], matchEndMs: number): CcSide {
+  if (unitKind((units[playerId] ?? {}).type) !== 'player') return emptyCcSide();
   const myTeam = teamOf(units, playerId);
   const byTarget = new Map<string, Interval[]>();
   for (const casterId of [playerId, ...petIds]) {

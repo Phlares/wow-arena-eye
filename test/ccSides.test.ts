@@ -36,4 +36,13 @@ describe('ccSides', () => {
     expect(ccReceivedSide('P', units, auras, [], 100000).hardCcSec).toBe(0); // CC from NPC ignored
     expect(ccDoneSide('P', [], units, auras, [], 100000).hardCcSec).toBe(0); // CC on NPC ignored
   });
+
+  it('returns empty CC for a non-player subject (pet/NPC recipient or caster excluded)', () => {
+    // enemy player E1 CCs the Pet, and the Pet CCs enemy E1
+    const events = [...cc('E1', 'Pet', 0, 5000), ...cc('Pet', 'E1', 0, 5000)];
+    const auras = buildAuraState({ events });
+    expect(ccReceivedSide('Pet', units, auras, [], 100000).timeSec).toBe(0); // CC on a pet is not tracked
+    expect(ccDoneSide('Pet', [], units, auras, [], 100000).timeSec).toBe(0); // pet's own ccDone not attributed to the pet
+    expect(ccReceivedSide('NPC', units, auras, [], 100000).timeSec).toBe(0);
+  });
 });
