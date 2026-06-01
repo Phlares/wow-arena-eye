@@ -31,6 +31,7 @@ identically for received and done:
 ```ts
 interface CcCategoryStat { category: DrCategory; count: number; durationSec: number; }
 
+// CC that LANDED (duration tracking). Pure time/landed metric — immunity lives in ImmuneSide.
 interface CcSide {
   timeSec: number;        // received: union of all CC on you; done: Σ over enemy targets of that target's union
   castDenialSec: number;  // silences + interrupt lockouts (suffered for received, landed for done)
@@ -38,8 +39,15 @@ interface CcSide {
   rootSec: number;        // root
   count: number;          // CC instances (SPELL_AURA_APPLIED + REFRESH)
   byCategory: CcCategoryStat[];
-  immuneCount: number;            // received: enemy CC that whiffed on your immunity; done: your CC that was immuned (wasted)
-  immuneByCategory: { category: DrCategory; count: number }[];
+}
+
+// Things that did NOT land because of immunity / grounding (the three elements, §7).
+interface ImmuneSide {
+  spellsImmuned: SpellTally[];                              // A: every immuned/grounded ability, by spell (count per spell) — superset, incl. non-CC (e.g. a grounded Haunt)
+  ccImmuned: number;                                        // C: count of immuned CC instances (the CC subset of A)
+  ccImmunedByCategory: { category: DrCategory; count: number }[];
+  damageImmuned: number;                                    // B: damage amount immuned
+  healingImmuned: number;                                   // B: healing amount immuned
 }
 ```
 
@@ -47,12 +55,14 @@ interface CcSide {
 - **Remove** the Cycle-1 flat fields `timeControlledSec`, `castDenialSec`,
   `hardCcSec`, `rootSec`, `ccTaken`, `ccTakenByCategory` — they become
   `ccReceived` (same values, same `cd/hard/root` bucket names, now grouped).
-- **Add** `ccReceived: CcSide` and `ccDone: CcSide`.
-- **Add** `damageIntoImmune: number` and `healingIntoImmune: number` (wasted, source-attributed).
+- **Add** `ccReceived: CcSide`, `ccDone: CcSide`.
+- **Add** `immuneReceived: ImmuneSide` (immunity/grounding that blocked things aimed at you) and
+  `immuneDone: ImmuneSide` (your effort that was immuned/grounded — wasted).
 - `deathsWhileCcd` / `deathsWhileCcdBySpell` stay as-is (a received-at-death concept).
 
-`CcTakenEntry` (Cycle 1) is renamed `CcCategoryStat` and reused on both sides.
-CC stays per-unit (not added to `CombinedTotals`).
+`SpellTally` is the existing `{ spellName; count }` shape (reused). `CcTakenEntry`
+(Cycle 1) is renamed `CcCategoryStat` and reused on both `CcSide`s. CC/immune stay
+per-unit (not added to `CombinedTotals`).
 
 ## 3. Player-on-player resolution (shared helper)
 
@@ -106,33 +116,54 @@ Cycle 1 extended *suffered* interrupts to `{ name, ms, spellId }`. Mirror it for
 rest of done. `interruptsLanded`/`interruptsSuffered` counts + by-spell stay as
 their own top-level fields (unchanged).
 
-## 7. Immune / wasted-effort (`eventAccess` + `perUnit`)
+## 7. Immune / wasted-effort — three elements, each received/done (`eventAccess` + `perUnit`)
 
-Add an `immuneMiss(ev)` accessor whose exact shape is **discovered by TDD on the
-real fixture** (same method as `absorbInfo`): WoW represents a fully-immune hit as
-`SPELL_MISS`/`SPELL_DAMAGE`/`SPELL_HEAL` with a `missType === "IMMUNE"` field (or
-a parser-named equivalent). The accessor returns `{ srcId, destId, eventKind: 'cc' | 'damage' | 'heal', spellId, amount? }` for an immune-blocked event, else `undefined`.
+Add an `immuneEvent(ev)` accessor whose exact shape is **discovered by TDD on the
+real fixture** (same method as `absorbInfo`). It must recognize **two** log
+patterns:
+- **Immunity** — a hit fully blocked by an immunity/absorb-immune: `SPELL_MISS` /
+  `SPELL_DAMAGE` / `SPELL_HEAL` with `missType === "IMMUNE"` (or the parser-named
+  equivalent).
+- **Grounding** — a single-target spell consumed by **Grounding Totem**. This is a
+  *distinct* mechanic (not necessarily a `missType=IMMUNE`); discovery determines
+  its signature (e.g. the cast resolving against a Grounding Totem unit, or a
+  redirect/`SPELL_MISS` variant). Grounded spells count toward element A.
 
-From it, with the player-on-player + opposite-team filter:
-- **CC immuned** (the immune event is a CC spell, by `ccInfo`): credit the caster's
-  `ccDone.immuneCount`/`immuneByCategory` (wasted) and the target's
-  `ccReceived.immuneCount`/`immuneByCategory` (avoided).
-- **Damage into immune**: `damageIntoImmune += amount` on the source.
-- **Healing into immune** (e.g. healing a Cyclone'd/Banished ally): `healingIntoImmune += amount` on the source. (Healing target is an ally — same-team player; the player filter still requires both to be players, but the team check is relaxed for the heal case since it's friendly.)
+The accessor returns `{ srcId, destId, kind: 'spell' | 'damage' | 'heal', spellId, spellName, amount? }`
+for an immuned/grounded event, else `undefined`. The three elements are derived
+from it, with the player-on-player resolution from §3. **Received vs done is by
+role:** *done* = the affected unit is the **source** (your offense/effort was
+immuned); *received* = the affected unit is the **target** (something aimed at you
+was immuned by your immunity, or a heal to you was wasted because you were immune).
 
-If the fixture contains **no** IMMUNE events, the immune sub-part is reported and
-deferred (the accessor stubbed to return `undefined`, fields left 0) rather than
-shipped unverified — the received/done split + player filter still land. The
-discovery step decides this.
+- **A — spells/abilities immuned (incl. grounded)** → `spellsImmuned` (by-spell tally).
+  Every immuned/grounded ability between players. Caster's `immuneDone.spellsImmuned`;
+  intended target's `immuneReceived.spellsImmuned`. (A grounded Haunt: the caster's
+  done tally; the grounding shaman's received tally if the totem resolves to its owner — best-effort, see §11.)
+- **B — damage/healing immuned** → `damageImmuned` / `healingImmuned` (amounts).
+  Damage immuned: source `immuneDone.damageImmuned`, target `immuneReceived.damageImmuned`.
+  Healing immuned (e.g. healing a Cyclone'd/Banished ally — immune to heals):
+  healer `immuneDone.healingImmuned`, the immune ally `immuneReceived.healingImmuned`.
+  (Heals are same-team; the player filter requires both players but relaxes the
+  opposite-team check for the heal case.)
+- **C — CC instances immuned** → `ccImmuned` (count) + `ccImmunedByCategory`.
+  The CC subset of A (immuned event whose `spellId` is CC per `ccInfo`): caster's
+  `immuneDone.ccImmuned`, target's `immuneReceived.ccImmuned`.
+
+If the fixture contains **no** immune/grounding events, this whole section is
+reported and deferred (the accessor stubbed to `undefined`, all `ImmuneSide`
+fields 0) rather than shipped unverified — the received/done CC split + player
+filter still land. The discovery step decides this, and reports separately
+whether grounding was detectable (grounding may defer even if `missType=IMMUNE` is found).
 
 ## 8. Report (lean, validation-only) — `renderMetrics`
 
-Replace the single CC cell with two stacked lines per player:
-- `CC recv: <timeSec>s (cd/hard/root) · imm <immuneCount>`
-- `CC done: <timeSec>s (cd/hard/root) · imm <immuneCount>`
+Two stacked CC-time lines per player, plus an immune line, all received/done:
+- `CC recv: <timeSec>s (cd/hard/root)` · `CC done: <timeSec>s (cd/hard/root)`
+- `immuned recv: cc <ccImmuned> · dmg <damageImmuned> · heal <healingImmuned>` and the same for `done`,
+  with `spellsImmuned` rendered as a collapsed by-spell tally (`<details>`).
 
-and, where non-zero, append `dmg→imm <n> · heal→imm <n>`. Keep it compact; this is
-validation output. Column/label adjustments stay minimal.
+Keep it compact; this is validation output. Column/label adjustments stay minimal.
 
 ## 9. Components / file structure
 
@@ -141,17 +172,17 @@ src/metrics/types.ts        # CcSide + CcCategoryStat; UnitMetrics received/done
 src/metrics/auraState.ts    # Interval gains srcId; add intervalsBy(srcId)
 src/metrics/targeting.ts    # use shared resolvePlayer (drop local attackerOf/isPlayer)
 src/metrics/ccTime.ts       # add sumCcDurations(); (computeCcDurations unchanged)
-src/metrics/eventAccess.ts  # add immuneMiss(ev) (TDD-discovered)
-src/metrics/perUnit.ts      # build received + done CcSide (player-only, pet→owner, done grouped-by-target-summed); landed-interrupt windows; immune accumulation; damage/healingIntoImmune
-src/view/renderMetrics.ts   # two CC lines (recv/done) + immune; label tweaks
+src/metrics/eventAccess.ts  # add immuneEvent(ev) — immunity + grounding (TDD-discovered)
+src/metrics/perUnit.ts      # build received+done CcSide (player-only, pet→owner, done grouped-by-target-summed); landed-interrupt windows; immuneReceived/immuneDone (3 elements)
+src/view/renderMetrics.ts   # two CC-time lines + immune recv/done; label tweaks
 test/
   auraState.test.ts         # srcId captured; intervalsBy(src)
   resolvePlayer.test.ts     # player / pet→owner / NPC→undefined
   ccTime.test.ts            # sumCcDurations (add buckets, merge byCategory)
-  eventAccessImmune.test.ts # immuneMiss discovered on fixture
-  perUnit.test.ts           # received vs done; pet-cast CC rolled to owner; done summed across 2 targets; CC on a pet ignored; immune counts; dmg/heal into immune
-  metrics.test.ts           # golden: ccReceived matches Cycle-1 received numbers; ccDone > 0 for an attacker; player-only (no creature CC)
-  renderReport.test.ts      # updated UnitMetrics literals (ccReceived/ccDone); two CC lines render
+  eventAccessImmune.test.ts # immuneEvent discovered on fixture (immunity + grounding signatures)
+  perUnit.test.ts           # received vs done CC; pet-cast CC→owner; done summed across 2 targets; CC on a pet ignored; immuneDone/immuneReceived 3 elements (spellsImmuned, ccImmuned, dmg/heal immuned)
+  metrics.test.ts           # golden: ccReceived matches Cycle-1 numbers; ccDone > 0 for an attacker; player-only (no creature CC)
+  renderReport.test.ts      # updated UnitMetrics literals (ccReceived/ccDone/immuneReceived/immuneDone); CC + immune lines render
 ```
 
 ## 10. Data flow
@@ -159,15 +190,17 @@ test/
 `buildAuraState` (now srcId-aware, `intervalsBy`) → `perUnit` per player:
 received = `computeCcDurations(intervalsOn(me) ∩ enemy-player-casters, sufferedInterruptWindows)`;
 done = `sumCcDurations( per enemy target: computeCcDurations(intervalsBy(me+pets)→target, landedInterruptWindows→target) )`;
-immune events fold into both sides' `immuneCount` and `damage/healingIntoImmune`;
-assemble `ccReceived`/`ccDone` `CcSide` → `renderMetrics` two-line CC display.
+immune/grounding events fold into `immuneDone` (source role) and `immuneReceived`
+(target role) across the three elements; assemble `ccReceived`/`ccDone` (`CcSide`)
++ `immuneReceived`/`immuneDone` (`ImmuneSide`) → `renderMetrics` CC + immune display.
 
 ## 11. Error handling
 
 - Source or target not resolving to a player → CC dropped (NPC/pet-on-pet noise).
 - Pet with owner not a player → dropped.
 - `intervalsBy(src)` empty → `ccDone` all zeros.
-- `immuneMiss` undefined / no IMMUNE events in fixture → immune fields 0 (deferred sub-part).
+- `immuneEvent` undefined / no immune+grounding events in fixture → all `ImmuneSide` fields 0 (deferred sub-part).
+- Grounded-spell attribution: the caster's `immuneDone` is always credited; crediting the grounding shaman's `immuneReceived` is best-effort (only if the Grounding Totem resolves to a player owner) — if it can't be resolved, the done side still records the wasted cast.
 - Self/same-team CC (shouldn't occur) → excluded by the opposite-team check (heal-into-immune is the deliberate same-team exception).
 - Open-ended/unclosed CC auras and the per-instance cap behave exactly as Cycle 1 (the `done` path runs the same `computeCcDurations`).
 
@@ -176,9 +209,9 @@ assemble `ccReceived`/`ccDone` `CcSide` → `renderMetrics` two-line CC display.
 - **resolvePlayer:** player→self; pet→owner; pet whose owner is a player; NPC/totem→undefined.
 - **auraState:** `srcId` captured from APPLIED and retained after REMOVED/BROKEN; `intervalsBy(src)` returns that caster's intervals.
 - **ccTime.sumCcDurations:** two parts → bucket fields add; `byCategory` merges per category; empty → zeros.
-- **perUnit (synthetic, player-on-player):** a stun you applied to enemy A and a poly to enemy B → `ccDone.hardCcSec` = sum of both; re-applied stun on one enemy → that target unioned; a Felguard (pet) Axe Toss on an enemy → counted under the **owner's** `ccDone`; CC on your pet → ignored; CC from a creature → ignored; an immuned CC → `ccDone.immuneCount` on caster + `ccReceived.immuneCount` on target; damage into an immune enemy → `damageIntoImmune`.
-- **eventAccess.immuneMiss:** discovered + asserted on the fixture (player-on-player immune event), or reported absent.
-- **fixture golden:** `me.ccReceived` bucket values equal Cycle-1's received numbers (regression); `me.ccDone.timeSec > 0`; no NPC/creature appears with CC; bucket sums ≥ `timeSec` per side.
+- **perUnit (synthetic, player-on-player):** a stun you applied to enemy A and a poly to enemy B → `ccDone.hardCcSec` = sum of both; re-applied stun on one enemy → that target unioned; a Felguard (pet) Axe Toss on an enemy → counted under the **owner's** `ccDone`; CC on your pet → ignored; CC from a creature → ignored. Immune (all 3 elements): an immuned CC → `immuneDone.ccImmuned`+`spellsImmuned` on caster, `immuneReceived.ccImmuned`+`spellsImmuned` on target; damage into an immune enemy → `immuneDone.damageImmuned` (source) + `immuneReceived.damageImmuned` (target); healing an immune ally → `immuneDone.healingImmuned` (healer) + `immuneReceived.healingImmuned` (ally).
+- **eventAccess.immuneEvent:** discovered + asserted on the fixture for an immunity hit (player-on-player) and, if present, a grounded spell; or reported absent (with grounding reported separately).
+- **fixture golden:** `me.ccReceived` bucket values equal Cycle-1's received numbers (regression); `me.ccDone.timeSec > 0`; no NPC/creature appears with CC; bucket sums ≥ `timeSec` per side; `ccImmuned` ≤ `spellsImmuned` total count per side (CC is a subset of all immuned spells).
 
 ## 13. Out of scope
 
