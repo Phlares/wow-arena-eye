@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { computeUnitMetrics } from '../src/metrics/perUnit.js';
 import { buildAuraState } from '../src/metrics/auraState.js';
 
+
 function run(m: any) { return computeUnitMetrics(m, buildAuraState(m)); }
 
 function match() {
@@ -137,6 +138,40 @@ describe('CC durations', () => {
     expect(you.rootSec).toBe(0);
     expect(you.timeControlledSec).toBe(8); // disjoint: 2 + 6
     expect(you.ccTakenByCategory.find((c) => c.category === 'stun')?.durationSec).toBe(2);
+  });
+});
+
+describe('CC received/done + immune (perUnit)', () => {
+  it('splits received/done, rolls pet CC to owner, counts immuned CC both sides', () => {
+    const match = {
+      durationInSeconds: 100,
+      units: {
+        P: { name: 'You', type: 1, reaction: 1 }, Pet: { name: 'Felguard', type: 3, reaction: 1, ownerId: 'P' },
+        E: { name: 'Enemy', type: 1, reaction: 2 },
+      },
+      events: [
+        { logLine: { event: 'SPELL_AURA_APPLIED' }, srcUnitId: 'P', destUnitId: 'E', spellId: '408', spellName: 'Kidney Shot', timestamp: 0 },
+        { logLine: { event: 'SPELL_AURA_REMOVED' }, srcUnitId: 'P', destUnitId: 'E', spellId: '408', spellName: 'Kidney Shot', timestamp: 2000 },
+        { logLine: { event: 'SPELL_AURA_APPLIED' }, srcUnitId: 'Pet', destUnitId: 'E', spellId: '408', spellName: 'Kidney Shot', timestamp: 3000 },
+        { logLine: { event: 'SPELL_AURA_REMOVED' }, srcUnitId: 'Pet', destUnitId: 'E', spellId: '408', spellName: 'Kidney Shot', timestamp: 6000 },
+        { logLine: { event: 'SPELL_AURA_APPLIED' }, srcUnitId: 'E', destUnitId: 'P', spellId: '118', spellName: 'Polymorph', timestamp: 7000 },
+        { logLine: { event: 'SPELL_AURA_REMOVED' }, srcUnitId: 'E', destUnitId: 'P', spellId: '118', spellName: 'Polymorph', timestamp: 13000 },
+        // Enemy tries Polymorph on You again, IMMUNE (SPELL_MISSED, missType at param[11])
+        { logLine: { event: 'SPELL_MISSED', parameters: ['E','Enemy','0x0','0x0','P','You','0x0','0x0','118','Polymorph','32','IMMUNE'] }, srcUnitId: 'E', destUnitId: 'P', spellId: '118', spellName: 'Polymorph', timestamp: 14000 },
+        { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', spellName: 'Filler', timestamp: 20000 },
+      ],
+    };
+    const units = computeUnitMetrics(match, buildAuraState(match));
+    const you = units.find((u) => u.unitId === 'P')!;
+    const enemy = units.find((u) => u.unitId === 'E')!;
+    expect(you.ccDone.hardCcSec).toBe(5);     // 2 (self) + 3 (pet) on E
+    expect(you.ccDone.count).toBe(2);
+    expect(you.ccReceived.hardCcSec).toBe(6); // 6s poly on you
+    expect(you.ccReceived.count).toBe(1);
+    // immune: enemy's poly on you was immuned → your immuneReceived, enemy's immuneDone
+    expect(you.immuneReceived.ccImmuned).toBe(1);
+    expect(enemy.immuneDone.ccImmuned).toBe(1);
+    expect(you.immuneReceived.spellsImmuned[0].spellName).toBe('Polymorph');
   });
 });
 
