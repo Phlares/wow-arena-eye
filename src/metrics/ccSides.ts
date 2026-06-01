@@ -63,8 +63,9 @@ export function ccDoneSide(playerId: string, petIds: string[], units: Units, aur
   }
   const windowsByTarget = new Map<string, Window[]>();
   for (const x of landed) {
-    const tgt = x.targetId;
-    if (unitKind((units[tgt] ?? {}).type) !== 'player' || teamOf(units, tgt) === myTeam) continue;
+    // interrupting an enemy OR their pet (e.g. a Succubus's Seduction channel) is valid cast-denial
+    const tgt = resolvePlayer(units, x.targetId);
+    if (!tgt || teamOf(units, tgt) === myTeam) continue;
     const arr = windowsByTarget.get(tgt) ?? []; arr.push({ start: x.ms, end: x.ms + interruptLockoutSec(x.spellId) * 1000 }); windowsByTarget.set(tgt, arr);
   }
   const targets = new Set([...byTarget.keys(), ...windowsByTarget.keys()]);

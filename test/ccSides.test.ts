@@ -44,6 +44,15 @@ describe('ccSides', () => {
     expect(ccDoneSide('P', [], units, auras, [], 100000).hardCcSec).toBe(0); // pet target not a player
   });
 
+  it('counts interrupting an enemy pet channel as the interrupter cast-denial (rolled to the pet owner)', () => {
+    // units: P (team1) interrupts E1's pet EPet (team2). Wind Shear (57994, 3s lockout).
+    const u = { ...units, EPet: { type: 3, reaction: 2, ownerId: 'E1' } };
+    const auras = buildAuraState({ events: [] });
+    // P interrupts E1's pet
+    const done = ccDoneSide('P', [], u, auras, [{ ms: 0, spellId: 57994, targetId: 'EPet' }], 100000);
+    expect(done.castDenialSec).toBe(3); // kicking the enemy pet's channel counts for P's done
+  });
+
   it('returns empty CC for a non-player subject (pet/NPC recipient or caster excluded)', () => {
     // enemy player E1 CCs the Pet, and the Pet CCs enemy E1
     const events = [...cc('E1', 'Pet', 0, 5000), ...cc('Pet', 'E1', 0, 5000)];
