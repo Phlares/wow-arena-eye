@@ -1,4 +1,7 @@
-import type { Sample, PositionTrack, PositionQuery } from './types.js';
+import type { Sample, PositionTrack, PositionQuery, UnitMetrics } from './types.js';
+import { matchStartMs } from './eventAccess.js';
+import { collectCasts } from './cooldownTimeline.js';
+import { isMobility } from '../metadata/repositioning.js';
 
 export const MAX_GAP_SEC = 3;
 export const PRE_CAST_VALID_SEC = 0.5;
@@ -77,4 +80,26 @@ export function distanceAt(a: PositionTrack, b: PositionTrack, tSec: number): nu
   const pb = resolvePosition(b, tSec).position;
   if (!pa || !pb) return undefined;
   return Math.hypot(pa.x - pb.x, pa.y - pb.y);
+}
+
+/** Build the enriched position-track store: each unit's OBSERVED samples (copied, not mutated)
+ *  plus mobility-cast break times (tSec). Inferred samples are added in a later step. */
+export function buildPositionTracks(units: UnitMetrics[], match: unknown): Map<string, PositionTrack> {
+  const m = match as { events?: unknown[] };
+  const events = Array.isArray(m.events) ? m.events : [];
+  const startMs = matchStartMs(events) ?? 0;
+
+  const tracks = new Map<string, PositionTrack>();
+  for (const u of units) {
+    tracks.set(u.unitId, { unitId: u.unitId, samples: u.track.map((s) => ({ ...s })), breaks: [] });
+  }
+
+  for (const [uid, list] of collectCasts(match)) {
+    const tr = tracks.get(uid);
+    if (!tr) continue;
+    for (const c of list) if (isMobility(c.spellId)) tr.breaks.push((c.ms - startMs) / 1000);
+  }
+
+  for (const tr of tracks.values()) tr.breaks.sort((x, y) => x - y);
+  return tracks;
 }
