@@ -56,4 +56,16 @@ describe('computeDistanceBands', () => {
     const r = computeDistanceBands([A, B], new Map([trackOf(A), trackOf(B)]))[0];
     expect(r.sampledSec).toBeLessThan(20);
   });
+
+  it('spreads a separating pair across all four bands, fractions summing to 1', () => {
+    // A at origin; B walks from 3yd → 60yd over 20s, so distance sweeps 0–5, 5–25, 25–40, 40+.
+    const A = unit('A', 'friendly', still(0, 0));
+    const B = unit('B', 'enemy', Array.from({ length: 21 }, (_, i) => ({ tSec: i, x: 3 + 57 * (i / 20), y: 0 })));
+    const r = computeDistanceBands([A, B], new Map([trackOf(A), trackOf(B)]))[0];
+    expect(r.b0_5).toBeGreaterThan(0);
+    expect(r.b5_25).toBeGreaterThan(0);
+    expect(r.b25_40).toBeGreaterThan(0);
+    expect(r.b40plus).toBeGreaterThan(0);
+    expect(r.b0_5 + r.b5_25 + r.b25_40 + r.b40plus).toBeCloseTo(1);
+  });
 });

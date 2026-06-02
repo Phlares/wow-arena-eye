@@ -5,7 +5,12 @@ export const STEP_MS = 500;
 export const MELEE_YD = 8;
 export const HEAL_RANGE_YD = 40;
 
+// Tick step in seconds. 500ms = 0.5 is exact in binary, so the `t += STEP_SEC` loops below
+// accumulate without drift; keep STEP_MS a value that divides cleanly into a power-of-two second.
+const STEP_SEC = STEP_MS / 1000;
+
 const round1 = (x: number) => Math.round(x * 10) / 10;
+const round3 = (x: number) => Math.round(x * 1000) / 1000;
 
 /** Nearest resolved distance from `self` to any of `others` at tSec, or undefined. */
 function nearest(self: PositionTrack, others: PositionTrack[], t: number): number | undefined {
@@ -25,17 +30,16 @@ function spacingFor(u: UnitMetrics, players: UnitMetrics[], tracks: Map<string, 
   const enemies = players.filter((p) => p.team !== u.team && p.unitId !== u.unitId).map(trackOf).filter(keep);
   const allies = players.filter((p) => p.team === u.team && p.unitId !== u.unitId).map(trackOf).filter(keep);
 
-  const stepSec = STEP_MS / 1000;
   const startT = self.samples[0].tSec;
   const endT = self.samples[self.samples.length - 1].tSec;
   let meleeRangeSec = 0;
   let isolatedSec = 0;
-  for (let t = startT; t <= endT; t += stepSec) {
+  for (let t = startT; t <= endT; t += STEP_SEC) {
     if (!resolvePosition(self, t).position) continue;
     const ne = nearest(self, enemies, t);
-    if (ne !== undefined && ne <= MELEE_YD) meleeRangeSec += stepSec;
+    if (ne !== undefined && ne <= MELEE_YD) meleeRangeSec += STEP_SEC;
     const na = nearest(self, allies, t);
-    if (na !== undefined && na > HEAL_RANGE_YD) isolatedSec += stepSec;
+    if (na !== undefined && na > HEAL_RANGE_YD) isolatedSec += STEP_SEC;
   }
   return { meleeRangeSec: round1(meleeRangeSec), isolatedSec: round1(isolatedSec) };
 }
@@ -56,10 +60,12 @@ function bandOf(d: number): Band {
   if (d < 40) return 'b25_40';
   return 'b40plus';
 }
-const round3 = (x: number) => Math.round(x * 1000) / 1000;
 
 /** Per unordered player pair, the fraction of sampled time in each distance band.
- *  Fractions are over `sampledSec` (resolved ticks only) so unresolved time never inflates a band. */
+ *  Fractions are over `sampledSec` (resolved ticks only) so unresolved time never inflates a band.
+ *  NOTE: `sampledSec` is this PAIR's resolvable overlap, not the match length — a player who
+ *  died early yields a small sampledSec on all their pairs. Compare fractions, not raw seconds,
+ *  across pairs. */
 export function computeDistanceBands(units: UnitMetrics[], tracks: Map<string, PositionTrack>): DistanceBandRow[] {
   const players = units.filter((u) => u.kind === 'player' && (tracks.get(u.unitId)?.samples.length ?? 0) > 0);
   let lo = Infinity;
@@ -71,18 +77,17 @@ export function computeDistanceBands(units: UnitMetrics[], tracks: Map<string, P
   }
   const rows: DistanceBandRow[] = [];
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) return rows;
-  const stepSec = STEP_MS / 1000;
   for (let i = 0; i < players.length; i++) {
     for (let j = i + 1; j < players.length; j++) {
       const a = tracks.get(players[i].unitId)!;
       const b = tracks.get(players[j].unitId)!;
       const acc: Record<Band, number> = { b0_5: 0, b5_25: 0, b25_40: 0, b40plus: 0 };
       let sampled = 0;
-      for (let t = lo; t <= hi; t += stepSec) {
+      for (let t = lo; t <= hi; t += STEP_SEC) {
         const d = distanceAt(a, b, t);
         if (d === undefined) continue;
-        acc[bandOf(d)] += stepSec;
-        sampled += stepSec;
+        acc[bandOf(d)] += STEP_SEC;
+        sampled += STEP_SEC;
       }
       const norm = sampled > 0 ? sampled : 1;
       rows.push({
