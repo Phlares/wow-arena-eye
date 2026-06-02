@@ -210,7 +210,8 @@ export function computeUnitMetrics(match: unknown, auras: AuraState, casts: Map<
       positionSamples: track.length,
       timeStationarySec: Math.round(stationarySec * 10) / 10,
       track,
-      spacing: { meleeRangeSec: 0, isolatedSec: 0 },
+      spacing: { meleeRangeSec: 0, isolatedSec: 0 }, // placeholder — overwritten by attachSpacing
+
       interruptsSuffered: a.interruptsSuffered.length,
       interruptsSufferedBySpell: tally(a.interruptsSuffered.map((x) => x.name)),
       deathsWhileCcd: a.deathsWhileCcd.length,

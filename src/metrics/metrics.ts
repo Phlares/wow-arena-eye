@@ -24,8 +24,8 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
     coordination: computeCoordination(match, HEALER_SPEC_IDS, focusTracks),
     focusTracks,
     offensiveWindows: computeOffensiveWindows(match, units, auras, casts),
-    positionTracks: [],
-    distanceBands: [],
+    positionTracks: [], // placeholder — populated once buildPositionTracks is wired in
+    distanceBands: [], // placeholder — populated once computeDistanceBands is wired in
     playerUnitId,
   };
 }
