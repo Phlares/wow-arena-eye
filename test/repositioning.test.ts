@@ -18,4 +18,13 @@ describe('repositioning metadata', () => {
     expect(anchorInfo(1953)).toBeUndefined();
     expect(ANCHOR_ABILITIES.has(48018)).toBe(true);
   });
+
+  // Invariant: an anchor's return spell is itself an instant relocation, so it MUST also be
+  // tracked as mobility — otherwise interpolation would smear across the teleport-back. Guards
+  // against a future patch refresh adding an anchor but forgetting its return spell here.
+  it('keeps every anchor return spell in MOBILITY_ABILITIES', () => {
+    for (const { returnSpellId } of ANCHOR_ABILITIES.values()) {
+      expect(MOBILITY_ABILITIES.has(returnSpellId)).toBe(true);
+    }
+  });
 });
