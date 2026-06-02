@@ -4,6 +4,8 @@ import { isDefensive, ccInfo } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
 import { sampleAt } from './sampleAt.js';
 import { ccReceivedSide, ccDoneSide, type LandedInterrupt } from './ccSides.js';
+import { collectCasts, readyIntervals, type CastEvent } from './cooldownTimeline.js';
+import { cdsForSpec } from '../metadata/cooldowns.js';
 
 interface Acc {
   casts: string[];
@@ -44,7 +46,7 @@ function immByCat(cats: DrCategory[]): { category: DrCategory; count: number }[]
   return [...m.entries()].map(([category, count]) => ({ category, count }));
 }
 
-export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetrics[] {
+export function computeUnitMetrics(match: unknown, auras: AuraState, casts: Map<string, CastEvent[]> = collectCasts(match)): UnitMetrics[] {
   const m = match as { events?: unknown[]; units?: Record<string, Record<string, unknown>>; durationInSeconds?: unknown };
   const events = Array.isArray(m.events) ? m.events : [];
   const units = m.units ?? {};
@@ -164,6 +166,27 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
     const immuneReceived: ImmuneSide = { spellsImmuned: tally(a.immuneRecvSpells), ccImmuned: a.immuneRecvCc.length, ccImmunedByCategory: immByCat(a.immuneRecvCc) };
     const immuneDone: ImmuneSide = { spellsImmuned: tally(a.immuneDoneSpells), ccImmuned: a.immuneDoneCc.length, ccImmunedByCategory: immByCat(a.immuneDoneCc) };
 
+    const specId = u.spec !== undefined ? String(u.spec) : undefined;
+    const specCds = new Map(cdsForSpec(specId).map((e) => [e.spellId, e]));
+    const castsBySpell = new Map<number, { ms: number[]; name: string }>();
+    for (const c of casts.get(id) ?? []) {
+      const entry = castsBySpell.get(c.spellId) ?? { ms: [], name: c.name };
+      entry.ms.push(c.ms);
+      castsBySpell.set(c.spellId, entry);
+    }
+    // availableSec is 0 when startMs is unavailable (no match start to measure against),
+    // consistent with the other startMs-degenerate fields above (deathTimesSec, defensivesIntoBurst).
+    const cdUsage = [...castsBySpell.entries()]
+      .map(([sid, { ms, name }]) => {
+        const info = specCds.get(sid);
+        if (!info) return undefined;
+        const ready = startMs !== undefined ? readyIntervals(ms, info.cooldownMs, info.charges, startMs, endMs) : [];
+        const availableSec = Math.round(ready.reduce((s, iv) => s + (iv.end - iv.start), 0) / 1000);
+        return { spellId: sid, name, category: info.category, casts: ms.length, availableSec };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== undefined)
+      .sort((x, y) => y.casts - x.casts);
+
     result.push({
       unitId: id,
       name: typeof u.name === 'string' && u.name.length > 0 ? u.name : id,
@@ -199,6 +222,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState): UnitMetric
       ccDone,
       immuneReceived,
       immuneDone,
+      cdUsage,
       damageDone: Math.round(a.damageDone),
       healingDone: Math.round(a.healingDone),
       absorbDone: Math.round(a.absorbDone),
