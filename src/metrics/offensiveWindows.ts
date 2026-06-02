@@ -16,18 +16,29 @@ function offensiveContribs(unitId: string, auras: AuraState): Interval[] {
   return auras.intervalsBy(unitId).filter((iv) => isOffensiveCd(iv.spellId));
 }
 
-/** Merge overlapping intervals (sorted by start) into windows, keeping all contributors. */
+/** Merge overlapping intervals into windows per team, keeping all contributors.
+ *  Intervals are partitioned by team first, then sorted by start within each team
+ *  and greedily merged. This prevents cross-team interleaving from breaking same-team
+ *  merges (e.g. E1[0,10], F1[5,15], E2[8,20] must yield one enemy window [0,20]).
+ */
 function mergeWindows(contribs: { iv: Interval; team: Team }[]): { team: Team; start: number; end: number; ivs: Interval[] }[] {
-  const sorted = [...contribs].sort((a, b) => a.iv.start - b.iv.start);
+  const byTeam = new Map<Team, Interval[]>();
+  for (const { iv, team } of contribs) {
+    const arr = byTeam.get(team) ?? [];
+    arr.push(iv);
+    byTeam.set(team, arr);
+  }
   const out: { team: Team; start: number; end: number; ivs: Interval[] }[] = [];
-  // Intervals from both teams are sorted together by start time; the `last.team === team` guard prevents cross-team merges, so output windows may interleave teams in chronological order.
-  for (const { iv, team } of sorted) {
-    const last = out[out.length - 1];
-    if (last && last.team === team && iv.start <= last.end) {
-      last.end = Math.max(last.end, iv.end);
-      last.ivs.push(iv);
-    } else {
-      out.push({ team, start: iv.start, end: iv.end, ivs: [iv] });
+  for (const [team, ivs] of byTeam) {
+    const sorted = [...ivs].sort((a, b) => a.start - b.start);
+    for (const iv of sorted) {
+      const last = out[out.length - 1];
+      if (last && last.team === team && iv.start <= last.end) {
+        last.end = Math.max(last.end, iv.end);
+        last.ivs.push(iv);
+      } else {
+        out.push({ team, start: iv.start, end: iv.end, ivs: [iv] });
+      }
     }
   }
   return out;
@@ -138,7 +149,7 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
     const used: MitigationItem[] = [];
     for (const def of defenders) {
       for (const c of casts.get(def.unitId) ?? []) {
-        if (c.ms < w.start - 1000 || c.ms > w.end) continue;
+        if (c.ms < w.start - 1000 || c.ms >= w.end) continue;
         const cat = mitigationCategoryOf(c.spellId, def.spec);
         if (!cat) continue;
         used.push({ unitId: def.unitId, category: cat, spellId: c.spellId, name: c.name, usedAtSec: Math.round((c.ms - matchStart) / 1000) });

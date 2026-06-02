@@ -52,5 +52,14 @@ describe('computeMatchMetrics phases 4-6 (real fixture)', () => {
     // absorbDone is now live (was hard-zeroed): at least one unit absorbed something.
     const allUnits = mm.teams.flatMap((t) => [...t.players.flatMap((p) => [p.player, ...p.pets]), ...t.unownedPets]);
     expect(allUnits.some((u) => u.absorbDone > 0)).toBe(true);
+
+    // offensiveWindows wiring: real fixture should produce at least one window with the expected shape.
+    expect(Array.isArray(mm.offensiveWindows)).toBe(true);
+    expect(mm.offensiveWindows.length).toBeGreaterThan(0);
+    for (const w of mm.offensiveWindows) {
+      expect(['friendly', 'enemy']).toContain(w.attackingTeam);
+      expect(Array.isArray(w.openedBy)).toBe(true);
+      expect(typeof w.teamDamageTaken).toBe('number');
+    }
   });
 });

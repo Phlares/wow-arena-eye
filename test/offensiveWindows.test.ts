@@ -115,6 +115,27 @@ describe('computeOffensiveWindows', () => {
     expect(enemyW.defendingTeam).toBe('friendly');
   });
 
+  // Regression for cross-team-interleave double-count bug (Fix 1).
+  // Global sort order: E1 Avatar[0,10s], F1 Shadow Blades[5,15s], E2 Avatar[8,20s].
+  // The old single-pass merge saw F1 between E1 and E2, causing E2 to fail the
+  // same-team adjacency check and produce TWO enemy windows [0,10] + [8,20] (overlapping).
+  // The per-team partition fix must yield ONE enemy window [0,20] and ONE friendly window [5,15].
+  it('merges same-team windows even when an opposing-team window interleaves them in time', () => {
+    const auras = fakeAuras({
+      E1: [{ srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 0, end: 10_000 }],
+      F1: [{ srcId: 'F1', destId: 'F1', spellId: 121471, name: 'Shadow Blades', start: 5_000, end: 15_000 }],
+      E2: [{ srcId: 'E2', destId: 'E2', spellId: 107574, name: 'Avatar', start: 8_000, end: 20_000 }],
+    });
+    const units = [player('E1', 'enemy', '71'), player('F1', 'friendly', '261'), player('E2', 'enemy', '71')];
+    const windows = computeOffensiveWindows(match, units, auras, new Map());
+    const enemyWindows = windows.filter((w) => w.attackingTeam === 'enemy');
+    expect(enemyWindows).toHaveLength(1);               // E1+E2 merge into one, not two
+    expect(enemyWindows[0].startSec).toBe(0);
+    expect(enemyWindows[0].endSec).toBe(20);
+    expect(enemyWindows[0].openedBy).toHaveLength(2);
+    expect(windows.filter((w) => w.attackingTeam === 'friendly')).toHaveLength(1);
+  });
+
   it('records used mitigation and enemy CC on defenders during a window', () => {
     const withCc: AuraState = {
       activeOn: () => [],
