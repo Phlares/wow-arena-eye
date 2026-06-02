@@ -31,8 +31,15 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
   }
 
   // Bracket: greatest sample ≤ tSec at index lo, next sample at lo+1.
-  let lo = 0, hi = s.length - 1;
-  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (s[mid].tSec <= tSec) lo = mid; else hi = mid - 1; }
+  // (Shares the bracket-find + lerp shape with sampleAt.ts; consolidating the two is
+  //  deferred to the simplify pass, once Task 4's mobility-break handling settles this path.)
+  let lo = 0;
+  let hi = s.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (s[mid].tSec <= tSec) lo = mid;
+    else hi = mid - 1;
+  }
   const a = s[lo];
   const b = s[lo + 1] ?? a;
   if (a.tSec === b.tSec) return { position: { ...a, tSec }, inferred: !!a.inferred, lastKnown };
@@ -41,6 +48,8 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
 
   if (b.tSec - a.tSec > MAX_GAP_SEC) return { position: undefined, inferred: false, lastKnown };
   const f = (tSec - a.tSec) / (b.tSec - a.tSec);
+  // Lerp x/y; hpPct is step-held (take the lower bracket), NOT smoothed — same deliberate
+  // choice as sampleAt.ts (HP should not be interpolated).
   const position: Sample = { tSec, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, facing: a.facing, hpPct: a.hpPct };
   return { position, inferred: !!a.inferred || !!b.inferred, lastKnown };
 }
