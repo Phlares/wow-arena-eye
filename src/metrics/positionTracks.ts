@@ -1,5 +1,5 @@
 import type { Sample, PositionTrack, PositionQuery, UnitMetrics } from './types.js';
-import { matchStartMs } from './eventAccess.js';
+import { matchStartMs, eventType, destId, eventTimeMs, position } from './eventAccess.js';
 import { collectCasts } from './cooldownTimeline.js';
 import { isMobility } from '../metadata/repositioning.js';
 
@@ -100,6 +100,24 @@ export function buildPositionTracks(units: UnitMetrics[], match: unknown): Map<s
     for (const c of list) if (isMobility(c.spellId)) tr.breaks.push((c.ms - startMs) / 1000);
   }
 
-  for (const tr of tracks.values()) tr.breaks.sort((x, y) => x - y);
+  // Passive-target gap-filling: a melee swing on a unit constrains it to ≈ the attacker's
+  // position. position(ev) is the attacker's (actor) position; attribute it to the target,
+  // tagged inferred so it is never confused with an observed sample.
+  for (const ev of events) {
+    const t = eventType(ev);
+    if (t !== 'SWING_DAMAGE' && t !== 'SWING_DAMAGE_LANDED') continue;
+    const d = destId(ev);
+    const ms = eventTimeMs(ev);
+    const p = position(ev);
+    if (!d || ms === undefined || !p) continue;
+    const tr = tracks.get(d);
+    if (!tr) continue;
+    tr.samples.push({ tSec: (ms - startMs) / 1000, x: p.x, y: p.y, inferred: true });
+  }
+
+  for (const tr of tracks.values()) {
+    tr.samples.sort((x, y) => x.tSec - y.tSec);
+    tr.breaks.sort((x, y) => x - y);
+  }
   return tracks;
 }
