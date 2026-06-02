@@ -22,7 +22,7 @@ const match = { units: { E1: { name: 'Enemy', type: '1', reaction: 'Hostile', sp
 describe('computeOffensiveWindows', () => {
   it('opens a window from an offensive self-buff aura', () => {
     const auras = fakeAuras({ E1: [{ srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 10_000, end: 30_000 }] });
-    const windows = computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras);
+    const windows = computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras, new Map());
     expect(windows).toHaveLength(1);
     expect(windows[0].attackingTeam).toBe('enemy');
     expect(windows[0].defendingTeam).toBe('friendly');
@@ -34,7 +34,7 @@ describe('computeOffensiveWindows', () => {
       { srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 10_000, end: 30_000 },
       { srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 25_000, end: 40_000 },
     ] });
-    const windows = computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras);
+    const windows = computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras, new Map());
     expect(windows).toHaveLength(1);
     expect(windows[0].openedBy).toHaveLength(2);
     expect(windows[0].endSec).toBe(40);
@@ -42,7 +42,7 @@ describe('computeOffensiveWindows', () => {
 
   it('ignores non-offensive auras', () => {
     const auras = fakeAuras({ E1: [{ srcId: 'E1', destId: 'E1', spellId: 871, name: 'Shield Wall', start: 10_000, end: 18_000 }] });
-    expect(computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras)).toHaveLength(0);
+    expect(computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras, new Map())).toHaveLength(0);
   });
 
   // spec 71 (Arms Warrior) + Avatar (107574); spec 63 (Fire Mage) + Combustion (190319)
@@ -56,6 +56,7 @@ describe('computeOffensiveWindows', () => {
       match,
       [player('E1', 'enemy', '71'), player('E2', 'enemy', '63')],
       auras,
+      new Map(),
     );
     expect(windows).toHaveLength(1);
     expect(windows[0].openedBy).toHaveLength(2);
@@ -70,7 +71,7 @@ describe('computeOffensiveWindows', () => {
         { srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 50_000, end: 60_000 },
       ],
     });
-    const windows = computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras);
+    const windows = computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras, new Map());
     expect(windows).toHaveLength(2);
     expect(windows.map((w) => w.startSec).sort((a, b) => a - b)).toEqual([10, 50]);
   });
@@ -91,7 +92,7 @@ describe('computeOffensiveWindows', () => {
       ],
     };
     const units = [player('E1', 'enemy', '71'), player('F1', 'friendly', '265')];
-    const windows = computeOffensiveWindows(m, units, auras);
+    const windows = computeOffensiveWindows(m, units, auras, new Map());
     expect(windows[0].teamDamageTaken).toBe(5000);
     expect(windows[0].damageByTarget[0]).toMatchObject({ unitId: 'F1', name: 'Me', damage: 5000 });
   });
@@ -105,11 +106,34 @@ describe('computeOffensiveWindows', () => {
       match,
       [player('E1', 'enemy', '71'), player('F1', 'friendly', '261')],
       auras,
+      new Map(),
     );
     expect(windows).toHaveLength(2);
     const teams = windows.map((w) => w.attackingTeam).sort();
     expect(teams).toEqual(['enemy', 'friendly']);
     const enemyW = windows.find((w) => w.attackingTeam === 'enemy')!;
     expect(enemyW.defendingTeam).toBe('friendly');
+  });
+
+  it('records used mitigation and enemy CC on defenders during a window', () => {
+    const withCc: AuraState = {
+      activeOn: () => [],
+      intervalsBy: (id: string) => (id === 'E1' ? [{ srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 10_000, end: 30_000 }] : []),
+      intervalsOn: (id: string) => (id === 'F1' ? [{ srcId: 'E1', destId: 'F1', spellId: 853, name: 'Hammer of Justice', start: 12_000, end: 15_000 }] : []),
+    };
+    const m = {
+      units: {
+        E1: { name: 'Enemy', type: '1', reaction: 'Hostile', spec: '71' },
+        F1: { name: 'Me', type: '1', reaction: 'Friendly', spec: '265' },
+      },
+      events: [{ timestamp: 0 }],
+    };
+    const units = [player('E1', 'enemy', '71'), player('F1', 'friendly', '265')];
+    // F1 casts Unending Resolve (104773, Affliction defensive) at 13s — inside the window
+    const casts = new Map([['F1', [{ spellId: 104773, name: 'Unending Resolve', ms: 13_000 }]]]);
+    const windows = computeOffensiveWindows(m, units, withCc, casts);
+    const w = windows[0];
+    expect(w.mitigation.used.some((x) => x.spellId === 104773 && x.category === 'defensive')).toBe(true);
+    expect(w.counterPlay.ccOnDefenders.some((c) => c.spell === 'Hammer of Justice')).toBe(true);
   });
 });

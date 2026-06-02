@@ -31,6 +31,9 @@ export function ccInfo(id: number | undefined): { category: DrCategory } | undef
 export function isDefensive(id: number | undefined): boolean {
   return spellMeta(id)?.tags.includes('defensive') ?? false;
 }
+export function isImmunity(id: number | undefined): boolean {
+  return spellMeta(id)?.tags.includes('immunity') ?? false;
+}
 /** School-lockout seconds for an interrupt spell (curated). 0 for non-interrupts; default 4 for an interrupt with no curated value. */
 export function interruptLockoutSec(id: number | undefined): number {
   const m = spellMeta(id);
