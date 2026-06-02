@@ -3,7 +3,41 @@ export type Team = 'friendly' | 'enemy' | 'neutral';
 
 export interface SpellTally { spellName: string; count: number; }
 
-export interface Sample { tSec: number; x: number; y: number; facing?: number; hpPct?: number; }
+export interface Sample { tSec: number; x: number; y: number; facing?: number; hpPct?: number; inferred?: boolean; }
+
+/** A unit's enriched position time series: observed + inferred samples (sorted by tSec),
+ *  plus mobility-cast break times (tSec) where interpolation must not cross a teleport. */
+export interface PositionTrack { unitId: string; samples: Sample[]; breaks: number[]; }
+
+/** Result of a position query. `position` is undefined when genuinely unknowable
+ *  (mid-teleport, beyond MAX_GAP_SEC of any sample); `lastKnown` always carries up to
+ *  the 3 most recent real samples (with timestamps) so inference can decide for itself. */
+export interface PositionQuery { position?: Sample; inferred: boolean; lastKnown: Sample[]; }
+
+/** Per-player whole-match spacing summary (derived; raw tracks remain on MatchMetrics). */
+export interface SpacingSummary { meleeRangeSec: number; isolatedSec: number; }
+
+/** Escape-anchor state for a window's primary target (e.g. Demon Circle). */
+export interface WindowEscape { anchorPlaced: boolean; anchorDistanceYd?: number; escapeAvailable: boolean; }
+
+/** Spatial context of one offensive window, computed for its primary target. All
+ *  distances in yards; undefined when positions are unresolvable. */
+export interface WindowPositioning {
+  primaryTargetId: string;
+  threatDistanceStartYd?: number;
+  threatDistanceMinYd?: number;
+  nearestHealerYd?: number;
+  teamSpreadYd?: number;
+  escape?: WindowEscape;
+}
+
+/** Fraction of sampled time one player pair spent in each distance band. Fractions are
+ *  over `sampledSec` (resolved ticks only) so gaps never inflate a band. */
+export interface DistanceBandRow {
+  aId: string; bId: string;
+  b0_5: number; b5_25: number; b25_40: number; b40plus: number;
+  sampledSec: number;
+}
 
 export type DrCategory = 'stun' | 'incapacitate' | 'disorient' | 'silence' | 'root' | 'disarm' | 'taunt' | 'knockback';
 
@@ -71,6 +105,7 @@ export interface OffensiveWindow {
   damageByTarget: { unitId: string; name: string; damage: number }[];
   mitigation: { available: MitigationItem[]; used: MitigationItem[] };
   counterPlay: WindowCounterPlay;
+  positioning?: WindowPositioning;
 }
 
 export interface FocusSegment { target: string; targetName: string; fromSec: number; toSec: number; }
@@ -128,6 +163,7 @@ export interface UnitMetrics {
   positionSamples: number;
   timeStationarySec: number;
   track: Sample[];
+  spacing: SpacingSummary;
   interruptsSuffered: number;
   interruptsSufferedBySpell: SpellTally[];
   deathsWhileCcd: number;
@@ -168,7 +204,7 @@ export interface TeamGroup { team: Team; players: PlayerGroup[]; unownedPets: Un
 export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death';
 export interface TimelineEvent { tSec: number; unitId: string; unitName: string; kind: TimelineKind; spell?: string; extra?: string; }
 
-export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; }
+export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; positionTracks: PositionTrack[]; distanceBands: DistanceBandRow[]; }
 
 export function tally(names: string[]): SpellTally[] {
   const counts = new Map<string, number>();

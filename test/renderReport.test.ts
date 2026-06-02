@@ -96,7 +96,7 @@ describe('renderReport metrics block (per-player)', () => {
       timeline: [{ tSec: 5, unitId: 'P', unitName: 'You', kind: 'cast', spell: 'Agony' }],
       coordination: [{ team: 'friendly', summary: { topFocusTarget: 'EnemyDps', targetPriority: [{ name: 'EnemyDps', damageTaken: 1000 }], healerPressureDamage: 300, swaps: 4, attackerFocus: [{ attacker: 'A1', attackerName: 'Ally1', swaps: 2, topTarget: 'EnemyDps', topTargetSec: 12.5, engagedSec: 20 }], alignmentFraction: 0.8, alignedTimeSec: 16 } }],
       focusTracks: { stepMs: 500, tickCount: 0, startMs: 0, tracks: [] },
-      offensiveWindows: [],
+      offensiveWindows: [], positionTracks: [], distanceBands: [],
       teams: [
         {
           team: 'friendly',
@@ -108,7 +108,7 @@ describe('renderReport metrics block (per-player)', () => {
                 casts: 100, topCasts: [{ spellName: 'Agony', count: 30 }], interruptsLanded: 0, interruptsLandedBySpell: [],
                 dispels: 0, purges: 0, purgesBySpell: [], cleanses: 0, cleansesBySpell: [], spellsteals: 0, spellstealsBySpell: [],
                 deaths: 0, deathTimesSec: [], distanceMoved: 1234.5, positionSamples: 200, timeStationarySec: 12.3,
-                track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [],
+                track: [], spacing: { meleeRangeSec: 0, isolatedSec: 0 }, interruptsSuffered: 0, interruptsSufferedBySpell: [],
                 deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0, cdUsage: [],
                 ccReceived: { timeSec: 12.5, castDenialSec: 6, hardCcSec: 4.5, rootSec: 2, count: 5, byCategory: [] },
                 ccDone: { timeSec: 8, castDenialSec: 2, hardCcSec: 6, rootSec: 0, count: 4, byCategory: [] },
@@ -122,7 +122,7 @@ describe('renderReport metrics block (per-player)', () => {
                   casts: 20, topCasts: [], interruptsLanded: 1, interruptsLandedBySpell: [{ spellName: 'Fear', count: 1 }],
                   dispels: 5, purges: 5, purgesBySpell: [{ spellName: 'Backlash', count: 3 }], cleanses: 0, cleansesBySpell: [],
                   spellsteals: 0, spellstealsBySpell: [], deaths: 0, deathTimesSec: [], distanceMoved: 0, positionSamples: 0, timeStationarySec: 0,
-                  track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [],
+                  track: [], spacing: { meleeRangeSec: 0, isolatedSec: 0 }, interruptsSuffered: 0, interruptsSufferedBySpell: [],
                   deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0, cdUsage: [],
                   ccReceived: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, ccDone: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, immuneReceived: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] }, immuneDone: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] },
                   damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
