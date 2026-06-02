@@ -65,4 +65,10 @@ describe('mobility-aware interpolation', () => {
     const t2 = { unitId: 'U', samples: [{ tSec: 0, x: 0, y: 0 }, { tSec: 4, x: 100, y: 0 }, { tSec: 6, x: 120, y: 0 }], breaks: [2] };
     expect(positionAt(t2, 5)!.x).toBeCloseTo(110); // bracket [4,6], no break between → lerp
   });
+
+  it('returns undefined in the pre-cast region when the gap guard also fails', () => {
+    // Break at 5; query 4 is pre-cast (4 ≤ 5-0.5) but the last pre-sample is 4s back (> MAX_GAP_SEC).
+    const tg = { unitId: 'U', samples: [{ tSec: 0, x: 0, y: 0 }, { tSec: 10, x: 100, y: 0 }], breaks: [5] };
+    expect(positionAt(tg, 4)).toBeUndefined();
+  });
 });

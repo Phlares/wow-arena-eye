@@ -45,6 +45,8 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
   if (a.tSec === b.tSec) return { position: { ...a, tSec }, inferred: !!a.inferred, lastKnown };
 
   // Mobility break inside the current bracket → never lerp across the teleport.
+  // The first break suffices: brackets span adjacent samples, and the transit return is
+  // break-agnostic, so only the earliest (most-conservative) uncertainty boundary matters.
   const tb = track.breaks.find((bk) => bk > a.tSec && bk < b.tSec);
   if (tb !== undefined) {
     if (tSec <= tb - PRE_CAST_VALID_SEC) {
