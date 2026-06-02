@@ -44,7 +44,17 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
   const b = s[lo + 1] ?? a;
   if (a.tSec === b.tSec) return { position: { ...a, tSec }, inferred: !!a.inferred, lastKnown };
 
-  // (mobility break handling is inserted here in Task 4)
+  // Mobility break inside the current bracket → never lerp across the teleport.
+  const tb = track.breaks.find((bk) => bk > a.tSec && bk < b.tSec);
+  if (tb !== undefined) {
+    if (tSec <= tb - PRE_CAST_VALID_SEC) {
+      // pre-cast: hold the last observed pre-sample, still subject to the gap guard
+      const ok = tSec - a.tSec <= MAX_GAP_SEC;
+      return { position: ok ? { x: a.x, y: a.y, tSec, facing: a.facing, hpPct: a.hpPct } : undefined, inferred: ok ? !!a.inferred : false, lastKnown };
+    }
+    // transit (Tc-0.5 .. landing sample b): genuinely unknown
+    return { position: undefined, inferred: false, lastKnown };
+  }
 
   if (b.tSec - a.tSec > MAX_GAP_SEC) return { position: undefined, inferred: false, lastKnown };
   const f = (tSec - a.tSec) / (b.tSec - a.tSec);

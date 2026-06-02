@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolvePosition, positionAt, distanceAt, MAX_GAP_SEC } from '../src/metrics/positionTracks.js';
+import { resolvePosition, positionAt, distanceAt, MAX_GAP_SEC, PRE_CAST_VALID_SEC } from '../src/metrics/positionTracks.js';
 import type { PositionTrack } from '../src/metrics/types.js';
 
 const track = (samples: PositionTrack['samples'], breaks: number[] = []): PositionTrack =>
@@ -42,5 +42,27 @@ describe('distance primitive (base)', () => {
   it('marks inferred when a contributing sample is inferred', () => {
     const t = track([{ tSec: 0, x: 0, y: 0, inferred: true }, { tSec: 2, x: 10, y: 0 }]);
     expect(resolvePosition(t, 1).inferred).toBe(true);
+  });
+});
+
+describe('mobility-aware interpolation', () => {
+  // Sample at 0 (x=0) and at 4 (x=100). A teleport cast (break) at t=2.
+  // Without break handling this would lerp to x≈50 at t=3; with it, it must NOT.
+  const t = { unitId: 'U', samples: [{ tSec: 0, x: 0, y: 0 }, { tSec: 4, x: 100, y: 0 }], breaks: [2] };
+
+  it('does not lerp across a teleport break', () => {
+    // valid pre-cast region: up to 2 - 0.5 = 1.5s → holds the pre-sample (x=0)
+    expect(positionAt(t, 1.4)!.x).toBe(0);
+    expect(PRE_CAST_VALID_SEC).toBe(0.5);
+  });
+
+  it('returns undefined during the transit gap (after Tc-0.5, before the landing sample)', () => {
+    expect(positionAt(t, 1.6)).toBeUndefined(); // inside transit
+    expect(positionAt(t, 3.5)).toBeUndefined(); // still before landing sample at 4
+  });
+
+  it('resolves normally once past the landing sample (no break in the new bracket)', () => {
+    const t2 = { unitId: 'U', samples: [{ tSec: 0, x: 0, y: 0 }, { tSec: 4, x: 100, y: 0 }, { tSec: 6, x: 120, y: 0 }], breaks: [2] };
+    expect(positionAt(t2, 5)!.x).toBeCloseTo(110); // bracket [4,6], no break between → lerp
   });
 });
