@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync } from 'node:fs';
 import { renderReport, type ParsedMatchView } from '../src/view/renderReport.js';
 import type { SidecarIndex } from '../src/sidecar/sidecarIndex.js';
-import type { MatchMetrics } from '../src/metrics/metrics.js';
+import { computeMatchMetrics, type MatchMetrics } from '../src/metrics/metrics.js';
+import { metricsBlock } from '../src/view/renderMetrics.js';
+import { parseLogFile } from '../src/parser/parserClient.js';
 
 function match(over: Partial<ParsedMatchView> = {}): ParsedMatchView {
   return {
@@ -93,6 +96,7 @@ describe('renderReport metrics block (per-player)', () => {
       timeline: [{ tSec: 5, unitId: 'P', unitName: 'You', kind: 'cast', spell: 'Agony' }],
       coordination: [{ team: 'friendly', summary: { topFocusTarget: 'EnemyDps', targetPriority: [{ name: 'EnemyDps', damageTaken: 1000 }], healerPressureDamage: 300, swaps: 4, attackerFocus: [{ attacker: 'A1', attackerName: 'Ally1', swaps: 2, topTarget: 'EnemyDps', topTargetSec: 12.5, engagedSec: 20 }], alignmentFraction: 0.8, alignedTimeSec: 16 } }],
       focusTracks: { stepMs: 500, tickCount: 0, startMs: 0, tracks: [] },
+      offensiveWindows: [],
       teams: [
         {
           team: 'friendly',
@@ -105,7 +109,7 @@ describe('renderReport metrics block (per-player)', () => {
                 dispels: 0, purges: 0, purgesBySpell: [], cleanses: 0, cleansesBySpell: [], spellsteals: 0, spellstealsBySpell: [],
                 deaths: 0, deathTimesSec: [], distanceMoved: 1234.5, positionSamples: 200, timeStationarySec: 12.3,
                 track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [],
-                deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
+                deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0, cdUsage: [],
                 ccReceived: { timeSec: 12.5, castDenialSec: 6, hardCcSec: 4.5, rootSec: 2, count: 5, byCategory: [] },
                 ccDone: { timeSec: 8, castDenialSec: 2, hardCcSec: 6, rootSec: 0, count: 4, byCategory: [] },
                 immuneReceived: { spellsImmuned: [{ spellName: 'Polymorph', count: 1 }], ccImmuned: 1, ccImmunedByCategory: [] },
@@ -119,7 +123,7 @@ describe('renderReport metrics block (per-player)', () => {
                   dispels: 5, purges: 5, purgesBySpell: [{ spellName: 'Backlash', count: 3 }], cleanses: 0, cleansesBySpell: [],
                   spellsteals: 0, spellstealsBySpell: [], deaths: 0, deathTimesSec: [], distanceMoved: 0, positionSamples: 0, timeStationarySec: 0,
                   track: [], interruptsSuffered: 0, interruptsSufferedBySpell: [],
-                  deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0,
+                  deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0, cdUsage: [],
                   ccReceived: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, ccDone: { timeSec: 0, castDenialSec: 0, hardCcSec: 0, rootSec: 0, count: 0, byCategory: [] }, immuneReceived: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] }, immuneDone: { spellsImmuned: [], ccImmuned: 0, ccImmunedByCategory: [] },
                   damageDone: 0, healingDone: 0, absorbDone: 0, dps: 0, hps: 0,
                 },
@@ -138,7 +142,7 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('timeline');
     expect(html).toContain('coordination');
     expect(html).toContain('12.5s'); // total time controlled rendered
-    expect(html).toContain('defensives (used/burst)'); // clarified header
+    expect(html).toContain('defensives (cast / up)'); // clarified header
     expect(html).toContain('alignment');
     expect(html).toContain('Your team coordination'); // TEAM_LABEL applied to coordination line
     expect(html).toContain('80%');                    // alignmentFraction 0.8 rendered as percent
@@ -148,5 +152,16 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('CC done');
     expect(html).toContain('immuned');
     expect(html).toContain('Polymorph');
+  });
+});
+
+const FIXTURE = 'test-data/fixtures/arena-sample.log';
+describe('renderMetrics offensive windows (real fixture)', () => {
+  it.runIf(existsSync(FIXTURE))('renders an offensive-windows section when present', async () => {
+    const { arenaMatches } = await parseLogFile(FIXTURE);
+    const mm = computeMatchMetrics(arenaMatches[0]);
+    const html = metricsBlock(mm);
+    expect(mm.offensiveWindows.length).toBeGreaterThan(0);
+    expect(html).toContain('offensive windows');
   });
 });
