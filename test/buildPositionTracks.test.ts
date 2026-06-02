@@ -3,7 +3,7 @@ import { buildPositionTracks } from '../src/metrics/positionTracks.js';
 import type { UnitMetrics } from '../src/metrics/types.js';
 
 function unit(over: Partial<UnitMetrics>): UnitMetrics {
-  return { unitId: 'U', name: 'U', kind: 'player', team: 'friendly', track: [], spacing: { meleeRangeSec: 0, isolatedSec: 0 } } as unknown as UnitMetrics;
+  return { unitId: 'U', name: 'U', kind: 'player', team: 'friendly', track: [], spacing: { meleeRangeSec: 0, isolatedSec: 0 }, ...over } as unknown as UnitMetrics;
 }
 
 describe('buildPositionTracks', () => {
@@ -59,5 +59,19 @@ describe('buildPositionTracks — passive-target gap-filling', () => {
     const tr = buildPositionTracks(units, match).get('T')!;
     expect(tr.samples.map((s) => s.tSec)).toEqual([0, 2, 4]); // inferred (tSec 2) slotted in order
     expect(tr.samples[1].inferred).toBe(true);
+  });
+
+  it('skips swings with no position or an unknown target (no throw, no phantom track)', () => {
+    const units: UnitMetrics[] = [unit({ unitId: 'A', team: 'friendly', track: [{ tSec: 0, x: 1, y: 1 }] })];
+    const match = {
+      events: [
+        { timestamp: 0 },
+        { event: 'SWING_DAMAGE', srcUnitId: 'A', destUnitId: 'A', amount: 1 },              // no position → skipped
+        { event: 'SWING_DAMAGE', srcUnitId: 'A', destUnitId: 'GHOST', advancedActorPositionX: 5, advancedActorPositionY: 5, timestamp: 2000 }, // unknown target → skipped
+      ],
+    };
+    const tracks = buildPositionTracks(units, match);
+    expect(tracks.has('GHOST')).toBe(false);          // no phantom track created
+    expect(tracks.get('A')!.samples).toHaveLength(1); // unchanged (no inferred sample added to A)
   });
 });
