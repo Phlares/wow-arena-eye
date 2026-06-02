@@ -87,14 +87,13 @@ export function parseRules(src) {
   for (const mm of sectionBody('specToClass').matchAll(/\[(\d+)\]\s*=\s*"([A-Z]+)"/g))
     specToClass[mm[1]] = mm[2];
 
-  const bySpec = {};
-  for (const [spec, body] of Object.entries(keyedGroups(sectionBody('BySpec'), '\\[(\\d+)\\]\\s*=\\s*\\{'))) {
-    bySpec[spec] = topLevelObjects(body).map(ruleToEntry).filter(Boolean);
-  }
-  const byClass = {};
-  for (const [cls, body] of Object.entries(keyedGroups(sectionBody('ByClass'), '\\b([A-Z]+)\\s*=\\s*\\{'))) {
-    byClass[cls] = topLevelObjects(body).map(ruleToEntry).filter(Boolean);
-  }
+  const parseSection = (name, keyRe) =>
+    Object.fromEntries(
+      Object.entries(keyedGroups(sectionBody(name), keyRe))
+        .map(([k, body]) => [k, topLevelObjects(body).map(ruleToEntry).filter(Boolean)]),
+    );
+  const bySpec = parseSection('BySpec', '\\[(\\d+)\\]\\s*=\\s*\\{');
+  const byClass = parseSection('ByClass', '\\b([A-Z]+)\\s*=\\s*\\{');
 
   return { source: 'MiniCC Rules.lua', offensiveSpellIds, specToClass, bySpec, byClass };
 }

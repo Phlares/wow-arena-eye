@@ -54,6 +54,18 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
 
   const merged = mergeWindows(contribs);
 
+  // Build a per-unit, per-spell cast-time index once, to avoid re-scanning in the available loop.
+  const castMsByUnitSpell = new Map<string, Map<number, number[]>>();
+  for (const p of players) {
+    const bySpell = new Map<number, number[]>();
+    for (const c of casts.get(p.unitId) ?? []) {
+      const arr = bySpell.get(c.spellId) ?? [];
+      arr.push(c.ms);
+      bySpell.set(c.spellId, arr);
+    }
+    castMsByUnitSpell.set(p.unitId, bySpell);
+  }
+
   const teamOf = (id: string | undefined): Team => unitTeam((rawUnits[id ?? ''] ?? {}).reaction);
   const events = Array.isArray(m.events) ? m.events : [];
   const accs: WindowAcc[] = merged.map(() => ({ dmgTotal: 0, dmgByTarget: new Map<string, number>() }));
@@ -112,12 +124,10 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
     // available: each defender's mitigation CDs that are ready at window start
     const available: MitigationItem[] = [];
     for (const def of defenders) {
-      const defCasts = casts.get(def.unitId) ?? [];
       for (const cd of cdsBySpec(def.spec).values()) {
-        if (isOffensiveCd(cd.spellId)) continue;
         const cat = mitigationCategoryOf(cd.spellId, def.spec);
         if (!cat || !AVAILABLE_CATS.has(cat)) continue;
-        const msList = defCasts.filter((c) => c.spellId === cd.spellId).map((c) => c.ms);
+        const msList = castMsByUnitSpell.get(def.unitId)?.get(cd.spellId) ?? [];
         if (isAvailable(msList, cd.cooldownMs, cd.charges, w.start)) {
           available.push({ unitId: def.unitId, category: cat, spellId: cd.spellId, name: cdName(cd.spellId) });
         }
@@ -148,13 +158,11 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
 
     // counter-play: immunity auras on a primary threat (an opener's caster) during the window
     const threatIds = new Set(w.ivs.map((iv) => iv.srcId));
-    const threatImmuneAuras = [...new Set(
-      [...threatIds].flatMap((tid) =>
-        auras.intervalsOn(tid)
-          .filter((iv) => isImmunity(iv.spellId) && iv.start < w.end && iv.end > w.start)
-          .map((iv) => iv.name),
-      ),
-    )];
+    const threatImmuneSeen = new Set<string>();
+    for (const tid of threatIds)
+      for (const iv of auras.intervalsOn(tid))
+        if (isImmunity(iv.spellId) && iv.start < w.end && iv.end > w.start) threatImmuneSeen.add(iv.name);
+    const threatImmuneAuras = [...threatImmuneSeen];
 
     return {
       attackingTeam: w.team,

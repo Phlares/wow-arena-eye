@@ -1,5 +1,5 @@
 import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS, immuneEvent } from './eventAccess.js';
-import { tally, unitKind, unitTeam, ownerIdOf, resolvePlayer, type UnitMetrics, type Sample, type CcSide, type ImmuneSide, type DrCategory } from './types.js';
+import { tally, unitKind, unitTeam, ownerIdOf, resolvePlayer, type UnitMetrics, type Sample, type CcSide, type ImmuneSide, type DrCategory, type CdUsageStat } from './types.js';
 import { isDefensive, ccInfo } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
 import { sampleAt } from './sampleAt.js';
@@ -176,16 +176,15 @@ export function computeUnitMetrics(match: unknown, auras: AuraState, casts: Map<
     }
     // availableSec is 0 when startMs is unavailable (no match start to measure against),
     // consistent with the other startMs-degenerate fields above (deathTimesSec, defensivesIntoBurst).
-    const cdUsage = [...castsBySpell.entries()]
-      .map(([sid, { ms, name }]) => {
-        const info = specCds.get(sid);
-        if (!info) return undefined;
-        const ready = startMs !== undefined ? readyIntervals(ms, info.cooldownMs, info.charges, startMs, endMs) : [];
-        const availableSec = Math.round(ready.reduce((s, iv) => s + (iv.end - iv.start), 0) / 1000);
-        return { spellId: sid, name, category: info.category, casts: ms.length, availableSec };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== undefined)
-      .sort((x, y) => y.casts - x.casts);
+    const cdUsage: CdUsageStat[] = [];
+    for (const [sid, { ms, name }] of castsBySpell) {
+      const info = specCds.get(sid);
+      if (!info) continue;
+      const ready = startMs !== undefined ? readyIntervals(ms, info.cooldownMs, info.charges, startMs, endMs) : [];
+      const availableSec = Math.round(ready.reduce((s, iv) => s + (iv.end - iv.start), 0) / 1000);
+      cdUsage.push({ spellId: sid, name, category: info.category, casts: ms.length, availableSec });
+    }
+    cdUsage.sort((x, y) => y.casts - x.casts);
 
     result.push({
       unitId: id,
