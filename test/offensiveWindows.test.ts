@@ -77,6 +77,25 @@ describe('computeOffensiveWindows', () => {
 
   // spec 71 (Arms Warrior) + Avatar (107574); spec 261 (Subtlety Rogue) + Shadow Blades (121471)
   // Both resolve to category 'offensive' via bySpec.
+  it('sums defending-team damage taken within the window', () => {
+    const auras = fakeAuras({ E1: [{ srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 10_000, end: 30_000 }] });
+    const m = {
+      units: {
+        E1: { name: 'Enemy', type: '1', reaction: 'Hostile', spec: '71' },
+        F1: { name: 'Me', type: '1', reaction: 'Friendly', spec: '265' },
+      },
+      events: [
+        { timestamp: 0 },
+        { event: 'SPELL_DAMAGE', srcUnitId: 'E1', destUnitId: 'F1', amount: 5000, timestamp: 15000 },
+        { event: 'SPELL_DAMAGE', srcUnitId: 'E1', destUnitId: 'F1', amount: 3000, timestamp: 40000 }, // outside window
+      ],
+    };
+    const units = [player('E1', 'enemy', '71'), player('F1', 'friendly', '265')];
+    const windows = computeOffensiveWindows(m, units, auras);
+    expect(windows[0].teamDamageTaken).toBe(5000);
+    expect(windows[0].damageByTarget[0]).toMatchObject({ unitId: 'F1', name: 'Me', damage: 5000 });
+  });
+
   it('detects offensive windows for both teams (symmetric)', () => {
     const auras = fakeAuras({
       E1: [{ srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 10_000, end: 30_000 }],
