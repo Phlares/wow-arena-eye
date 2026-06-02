@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { attachSpacing, MELEE_YD, HEAL_RANGE_YD } from '../src/metrics/spacing.js';
+import { attachSpacing, computeDistanceBands, MELEE_YD, HEAL_RANGE_YD } from '../src/metrics/spacing.js';
 import type { UnitMetrics, PositionTrack, Sample } from '../src/metrics/types.js';
 
 // Dense (1s-apart) "standing still at (x,y)" track over 0..durSec, so every queried tick is
@@ -35,5 +35,25 @@ describe('attachSpacing', () => {
     const pet = { unitId: 'PET', name: 'PET', kind: 'primary-pet', team: 'friendly', track: [], spacing: { meleeRangeSec: 0, isolatedSec: 0 } } as unknown as UnitMetrics;
     const out = attachSpacing([pet], new Map());
     expect(out[0].spacing).toEqual({ meleeRangeSec: 0, isolatedSec: 0 });
+  });
+});
+
+describe('computeDistanceBands', () => {
+  it('classifies a constant-distance pair into one band, fractions summing to 1', () => {
+    const A = unit('A', 'friendly', still(0, 0));
+    const B = unit('B', 'enemy', still(3, 0));
+    const rows = computeDistanceBands([A, B], new Map([trackOf(A), trackOf(B)]));
+    expect(rows).toHaveLength(1); // one unordered pair
+    const r = rows[0];
+    expect(r.b0_5).toBeCloseTo(1);
+    expect(r.b5_25 + r.b25_40 + r.b40plus).toBeCloseTo(0);
+    expect(r.sampledSec).toBeGreaterThan(9);
+  });
+
+  it('excludes unresolved ticks from sampledSec (no inflation across gaps)', () => {
+    const A = unit('A', 'friendly', [{ tSec: 0, x: 0, y: 0 }, { tSec: 100, x: 0, y: 0 }]);
+    const B = unit('B', 'enemy', [{ tSec: 0, x: 3, y: 0 }, { tSec: 100, x: 3, y: 0 }]);
+    const r = computeDistanceBands([A, B], new Map([trackOf(A), trackOf(B)]))[0];
+    expect(r.sampledSec).toBeLessThan(20);
   });
 });

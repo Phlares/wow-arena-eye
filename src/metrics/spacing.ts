@@ -1,4 +1,4 @@
-import type { UnitMetrics, PositionTrack, SpacingSummary } from './types.js';
+import type { UnitMetrics, PositionTrack, SpacingSummary, DistanceBandRow } from './types.js';
 import { distanceAt, resolvePosition } from './positionTracks.js';
 
 export const STEP_MS = 500;
@@ -47,4 +47,51 @@ export function attachSpacing(units: UnitMetrics[], tracks: Map<string, Position
     ...u,
     spacing: u.kind === 'player' ? spacingFor(u, players, tracks) : { meleeRangeSec: 0, isolatedSec: 0 },
   }));
+}
+
+type Band = 'b0_5' | 'b5_25' | 'b25_40' | 'b40plus';
+function bandOf(d: number): Band {
+  if (d < 5) return 'b0_5';
+  if (d < 25) return 'b5_25';
+  if (d < 40) return 'b25_40';
+  return 'b40plus';
+}
+const round3 = (x: number) => Math.round(x * 1000) / 1000;
+
+/** Per unordered player pair, the fraction of sampled time in each distance band.
+ *  Fractions are over `sampledSec` (resolved ticks only) so unresolved time never inflates a band. */
+export function computeDistanceBands(units: UnitMetrics[], tracks: Map<string, PositionTrack>): DistanceBandRow[] {
+  const players = units.filter((u) => u.kind === 'player' && (tracks.get(u.unitId)?.samples.length ?? 0) > 0);
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const p of players) {
+    const s = tracks.get(p.unitId)!.samples;
+    lo = Math.min(lo, s[0].tSec);
+    hi = Math.max(hi, s[s.length - 1].tSec);
+  }
+  const rows: DistanceBandRow[] = [];
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return rows;
+  const stepSec = STEP_MS / 1000;
+  for (let i = 0; i < players.length; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      const a = tracks.get(players[i].unitId)!;
+      const b = tracks.get(players[j].unitId)!;
+      const acc: Record<Band, number> = { b0_5: 0, b5_25: 0, b25_40: 0, b40plus: 0 };
+      let sampled = 0;
+      for (let t = lo; t <= hi; t += stepSec) {
+        const d = distanceAt(a, b, t);
+        if (d === undefined) continue;
+        acc[bandOf(d)] += stepSec;
+        sampled += stepSec;
+      }
+      const norm = sampled > 0 ? sampled : 1;
+      rows.push({
+        aId: players[i].unitId, bId: players[j].unitId,
+        b0_5: round3(acc.b0_5 / norm), b5_25: round3(acc.b5_25 / norm),
+        b25_40: round3(acc.b25_40 / norm), b40plus: round3(acc.b40plus / norm),
+        sampledSec: round1(sampled),
+      });
+    }
+  }
+  return rows;
 }
