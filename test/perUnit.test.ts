@@ -189,6 +189,42 @@ describe('CC received/done + immune (perUnit)', () => {
   });
 });
 
+describe('cdUsage per unit', () => {
+  it('emits cdUsage for players, categorized and with availability', () => {
+    // spec 265 = Affliction Warlock; 104773 = Unending Resolve (WARLOCK class CD, defensive)
+    const m = {
+      playerId: 'P', durationInSeconds: 300,
+      units: {
+        P: { name: 'You', type: 1, reaction: 1, spec: '265' },
+        E: { name: 'Enemy', type: 1, reaction: 2 },
+      },
+      events: [
+        { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', spellId: 104773, spellName: 'Unending Resolve', timestamp: 5000 },
+        { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', spellId: 104773, spellName: 'Unending Resolve', timestamp: 200000 },
+        // filler so endMs extends beyond the CD window
+        { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'E', spellName: 'Fireball', timestamp: 300000 },
+      ],
+    };
+    const units = computeUnitMetrics(m, buildAuraState(m));
+    const withCds = units.filter((u) => u.kind === 'player' && u.cdUsage.length > 0);
+    expect(withCds.length).toBeGreaterThan(0);
+    for (const u of withCds) {
+      for (const c of u.cdUsage) {
+        expect(c.casts).toBeGreaterThan(0);
+        expect(c.availableSec).toBeGreaterThanOrEqual(0);
+        expect(['offensive', 'defensive', 'external', 'important', 'trinket']).toContain(c.category);
+      }
+    }
+    const w = units.find((u) => u.unitId === 'P')!;
+    const unending = w.cdUsage.find((c) => c.spellId === 104773)!;
+    expect(unending).toBeDefined();
+    expect(unending.casts).toBe(2);            // matches the two SPELL_CAST_SUCCESS for 104773 in the fixture
+    expect(unending.category).toBe('defensive');
+    expect(unending.availableSec).toBeGreaterThanOrEqual(0);
+    expect(unending.availableSec).toBeLessThanOrEqual(300);
+  });
+});
+
 describe('absorbDone attribution', () => {
   it('credits the shield owner, not the attacker', () => {
     const match = {

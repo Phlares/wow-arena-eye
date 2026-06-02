@@ -28,6 +28,51 @@ export interface ImmuneSide {
   ccImmunedByCategory: { category: DrCategory; count: number }[];
 }
 
+export type CdCategory = 'offensive' | 'defensive' | 'external' | 'important' | 'trinket';
+
+/** Per-player summary for one tracked cooldown the unit cast. `availableSec` is the
+ *  total seconds the CD sat ready across the match — the substrate for later
+ *  offensive-throughput ("held without pressing") analysis. */
+export interface CdUsageStat {
+  spellId: number;
+  name: string;
+  category: CdCategory;
+  casts: number;
+  availableSec: number;
+}
+
+/** How a mitigation was used in a window — covers proactive damage-reduction (defensive/external/trinket/immunity) and reactive control (cc-control/interrupt). */
+export type MitigationCategory = 'defensive' | 'external' | 'trinket' | 'immunity' | 'cc-control' | 'interrupt';
+
+/** An offensive CD active during a window, attributed to the player who pressed it. */
+export interface CdRef { spellId: number; spellName: string; unitId: string; startSec: number; endSec: number; }
+
+/** One mitigation ability, attributed per player. In `used`, `usedAtSec` is set;
+ *  in `available` it is omitted (the item was ready but not necessarily pressed). */
+export interface MitigationItem { unitId: string; category: MitigationCategory; spellId: number; name: string; usedAtSec?: number; }
+
+export interface WindowCounterPlay {
+  /** Enemy CC landed on defending players during the window. */
+  ccOnDefenders: { unitId: string; name: string; spell: string; sec: number }[];
+  /** Names of immunity auras active on a primary threat during the window (e.g. they went while immune). */
+  threatImmuneAuras: string[];
+}
+
+/** One enemy offensive window ("go"): who opened it, how bad it was, what mitigation
+ *  the defending team had available vs used, and the enemy's counter-play. Symmetric:
+ *  windows are detected for both teams (attackingTeam = whoever's offensive CDs opened it). */
+export interface OffensiveWindow {
+  attackingTeam: Team;
+  defendingTeam: Team;
+  startSec: number;
+  endSec: number;
+  openedBy: CdRef[];
+  teamDamageTaken: number;
+  damageByTarget: { unitId: string; name: string; damage: number }[];
+  mitigation: { available: MitigationItem[]; used: MitigationItem[] };
+  counterPlay: WindowCounterPlay;
+}
+
 export interface FocusSegment { target: string; targetName: string; fromSec: number; toSec: number; }
 
 export interface AttackerTrack {
@@ -90,6 +135,7 @@ export interface UnitMetrics {
   defensivesUsed: number;
   defensivesUsedBySpell: SpellTally[];
   defensivesIntoBurst: number;
+  cdUsage: CdUsageStat[];
   ccReceived: CcSide;
   ccDone: CcSide;
   immuneReceived: ImmuneSide;
@@ -122,7 +168,7 @@ export interface TeamGroup { team: Team; players: PlayerGroup[]; unownedPets: Un
 export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death';
 export interface TimelineEvent { tSec: number; unitId: string; unitName: string; kind: TimelineKind; spell?: string; extra?: string; }
 
-export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; }
+export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; }
 
 export function tally(names: string[]): SpellTally[] {
   const counts = new Map<string, number>();
