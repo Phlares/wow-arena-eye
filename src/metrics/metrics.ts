@@ -33,6 +33,8 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
     offensiveWindows: windows,
     positionTracks: [...tracks.values()],
     distanceBands: computeDistanceBands(units, tracks),
+    lineOfSight: { zoneId: '', resolved: false, approximate: false }, // placeholder — Task 11 wiring
+    losDisruptors: [], // placeholder — Task 11 wiring
     playerUnitId,
   };
 }

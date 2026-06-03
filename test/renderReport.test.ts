@@ -101,7 +101,7 @@ describe('renderReport metrics block (per-player)', () => {
         teamDamageTaken: 5000, damageByTarget: [{ unitId: 'P', name: 'You', damage: 5000 }],
         mitigation: { available: [], used: [] }, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] },
         positioning: { primaryTargetId: 'P', threatDistanceStartYd: 5, threatDistanceMinYd: 3, nearestHealerYd: 12, teamSpreadYd: 18, escape: { anchorPlaced: true, anchorDistanceYd: 4, escapeAvailable: false } },
-      }], positionTracks: [], distanceBands: [],
+      }], positionTracks: [], distanceBands: [], lineOfSight: { zoneId: '', resolved: false, approximate: false }, losDisruptors: [],
       teams: [
         {
           team: 'friendly',
