@@ -42,6 +42,7 @@ export interface OccluderGrid {
 }
 
 export type LosResult = 'clear' | 'likely-blocked' | 'blocked' | 'unknown';
+/** `occlusion` is the peak void-ness along the ray, [0,1] (0 = fully clear). */
 export interface LosQuery { result: LosResult; occlusion: number; approximate: boolean; }
 
 export type DisruptorKind = 'smoke-bomb' | 'ice-wall' | 'deep-breath';
