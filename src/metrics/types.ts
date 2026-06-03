@@ -31,6 +31,39 @@ export interface WindowPositioning {
   escape?: WindowEscape;
 }
 
+/** Per-arena occluder grid inferred from occupancy. voidness is row-major, [0,1]
+ *  (0 = walkable, 1 = enclosed void / occluder). */
+export interface OccluderGrid {
+  zoneId: string;
+  bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  cellSize: number; cols: number; rows: number;
+  voidness: number[];
+  sampleCount: number; coverage: number; isZAxisMap: boolean;
+}
+
+export type LosResult = 'clear' | 'likely-blocked' | 'blocked' | 'unknown';
+/** `occlusion` is the peak void-ness along the ray, [0,1] (0 = fully clear). */
+export interface LosQuery { result: LosResult; occlusion: number; approximate: boolean; }
+
+export type DisruptorKind = 'smoke-bomb' | 'ice-wall' | 'deep-breath';
+export interface LosDisruptor {
+  kind: DisruptorKind; casterId: string; team: Team;
+  pos?: { x: number; y: number }; radius?: number;
+  startSec: number; endSec: number; modeled: boolean;
+}
+
+/** LoS annotation for one offensive window (its primary target). */
+export interface WindowLineOfSight {
+  primaryTargetId: string;
+  result: LosResult;            // target ↔ nearest attacker at window start
+  clearFraction?: number;       // fraction of window with clear LoS
+  approximate: boolean;
+  disruptorsActive: DisruptorKind[];
+}
+
+/** Match-level LoS summary (substrate for the verdict capstone). */
+export interface MatchLineOfSight { zoneId: string; resolved: boolean; approximate: boolean; }
+
 /** Fraction of sampled time one player pair spent in each distance band. Fractions are
  *  over `sampledSec` (resolved ticks only) so gaps never inflate a band. */
 export interface DistanceBandRow {
@@ -106,6 +139,7 @@ export interface OffensiveWindow {
   mitigation: { available: MitigationItem[]; used: MitigationItem[] };
   counterPlay: WindowCounterPlay;
   positioning?: WindowPositioning;
+  lineOfSight?: WindowLineOfSight;
 }
 
 export interface FocusSegment { target: string; targetName: string; fromSec: number; toSec: number; }
@@ -204,7 +238,7 @@ export interface TeamGroup { team: Team; players: PlayerGroup[]; unownedPets: Un
 export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death';
 export interface TimelineEvent { tSec: number; unitId: string; unitName: string; kind: TimelineKind; spell?: string; extra?: string; }
 
-export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; positionTracks: PositionTrack[]; distanceBands: DistanceBandRow[]; }
+export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; positionTracks: PositionTrack[]; distanceBands: DistanceBandRow[]; lineOfSight: MatchLineOfSight; losDisruptors: LosDisruptor[]; }
 
 export function tally(names: string[]): SpellTally[] {
   const counts = new Map<string, number>();

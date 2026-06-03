@@ -101,7 +101,8 @@ describe('renderReport metrics block (per-player)', () => {
         teamDamageTaken: 5000, damageByTarget: [{ unitId: 'P', name: 'You', damage: 5000 }],
         mitigation: { available: [], used: [] }, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] },
         positioning: { primaryTargetId: 'P', threatDistanceStartYd: 5, threatDistanceMinYd: 3, nearestHealerYd: 12, teamSpreadYd: 18, escape: { anchorPlaced: true, anchorDistanceYd: 4, escapeAvailable: false } },
-      }], positionTracks: [], distanceBands: [],
+        lineOfSight: { primaryTargetId: 'P', result: 'blocked', clearFraction: 0.2, approximate: false, disruptorsActive: ['smoke-bomb'] },
+      }], positionTracks: [], distanceBands: [], lineOfSight: { zoneId: '', resolved: false, approximate: false }, losDisruptors: [],
       teams: [
         {
           team: 'friendly',
@@ -166,6 +167,12 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('threat');       // positioning column header / cell
     expect(html).toContain('spread');       // team spread shown
     expect(html).toContain('melee');        // per-unit spacing in the move cell
+  });
+
+  it('renders the window line-of-sight cell', () => {
+    const html = renderReport([match({ metrics })], index());
+    expect(html).toContain('LoS');     // column header
+    expect(html).toContain('blocked'); // the window's LoS result
   });
 });
 

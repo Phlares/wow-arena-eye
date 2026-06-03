@@ -76,3 +76,14 @@ describe('computeMatchMetrics — positioning', () => {
     expect(players.every((p) => p.spacing !== undefined)).toBe(true);
   });
 });
+
+describe('computeMatchMetrics — line of sight', () => {
+  it.runIf(existsSync(FIXTURE))('populates lineOfSight + losDisruptors', async () => {
+    const { arenaMatches } = await parseLogFile(FIXTURE);
+    const mm = computeMatchMetrics(arenaMatches[0]);
+    expect(mm.lineOfSight.zoneId).toBe(
+      String((arenaMatches[0] as { startInfo: { zoneId: unknown } }).startInfo.zoneId),
+    ); // real zoneId, not the '' stub
+    expect(Array.isArray(mm.losDisruptors)).toBe(true);
+  });
+});
