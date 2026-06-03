@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { parseLogFile } from '../src/parser/parserClient.js';
 import { position as evPosition, srcId as evSrc } from '../src/metrics/eventAccess.js';
+import { unitKind } from '../src/metrics/types.js';
+import { Z_AXIS_MAPS } from '../src/metadata/occupancy.js'; // single source of truth (avoid drift)
 
 /** World (x,y) → integer grid cell. Clamps into [0,cols) / [0,rows). */
 export function worldToCell(bounds, cellSize, x, y) {
@@ -54,17 +56,13 @@ export function buildOccluderGrid(zoneId, positions, opts = {}) {
   return { zoneId, bounds, cellSize, cols, rows, voidness, sampleCount: positions.length, coverage: walkable / inb, isZAxisMap };
 }
 
-export const Z_AXIS_MAPS = new Set(['1911', '2167', '2759', '572', '617', '1504', '1134', '2563']);
-// Mugambala 1911, Robodrome 2167, Cage of Carnage 2759, Ruins of Lordaeron 572,
-// Dalaran Sewers 617, Black Rook Hold 1504, Tiger's Peak 1134, Nokhudon 2563.
-
 /** Aggregate observed PLAYER positions per zoneId from one parsed match into `into`. */
 export function collectPositionsByZone(match, into) {
   const m = match;
   const zoneId = m?.startInfo?.zoneId ? String(m.startInfo.zoneId) : undefined;
   if (!zoneId) return into;
-  // type 1 = player (mirrors unitKind in src/metrics/types.ts); pets/NPCs excluded from the walkable map.
-  const players = new Set(Object.entries(m.units ?? {}).filter(([, u]) => u && (u.type === 1 || u.type === '1')).map(([id]) => id));
+  // players only (pets/NPCs excluded from the walkable map) — via the canonical unitKind helper
+  const players = new Set(Object.entries(m.units ?? {}).filter(([, u]) => unitKind(u?.type) === 'player').map(([id]) => id));
   const arr = into.get(zoneId) ?? [];
   for (const ev of m.events ?? []) {
     const s = evSrc(ev); if (!s || !players.has(s)) continue;

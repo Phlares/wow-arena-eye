@@ -8,5 +8,4 @@ export function worldToCell(bounds: GridBounds, cellSize: number, x: number, y: 
 export function boundsOf(positions: XY[], cellSize: number): GridBounds;
 export function floodFillExterior(voidness: number[], cols: number, rows: number, voidThreshold: number): boolean[];
 export function buildOccluderGrid(zoneId: string, positions: XY[], opts?: { cellSize?: number; saturationCount?: number; voidThreshold?: number; isZAxisMap?: boolean; bounds?: GridBounds }): OccluderGridLite;
-export const Z_AXIS_MAPS: Set<string>;
 export function collectPositionsByZone(match: unknown, into: Map<string, XY[]>): Map<string, XY[]>;
