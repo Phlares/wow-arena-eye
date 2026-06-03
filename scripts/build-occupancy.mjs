@@ -1,5 +1,7 @@
 // Regenerate src/metadata/occupancy/<zoneId>.json from a corpus of combat logs.
-// Run: WAE_LOG_CORPUS="/path/to/Logs" node scripts/build-occupancy.mjs
+// Imports live TS source, so run via tsx (NOT plain node):
+//   WAE_LOG_CORPUS="/path/to/Logs" npm run build-occupancy
+//   (or: WAE_LOG_CORPUS="/path/to/Logs" npx tsx scripts/build-occupancy.mjs)
 import { writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -61,6 +63,7 @@ export function collectPositionsByZone(match, into) {
   const m = match;
   const zoneId = m?.startInfo?.zoneId ? String(m.startInfo.zoneId) : undefined;
   if (!zoneId) return into;
+  // type 1 = player (mirrors unitKind in src/metrics/types.ts); pets/NPCs excluded from the walkable map.
   const players = new Set(Object.entries(m.units ?? {}).filter(([, u]) => u && (u.type === 1 || u.type === '1')).map(([id]) => id));
   const arr = into.get(zoneId) ?? [];
   for (const ev of m.events ?? []) {
@@ -71,6 +74,8 @@ export function collectPositionsByZone(match, into) {
   into.set(zoneId, arr);
   return into;
 }
+
+const MIN_SAMPLES = 200; // fewer observed positions than this → too sparse to infer a usable grid; skip the arena
 
 async function main() {
   const corpus = process.env.WAE_LOG_CORPUS;
@@ -84,7 +89,7 @@ async function main() {
   const outDir = fileURLToPath(new URL('../src/metadata/occupancy/', import.meta.url));
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
   for (const [zoneId, positions] of byZone) {
-    if (positions.length < 200) { console.error('thin coverage, skipping', zoneId, positions.length); continue; }
+    if (positions.length < MIN_SAMPLES) { console.error('thin coverage, skipping', zoneId, positions.length); continue; }
     const grid = buildOccluderGrid(zoneId, positions, { cellSize: 2, saturationCount: 8, isZAxisMap: Z_AXIS_MAPS.has(zoneId) });
     writeFileSync(join(outDir, zoneId + '.json'), JSON.stringify(grid));
     console.log('wrote', zoneId, 'cells', grid.cols + 'x' + grid.rows, 'coverage', grid.coverage.toFixed(2), 'samples', grid.sampleCount);

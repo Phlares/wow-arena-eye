@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "ingest": "tsx src/cli/ingest.ts",
     "view": "tsx src/cli/view.ts",
+    "build-occupancy": "tsx scripts/build-occupancy.mjs",
     "extract-fixture": "tsx src/util/extractMatchFixture.ts"
   },
   "dependencies": {
