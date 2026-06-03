@@ -7,6 +7,9 @@ import { computeFocusTracks } from './targeting.js';
 import { collectCasts } from './cooldownTimeline.js';
 import { computeOffensiveWindows } from './offensiveWindows.js';
 import { HEALER_SPEC_IDS } from './registry.js';
+import { buildPositionTracks } from './positionTracks.js';
+import { attachSpacing, computeDistanceBands } from './spacing.js';
+import { addWindowPositioning } from './windowPositioning.js';
 import type { MatchMetrics } from './types.js';
 
 export * from './types.js';
@@ -16,14 +19,20 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
   const playerUnitId = typeof m.playerId === 'string' ? m.playerId : undefined;
   const auras = buildAuraState(match);
   const casts = collectCasts(match);
-  const units = computeUnitMetrics(match, auras, casts);
+  const baseUnits = computeUnitMetrics(match, auras, casts);
+  const tracks = buildPositionTracks(baseUnits, match, casts);
+  const units = attachSpacing(baseUnits, tracks);
   const focusTracks = computeFocusTracks(match);
+  const baseWindows = computeOffensiveWindows(match, units, auras, casts);
+  const windows = addWindowPositioning(baseWindows, tracks, units, match, casts);
   return {
     teams: groupUnits(units, playerUnitId),
     timeline: buildTimeline(match),
     coordination: computeCoordination(match, HEALER_SPEC_IDS, focusTracks),
     focusTracks,
-    offensiveWindows: computeOffensiveWindows(match, units, auras, casts),
+    offensiveWindows: windows,
+    positionTracks: [...tracks.values()],
+    distanceBands: computeDistanceBands(units, tracks),
     playerUnitId,
   };
 }

@@ -136,6 +136,18 @@ describe('computeOffensiveWindows', () => {
     expect(windows.filter((w) => w.attackingTeam === 'friendly')).toHaveLength(1);
   });
 
+  // Regression: an offensive buff applied but never closed leaves an unbounded interval end.
+  // The window must be clamped to the match end (here durationInSeconds), not a garbage value.
+  it('clamps a window whose offensive aura never closed to the match end', () => {
+    const auras = fakeAuras({ E1: [{ srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 10_000, end: 9_000_000_000_000 }] });
+    const m = { units: { E1: { name: 'Enemy', type: '1', reaction: 'Hostile', spec: '71' } }, events: [{ timestamp: 0 }], durationInSeconds: 100 };
+    const windows = computeOffensiveWindows(m, [player('E1', 'enemy', '71')], auras, new Map());
+    expect(windows).toHaveLength(1);
+    expect(windows[0].startSec).toBe(10);
+    expect(windows[0].endSec).toBe(100); // clamped to match end, not 9_000_000_000
+    expect(windows[0].openedBy[0].endSec).toBe(100); // opener interval clamped too
+  });
+
   it('records used mitigation and enemy CC on defenders during a window', () => {
     const withCc: AuraState = {
       activeOn: () => [],

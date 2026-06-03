@@ -3,7 +3,7 @@ import { type AuraState, type Interval } from './auraState.js';
 import { cdsForSpec, isOffensiveCd, type CdEntry } from '../metadata/cooldowns.js';
 import { ccInfo, isInterrupt, isImmunity } from '../metadata/spells.js';
 import { isAvailable, type CastEvent } from './cooldownTimeline.js';
-import { matchStartMs, eventType, srcId, destId, eventTimeMs, amount, DAMAGE_EVENTS } from './eventAccess.js';
+import { matchStartMs, matchEndMs, eventType, srcId, destId, eventTimeMs, amount, DAMAGE_EVENTS } from './eventAccess.js';
 
 const OTHER: Record<Team, Team> = { friendly: 'enemy', enemy: 'friendly', neutral: 'neutral' };
 
@@ -61,9 +61,23 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
     }
   }
 
-  const matchStart = matchStartMs(m.events ?? []) ?? minStart(contribs);
+  const events = Array.isArray(m.events) ? m.events : [];
+  const matchStart = matchStartMs(events) ?? minStart(contribs);
 
-  const merged = mergeWindows(contribs);
+  // Bound windows to the match. An offensive buff applied but never closed (no AURA_REMOVED
+  // before the log ends) leaves an unbounded interval end; without clamping, a window could
+  // extend to a garbage far-future timestamp (endSec in the trillions). Clamp interval ends to
+  // the later of the last event and the reported duration. Copy intervals (don't mutate auraState).
+  const dur = (m as { durationInSeconds?: unknown }).durationInSeconds;
+  const durationEnd = typeof dur === 'number' ? matchStart + dur * 1000 : matchStart;
+  const matchEnd = Math.max(matchEndMs(events) ?? matchStart, durationEnd);
+  // Only clamp when we actually have a match end past the start (real logs always do; some
+  // synthetic fixtures with a single t=0 event and no duration do not — leave those untouched).
+  const clamped = matchEnd > matchStart
+    ? contribs.map(({ iv, team }) => ({ iv: { ...iv, end: Math.min(iv.end, matchEnd) }, team }))
+    : contribs;
+
+  const merged = mergeWindows(clamped);
 
   // Build a per-unit, per-spell cast-time index once, to avoid re-scanning in the available loop.
   const castMsByUnitSpell = new Map<string, Map<number, number[]>>();
@@ -78,7 +92,6 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
   }
 
   const teamOf = (id: string | undefined): Team => unitTeam((rawUnits[id ?? ''] ?? {}).reaction);
-  const events = Array.isArray(m.events) ? m.events : [];
   const accs: WindowAcc[] = merged.map(() => ({ dmgTotal: 0, dmgByTarget: new Map<string, number>() }));
   for (const ev of events) {
     const t = eventType(ev);

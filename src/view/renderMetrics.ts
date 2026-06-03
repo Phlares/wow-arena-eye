@@ -19,7 +19,8 @@ function unitRow(u: UnitMetrics, label: string): string {
   return `<tr><td>${escapeHtml(label)}${escapeHtml(u.name)}</td>` +
     `<td>${u.casts}</td><td>${u.interruptsLanded}${optTally(u.interruptsLandedBySpell)}</td>` +
     `<td>${u.purges}/${u.cleanses}${optTally(u.purgesBySpell)}</td>` +
-    `<td>${u.spellsteals}</td><td>${u.deaths}</td><td>${u.distanceMoved} (${u.timeStationarySec}s still)</td>` +
+    `<td>${u.spellsteals}</td><td>${u.deaths}</td>` +
+    `<td>${u.distanceMoved} (${u.timeStationarySec}s still)<br>melee ${u.spacing.meleeRangeSec}s · iso ${u.spacing.isolatedSec}s</td>` +
     `<td>${u.damageDone}</td><td>${u.healingDone}</td>` +
     `<td>CC recv: ${u.ccReceived.timeSec}s (${u.ccReceived.castDenialSec}/${u.ccReceived.hardCcSec}/${u.ccReceived.rootSec})<br>` +
     `CC done: ${u.ccDone.timeSec}s (${u.ccDone.castDenialSec}/${u.ccDone.hardCcSec}/${u.ccDone.rootSec})<br>` +
@@ -68,6 +69,14 @@ function coordinationBlock(coord: MatchMetrics['coordination']): string {
   }).join('');
 }
 
+/** One offensive window's positioning cell: threat distance (start→min), healer/spread, and
+ *  an escape indicator. Distances are numeric (no escaping needed); '—' for unresolved fields. */
+function positioningCell(p: MatchMetrics['offensiveWindows'][number]['positioning']): string {
+  if (!p) return '—';
+  const escape = p.escape ? ` · escape ${p.escape.anchorPlaced ? '✓' : '✗'}${p.escape.escapeAvailable ? '(rdy)' : ''}` : '';
+  return `threat ${p.threatDistanceStartYd ?? '—'}→${p.threatDistanceMinYd ?? '—'}y · heal ${p.nearestHealerYd ?? '—'}y · spread ${p.teamSpreadYd ?? '—'}y${escape}`;
+}
+
 function offensiveWindowsBlock(windows: MatchMetrics['offensiveWindows']): string {
   if (!windows?.length) return '';
   const rows = windows
@@ -80,11 +89,11 @@ function offensiveWindowsBlock(windows: MatchMetrics['offensiveWindows']): strin
       const cc = w.counterPlay.ccOnDefenders.length;
       const imm = w.counterPlay.threatImmuneAuras.length;
       return `<tr><td>${w.startSec}-${w.endSec}s</td><td>${escapeHtml(TEAM_LABEL[w.attackingTeam] ?? w.attackingTeam)}</td>` +
-        `<td>${openers}</td><td>${w.teamDamageTaken}</td><td>${used}/${avail}</td><td>${cc}${imm ? ` · immune:${imm}` : ''}</td></tr>`;
+        `<td>${openers}</td><td>${w.teamDamageTaken}</td><td>${used}/${avail}</td><td>${cc}${imm ? ` · immune:${imm}` : ''}</td><td>${positioningCell(w.positioning)}</td></tr>`;
     })
     .join('');
   return `<details><summary>offensive windows (${windows.length})</summary>
-  <table><tr><th>t</th><th>attacker</th><th>opened by</th><th>dmg taken</th><th>mit CDs used/ready</th><th>counter</th></tr>${rows}</table></details>`;
+  <table><tr><th>t</th><th>attacker</th><th>opened by</th><th>dmg taken</th><th>mit CDs used/ready</th><th>counter</th><th>positioning</th></tr>${rows}</table></details>`;
 }
 
 export function metricsBlock(mm: MatchMetrics | undefined): string {

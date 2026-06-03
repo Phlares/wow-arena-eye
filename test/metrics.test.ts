@@ -63,3 +63,16 @@ describe('computeMatchMetrics phases 4-6 (real fixture)', () => {
     }
   });
 });
+
+describe('computeMatchMetrics — positioning', () => {
+  it.runIf(existsSync(FIXTURE))('populates positionTracks and distanceBands', async () => {
+    const { arenaMatches } = await parseLogFile(FIXTURE);
+    const mm = computeMatchMetrics(arenaMatches[0]);
+    expect(mm.positionTracks.length).toBeGreaterThan(0);
+    expect(mm.positionTracks.some((t) => t.samples.length > 0)).toBe(true);
+    expect(mm.distanceBands.length).toBeGreaterThan(0);
+    // every player carries a spacing summary
+    const players = mm.teams.flatMap((t) => t.players.map((p) => p.player));
+    expect(players.every((p) => p.spacing !== undefined)).toBe(true);
+  });
+});
