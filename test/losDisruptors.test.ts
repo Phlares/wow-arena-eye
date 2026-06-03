@@ -19,4 +19,28 @@ describe('collectLosDisruptors', () => {
     const ice = ds.find((d) => d.kind === 'ice-wall')!;
     expect(ice).toMatchObject({ casterId: 'M', team: 'friendly', modeled: false });
   });
+
+  it('ignores non-disruptor casts', () => {
+    const match = {
+      units: { R: { type: 1, reaction: 'Hostile' } },
+      events: [
+        { timestamp: 0 },
+        { event: 'SPELL_CAST_SUCCESS', srcUnitId: 'R', spellId: '1953', advancedActorPositionX: 5, advancedActorPositionY: 5, timestamp: 2000 }, // Blink — not a disruptor
+      ],
+    };
+    expect(collectLosDisruptors(match)).toEqual([]);
+  });
+
+  it('keeps a modeled smoke bomb even when the cast has no position (pos undefined, radius retained)', () => {
+    const match = {
+      units: { R: { type: 1, reaction: 'Hostile' } },
+      events: [
+        { timestamp: 0 },
+        { event: 'SPELL_CAST_SUCCESS', srcUnitId: 'R', spellId: '76577', timestamp: 3000 }, // no advanced position
+      ],
+    };
+    const smoke = collectLosDisruptors(match)[0];
+    expect(smoke).toMatchObject({ kind: 'smoke-bomb', modeled: true, radius: 8 });
+    expect(smoke.pos).toBeUndefined();
+  });
 });
