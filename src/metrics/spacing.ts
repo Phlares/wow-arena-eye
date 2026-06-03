@@ -41,6 +41,11 @@ function spacingFor(u: UnitMetrics, players: UnitMetrics[], tracks: Map<string, 
     const ne = nearest(self, enemies, t);
     if (ne !== undefined && ne <= MELEE_YD) meleeRangeSec += STEP_SEC;
     const na = nearest(self, allies, t);
+    // KNOWN LIMITATION: isolation needs a resolvable ally to measure distance against. A tick
+    // with NO resolvable ally (all teammates dead, or their positions momentarily unresolved)
+    // is NOT counted as isolated — so a sole survivor reads 0 isolated rather than "maximally
+    // isolated". Left as-is deliberately (can't distinguish "ally dead" from "ally gap"); revisit
+    // the semantics if isolation-while-teamless turns out to matter.
     if (na !== undefined && na > HEAL_RANGE_YD) isolatedSec += STEP_SEC;
   }
   return { meleeRangeSec: round1(meleeRangeSec), isolatedSec: round1(isolatedSec) };

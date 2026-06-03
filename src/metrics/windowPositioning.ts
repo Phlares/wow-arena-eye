@@ -47,6 +47,9 @@ function windowPositioning(
   const target = tracks.get(targetId);
   if (!target) return { primaryTargetId: targetId };
 
+  // KNOWN LIMITATION: threat = attacking-team PLAYERS only. Pet/guardian melee threats (hunter
+  // pet, felguard, ghoul, …) have tracks but are excluded here, so a window where the pet is in
+  // melee but the owner is at range reports a deceptively safe threat distance. Future refinement.
   const attackers = players.filter((p) => p.team === w.attackingTeam).map((p) => tracks.get(p.unitId)).filter(keepTrack);
   const defenders = players.filter((p) => p.team === w.defendingTeam);
 
@@ -77,6 +80,10 @@ function windowPositioning(
     }
   }
 
+  // KNOWN LIMITATION: anchorPlaced reflects the latest placement before the window; it does NOT
+  // model the anchor being consumed by an earlier teleport without re-placing, so escape can be
+  // overstated. escapeAvailable's return-spell cooldown check partially mitigates (a recent
+  // teleport leaves the return on CD).
   let escape: WindowPositioning['escape'];
   const windowStartMs = startMs + w.startSec * 1000;
   const placements = (anchors.get(targetId) ?? []).filter((pl) => pl.ms <= windowStartMs);
