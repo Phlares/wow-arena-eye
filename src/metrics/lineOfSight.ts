@@ -20,6 +20,9 @@ export function losBetween(grid: OccluderGrid, a: { x: number; y: number }, b: {
   const dx = b.x - a.x, dy = b.y - a.y;
   const len = Math.hypot(dx, dy);
   let peak = 0;
+  // Half-cell point sampling. Blind spot: a ray that only CORNER-CLIPS a 1-cell occluder
+  // (chord < ~1 cell) can step over it and read 'clear'; head-on passes and thicker walls are
+  // reliable. True angular precision is the deferred 3-III vector-fit, not finer sampling.
   const n = Math.max(1, Math.ceil(len / (grid.cellSize / 2)));
   for (let i = 0; i <= n; i++) {
     const f = i / n;
