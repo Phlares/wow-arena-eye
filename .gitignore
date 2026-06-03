@@ -11,3 +11,6 @@ coverage/
 # vendor submodule build artifacts (the submodule itself is tracked via .gitmodules)
 vendor/wowarenalogs/node_modules/
 vendor/**/dist/
+
+# brainstorming visual companion (local scratch)
+.superpowers/
