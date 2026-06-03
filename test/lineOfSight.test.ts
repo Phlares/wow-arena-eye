@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { losBetween, losAt, CLEAR_MAX, BLOCKED_MIN } from '../src/metrics/lineOfSight.js';
+import { losBetween, losAt, clearFraction, CLEAR_MAX, BLOCKED_MIN } from '../src/metrics/lineOfSight.js';
 import type { OccluderGrid, PositionTrack } from '../src/metrics/types.js';
 
 // 10x10 grid, 2yd cells, 20x20yd. A solid 2x2 occluder block at cols 4-5, rows 4-5 (world ~8-12).
@@ -42,5 +42,21 @@ describe('losAt (timeline)', () => {
     const A: PositionTrack = { unitId: 'A', samples: [{ tSec: 0, x: 2, y: 2 }, { tSec: 100, x: 2, y: 2 }], breaks: [] };
     const B = dense('B', 4, 2);
     expect(losAt(g, A, B, 50).result).toBe('unknown'); // A unresolved at 50 (MAX_GAP)
+  });
+});
+
+describe('clearFraction', () => {
+  it('is ~1 for a pair with clear LoS the whole window, ~0 when blocked throughout', () => {
+    const g = gridWithCentralPillar();
+    const top = clearFraction(g, dense('A', 2, 2), dense('B', 18, 2), 0, 10); // top edge, no pillar
+    const thru = clearFraction(g, dense('A', 2, 10), dense('B', 18, 10), 0, 10); // through pillar
+    expect(top).toBeCloseTo(1);
+    expect(thru).toBeCloseTo(0);
+  });
+  it('returns undefined when no tick resolves', () => {
+    const g = gridWithCentralPillar();
+    const A: PositionTrack = { unitId: 'A', samples: [{ tSec: 0, x: 2, y: 2 }], breaks: [] };
+    const B: PositionTrack = { unitId: 'B', samples: [{ tSec: 0, x: 4, y: 2 }], breaks: [] };
+    expect(clearFraction(g, A, B, 50, 55)).toBeUndefined(); // both tracks end at 0s, window at 50-55s
   });
 });
