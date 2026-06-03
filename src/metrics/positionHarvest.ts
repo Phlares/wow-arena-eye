@@ -1,3 +1,5 @@
+import { createReadStream } from 'node:fs';
+import { createInterface } from 'node:readline';
 import { Subject } from 'rxjs';
 import { stringToLogLine, logLineToCombatEvent } from '@wowarenalogs/parser';
 import { srcId, position } from './eventAccess.js';
@@ -51,4 +53,10 @@ export async function harvestPositions(
   subject.complete();
   sub.unsubscribe();
   return into;
+}
+
+/** Convenience wrapper: harvest positions from a combat-log file by path. */
+export async function harvestFile(path: string, into: Map<string, XY[]> = new Map()): Promise<Map<string, XY[]>> {
+  const rl = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
+  return harvestPositions(rl, into);
 }
