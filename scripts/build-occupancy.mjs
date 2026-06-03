@@ -1,13 +1,11 @@
 // Regenerate src/metadata/occupancy/<zoneId>.json from a corpus of combat logs.
 // Imports live TS source, so run via tsx (NOT plain node):
 //   WAE_LOG_CORPUS="/path/to/Logs" npm run build-occupancy
-//   (or: WAE_LOG_CORPUS="/path/to/Logs" npx tsx scripts/build-occupancy.mjs)
+//   (multiple corpora: WAE_LOG_CORPUS="/live/Logs;/archive/Logs" on Windows, ":" on POSIX)
 import { writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
-import { parseLogFile } from '../src/parser/parserClient.js';
-import { position as evPosition, srcId as evSrc } from '../src/metrics/eventAccess.js';
-import { unitKind } from '../src/metrics/types.js';
+import { join, delimiter } from 'node:path';
+import { harvestFile } from '../src/metrics/positionHarvest.js';
 import { Z_AXIS_MAPS } from '../src/metadata/occupancy.js'; // single source of truth (avoid drift)
 
 /** World (x,y) → integer grid cell. Clamps into [0,cols) / [0,rows).
@@ -59,33 +57,22 @@ export function buildOccluderGrid(zoneId, positions, opts = {}) {
   return { zoneId, bounds, cellSize, cols, rows, voidness, sampleCount: positions.length, coverage: walkable / inb, isZAxisMap };
 }
 
-/** Aggregate observed PLAYER positions per zoneId from one parsed match into `into`. */
-export function collectPositionsByZone(match, into) {
-  const m = match;
-  const zoneId = m?.startInfo?.zoneId ? String(m.startInfo.zoneId) : undefined;
-  if (!zoneId) return into;
-  // players only (pets/NPCs excluded from the walkable map) — via the canonical unitKind helper
-  const players = new Set(Object.entries(m.units ?? {}).filter(([, u]) => unitKind(u?.type) === 'player').map(([id]) => id));
-  const arr = into.get(zoneId) ?? [];
-  for (const ev of m.events ?? []) {
-    const s = evSrc(ev); if (!s || !players.has(s)) continue;
-    const p = evPosition(ev); if (!p) continue;
-    arr.push({ x: p.x, y: p.y });
-  }
-  into.set(zoneId, arr);
-  return into;
-}
-
 const MIN_SAMPLES = 200; // fewer observed positions than this → too sparse to infer a usable grid; skip the arena
 
 async function main() {
-  const corpus = process.env.WAE_LOG_CORPUS;
-  if (!corpus) { console.error('Set WAE_LOG_CORPUS to your logs directory'); process.exit(1); }
-  const files = readdirSync(corpus).filter((f) => /WoWCombatLog.*\.txt$/i.test(f));
+  const corpusEnv = process.env.WAE_LOG_CORPUS;
+  if (!corpusEnv) { console.error('Set WAE_LOG_CORPUS to your logs directory (or several, separated by the OS path delimiter)'); process.exit(1); }
+  const dirs = corpusEnv.split(delimiter).map((s) => s.trim()).filter(Boolean);
   const byZone = new Map();
-  for (const f of files) {
-    try { const { arenaMatches } = await parseLogFile(join(corpus, f)); for (const mt of arenaMatches) collectPositionsByZone(mt, byZone); }
-    catch (e) { console.error('skip', f, String(e)); }
+  for (const dir of dirs) {
+    let files;
+    try { files = readdirSync(dir).filter((f) => /WoWCombatLog.*\.txt$/i.test(f)); }
+    catch (e) { console.error('skip corpus dir (unreadable)', dir, String(e)); continue; }
+    console.error('corpus', dir, '-', files.length, 'log files');
+    for (const f of files) {
+      try { await harvestFile(join(dir, f), byZone); }
+      catch (e) { console.error('skip', f, String(e)); }
+    }
   }
   const outDir = fileURLToPath(new URL('../src/metadata/occupancy/', import.meta.url));
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });

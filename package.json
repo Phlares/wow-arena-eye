@@ -11,10 +11,12 @@
     "ingest": "tsx src/cli/ingest.ts",
     "view": "tsx src/cli/view.ts",
     "build-occupancy": "tsx scripts/build-occupancy.mjs",
+    "view-occupancy": "node scripts/view-occupancy.mjs",
     "extract-fixture": "tsx src/util/extractMatchFixture.ts"
   },
   "dependencies": {
-    "@wowarenalogs/parser": "file:./vendor/parser-proxy"
+    "@wowarenalogs/parser": "file:./vendor/parser-proxy",
+    "rxjs": "^6.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { worldToCell, buildOccluderGrid, collectPositionsByZone } from '../scripts/build-occupancy.mjs';
+import { worldToCell, buildOccluderGrid } from '../scripts/build-occupancy.mjs';
 
 describe('occupancy grid builder', () => {
   it('maps world coords to grid cells', () => {
@@ -26,18 +26,5 @@ describe('occupancy grid builder', () => {
     expect(at(9, 0)).toBeLessThan(0.2);     // border-unvisited but exterior → zeroed, NOT occluder
     expect(grid.zoneId).toBe('TEST');
     expect(grid.coverage).toBeGreaterThan(0);
-  });
-
-  it('aggregates observed player positions by zoneId from a match shape', () => {
-    const match = {
-      startInfo: { zoneId: '1825' },
-      units: { P: { type: 1 }, PET: { type: 3 } },
-      events: [
-        { event: 'SPELL_CAST_SUCCESS', srcUnitId: 'P', advancedActorPositionX: 10, advancedActorPositionY: 20 },
-        { event: 'SPELL_CAST_SUCCESS', srcUnitId: 'PET', advancedActorPositionX: 99, advancedActorPositionY: 99 }, // pet → excluded
-      ],
-    };
-    const m = collectPositionsByZone(match, new Map());
-    expect(m.get('1825')).toEqual([{ x: 10, y: 20 }]); // only the player
   });
 });
