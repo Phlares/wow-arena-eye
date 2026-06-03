@@ -3,7 +3,7 @@ import { type AuraState, type Interval } from './auraState.js';
 import { cdsForSpec, isOffensiveCd, type CdEntry } from '../metadata/cooldowns.js';
 import { ccInfo, isInterrupt, isImmunity } from '../metadata/spells.js';
 import { isAvailable, type CastEvent } from './cooldownTimeline.js';
-import { matchStartMs, eventType, srcId, destId, eventTimeMs, amount, DAMAGE_EVENTS } from './eventAccess.js';
+import { matchStartMs, matchEndMs, eventType, srcId, destId, eventTimeMs, amount, DAMAGE_EVENTS } from './eventAccess.js';
 
 const OTHER: Record<Team, Team> = { friendly: 'enemy', enemy: 'friendly', neutral: 'neutral' };
 
@@ -68,14 +68,9 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
   // before the log ends) leaves an unbounded interval end; without clamping, a window could
   // extend to a garbage far-future timestamp (endSec in the trillions). Clamp interval ends to
   // the later of the last event and the reported duration. Copy intervals (don't mutate auraState).
-  const durationSec = typeof (m as { durationInSeconds?: unknown }).durationInSeconds === 'number'
-    ? (m as { durationInSeconds: number }).durationInSeconds
-    : undefined;
-  const lastEventMs = events.reduce<number>((mx, ev) => {
-    const t = eventTimeMs(ev);
-    return t !== undefined && t > mx ? t : mx;
-  }, matchStart);
-  const matchEnd = Math.max(lastEventMs, durationSec !== undefined ? matchStart + durationSec * 1000 : matchStart);
+  const dur = (m as { durationInSeconds?: unknown }).durationInSeconds;
+  const durationEnd = typeof dur === 'number' ? matchStart + dur * 1000 : matchStart;
+  const matchEnd = Math.max(matchEndMs(events) ?? matchStart, durationEnd);
   // Only clamp when we actually have a match end past the start (real logs always do; some
   // synthetic fixtures with a single t=0 event and no duration do not — leave those untouched).
   const clamped = matchEnd > matchStart

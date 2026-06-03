@@ -1,6 +1,6 @@
 import type { Sample, PositionTrack, PositionQuery, UnitMetrics } from './types.js';
 import { matchStartMs, eventType, destId, eventTimeMs, position } from './eventAccess.js';
-import { collectCasts } from './cooldownTimeline.js';
+import { collectCasts, type CastEvent } from './cooldownTimeline.js';
 import { isMobility } from '../metadata/repositioning.js';
 
 export const MAX_GAP_SEC = 3;
@@ -34,8 +34,9 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
   }
 
   // Bracket: greatest sample ≤ tSec at index lo, next sample at lo+1.
-  // (Shares the bracket-find + lerp shape with sampleAt.ts; consolidating the two is
-  //  deferred to the simplify pass, once Task 4's mobility-break handling settles this path.)
+  // (Shares the bracket-find + lerp shape with sampleAt.ts, but kept separate by design: this
+  //  path adds the gap guard, mobility-break split, and PositionQuery shape that sampleAt lacks,
+  //  so a forced merge would cost more readability than the ~8 shared lines save.)
   let lo = 0;
   let hi = s.length - 1;
   while (lo < hi) {
@@ -55,7 +56,7 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
     if (tSec <= tb - PRE_CAST_VALID_SEC) {
       // pre-cast: hold the last observed pre-sample, still subject to the gap guard
       const ok = tSec - a.tSec <= MAX_GAP_SEC;
-      return { position: ok ? { x: a.x, y: a.y, tSec, facing: a.facing, hpPct: a.hpPct } : undefined, inferred: ok ? !!a.inferred : false, lastKnown };
+      return { position: ok ? { ...a, tSec } : undefined, inferred: ok ? !!a.inferred : false, lastKnown };
     }
     // transit (Tc-0.5 .. landing sample b): genuinely unknown
     return { position: undefined, inferred: false, lastKnown };
@@ -83,8 +84,9 @@ export function distanceAt(a: PositionTrack, b: PositionTrack, tSec: number): nu
 }
 
 /** Build the enriched position-track store: each unit's OBSERVED samples (copied, not mutated)
- *  plus mobility-cast break times (tSec). Inferred samples are added in a later step. */
-export function buildPositionTracks(units: UnitMetrics[], match: unknown): Map<string, PositionTrack> {
+ *  plus mobility-cast break times (tSec) and inferred melee-derived samples. `casts` defaults to
+ *  a fresh scan but callers that already have the cast map (computeMatchMetrics) should pass it. */
+export function buildPositionTracks(units: UnitMetrics[], match: unknown, casts: Map<string, CastEvent[]> = collectCasts(match)): Map<string, PositionTrack> {
   const m = match as { events?: unknown[] };
   const events = Array.isArray(m.events) ? m.events : [];
   const startMs = matchStartMs(events) ?? 0;
@@ -94,7 +96,7 @@ export function buildPositionTracks(units: UnitMetrics[], match: unknown): Map<s
     tracks.set(u.unitId, { unitId: u.unitId, samples: u.track.map((s) => ({ ...s })), breaks: [] });
   }
 
-  for (const [uid, list] of collectCasts(match)) {
+  for (const [uid, list] of casts) {
     const tr = tracks.get(uid);
     if (!tr) continue;
     for (const c of list) if (isMobility(c.spellId)) tr.breaks.push((c.ms - startMs) / 1000);

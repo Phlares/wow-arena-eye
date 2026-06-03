@@ -100,6 +100,19 @@ export function matchStartMs(events: unknown[]): number | undefined {
   return undefined;
 }
 
+/** Epoch ms of the match's last timestamped event, or undefined if none. The symmetric
+ *  bound to matchStartMs — consumers clamp open/unclosed auras against this (e.g. ccTime,
+ *  offensiveWindows). NOTE: this is the max over ALL events; a damage-only end (targeting.ts)
+ *  is a different, narrower quantity and is not this. */
+export function matchEndMs(events: unknown[]): number | undefined {
+  let mx: number | undefined;
+  for (const ev of events) {
+    const t = eventTimeMs(ev);
+    if (t !== undefined && (mx === undefined || t > mx)) mx = t;
+  }
+  return mx;
+}
+
 /** Millisecond timestamp of the event (directly on CombatAction). */
 export function eventTimeMs(ev: unknown): number | undefined {
   const e = ev as Ev;

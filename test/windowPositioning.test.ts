@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collectAnchors, addWindowPositioning } from '../src/metrics/spacing.js';
+import { collectAnchors, addWindowPositioning } from '../src/metrics/windowPositioning.js';
 import type { UnitMetrics, PositionTrack, OffensiveWindow, Sample } from '../src/metrics/types.js';
 import type { CastEvent } from '../src/metrics/cooldownTimeline.js';
 

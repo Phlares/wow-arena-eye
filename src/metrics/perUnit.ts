@@ -1,4 +1,4 @@
-import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS, immuneEvent } from './eventAccess.js';
+import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, matchEndMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS, immuneEvent } from './eventAccess.js';
 import { tally, unitKind, unitTeam, ownerIdOf, resolvePlayer, type UnitMetrics, type Sample, type CcSide, type ImmuneSide, type DrCategory, type CdUsageStat } from './types.js';
 import { isDefensive, ccInfo } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
@@ -51,7 +51,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState, casts: Map<
   const events = Array.isArray(m.events) ? m.events : [];
   const units = m.units ?? {};
   const startMs = matchStartMs(events);
-  let endMs = startMs ?? 0;
+  const endMs = matchEndMs(events) ?? startMs ?? 0;
 
   const teamOf = (id: string | undefined): string => unitTeam((units[id ?? ''] ?? {}).reaction);
 
@@ -67,7 +67,6 @@ export function computeUnitMetrics(match: unknown, auras: AuraState, casts: Map<
     const s = srcId(ev);
     const d = destId(ev);
     const ms = eventTimeMs(ev);
-    if (ms !== undefined && ms > endMs) endMs = ms;
 
     // Sample capture for position tracking
     if (s) {
