@@ -1,4 +1,4 @@
-import type { OccluderGrid, LosQuery, PositionTrack } from './types.js';
+import type { OccluderGrid, LosQuery, PositionTrack, Team, LosDisruptor } from './types.js';
 import { resolvePosition } from './positionTracks.js';
 
 export const CLEAR_MAX = 0.5;    // peak void-ness below this = clear
@@ -34,21 +34,38 @@ export function losBetween(grid: OccluderGrid, a: { x: number; y: number }, b: {
   return { result, occlusion: peak, approximate };
 }
 
+/** Whether world point `p` is inside the smoke sphere of disruptor `d`. */
+function insideSmoke(d: LosDisruptor, p: { x: number; y: number }): boolean {
+  return d.pos !== undefined && d.radius !== undefined && Math.hypot(p.x - d.pos.x, p.y - d.pos.y) <= d.radius;
+}
+
 /** LoS between two units at tSec, piggybacking the position timeline. 'unknown' if either
- *  position is unresolved. (Smoke-bomb membrane is layered in by a later task.) */
-export function losAt(grid: OccluderGrid, a: PositionTrack, b: PositionTrack, tSec: number): LosQuery {
+ *  position is unresolved. The smoke-bomb membrane is applied before the geometric result:
+ *  an active smoke whose boundary the segment straddles blocks the team OPPOSITE the caster
+ *  (the caster's team — `viewerTeam === d.team` — sees through). `viewerTeam` omitted = team-agnostic. */
+export function losAt(
+  grid: OccluderGrid, a: PositionTrack, b: PositionTrack, tSec: number,
+  disruptors: LosDisruptor[] = [], viewerTeam?: Team,
+): LosQuery {
   const pa = resolvePosition(a, tSec).position;
   const pb = resolvePosition(b, tSec).position;
   if (!pa || !pb) return { result: 'unknown', occlusion: 0, approximate: grid.isZAxisMap };
+  // Smoke-bomb membrane: an active smoke whose boundary the segment straddles blocks the team
+  // OPPOSITE the caster (the caster's team sees through). Team-keyed via viewerTeam.
+  for (const d of disruptors) {
+    if (d.kind !== 'smoke-bomb' || !d.modeled || tSec < d.startSec || tSec > d.endSec) continue;
+    if (viewerTeam !== undefined && viewerTeam === d.team) continue; // caster's team unaffected
+    if (insideSmoke(d, pa) !== insideSmoke(d, pb)) return { result: 'blocked', occlusion: 1, approximate: grid.isZAxisMap };
+  }
   return losBetween(grid, pa, pb);
 }
 
 /** Fraction of [startSec,endSec] (sampled at LOS_STEP_SEC) with a clear LoS between a and b.
  *  undefined when no tick resolved. */
-export function clearFraction(grid: OccluderGrid, a: PositionTrack, b: PositionTrack, startSec: number, endSec: number): number | undefined {
+export function clearFraction(grid: OccluderGrid, a: PositionTrack, b: PositionTrack, startSec: number, endSec: number, disruptors: LosDisruptor[] = [], viewerTeam?: Team): number | undefined {
   let resolved = 0, clear = 0;
   for (let t = startSec; t <= endSec; t += LOS_STEP_SEC) {
-    const q = losAt(grid, a, b, t);
+    const q = losAt(grid, a, b, t, disruptors, viewerTeam);
     if (q.result === 'unknown') continue;
     resolved++; if (q.result === 'clear') clear++;
   }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { losBetween, losAt, clearFraction, CLEAR_MAX, BLOCKED_MIN } from '../src/metrics/lineOfSight.js';
-import type { OccluderGrid, PositionTrack } from '../src/metrics/types.js';
+import type { OccluderGrid, PositionTrack, LosDisruptor } from '../src/metrics/types.js';
 
 // 10x10 grid, 2yd cells, 20x20yd. A solid 2x2 occluder block at cols 4-5, rows 4-5 (world ~8-12).
 function gridWithCentralPillar(isZAxisMap = false): OccluderGrid {
@@ -58,5 +58,24 @@ describe('clearFraction', () => {
     const A: PositionTrack = { unitId: 'A', samples: [{ tSec: 0, x: 2, y: 2 }], breaks: [] };
     const B: PositionTrack = { unitId: 'B', samples: [{ tSec: 0, x: 4, y: 2 }], breaks: [] };
     expect(clearFraction(g, A, B, 50, 55)).toBeUndefined(); // both tracks end at 0s, window at 50-55s
+  });
+});
+
+describe('losAt — smoke bomb membrane', () => {
+  const open: OccluderGrid = { zoneId: 'T', bounds: { minX: 0, minY: 0, maxX: 40, maxY: 40 }, cellSize: 2, cols: 20, rows: 20, voidness: new Array(400).fill(0), sampleCount: 9999, coverage: 0.9, isZAxisMap: false };
+  // smoke centered (20,20) r=8, cast by an ENEMY-team rogue
+  const smoke: LosDisruptor = { kind: 'smoke-bomb', casterId: 'R', team: 'enemy', pos: { x: 20, y: 20 }, radius: 8, startSec: 0, endSec: 10, modeled: true };
+  const inside = dense('IN', 20, 20);   // at center (inside)
+  const outside = dense('OUT', 38, 20); // far (outside)
+
+  it('blocks the affected (friendly) team across the membrane', () => {
+    expect(losAt(open, inside, outside, 5, [smoke], 'friendly').result).toBe('blocked');
+  });
+  it('lets the caster team (enemy) see through the membrane', () => {
+    expect(losAt(open, inside, outside, 5, [smoke], 'enemy').result).toBe('clear');
+  });
+  it('does not block when both endpoints are on the same side', () => {
+    const out2 = dense('OUT2', 36, 20);
+    expect(losAt(open, outside, out2, 5, [smoke], 'friendly').result).toBe('clear');
   });
 });
