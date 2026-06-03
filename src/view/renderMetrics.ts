@@ -69,6 +69,14 @@ function coordinationBlock(coord: MatchMetrics['coordination']): string {
   }).join('');
 }
 
+/** One offensive window's positioning cell: threat distance (start→min), healer/spread, and
+ *  an escape indicator. Distances are numeric (no escaping needed); '—' for unresolved fields. */
+function positioningCell(p: MatchMetrics['offensiveWindows'][number]['positioning']): string {
+  if (!p) return '—';
+  const escape = p.escape ? ` · escape ${p.escape.anchorPlaced ? '✓' : '✗'}${p.escape.escapeAvailable ? '(rdy)' : ''}` : '';
+  return `threat ${p.threatDistanceStartYd ?? '—'}→${p.threatDistanceMinYd ?? '—'}y · heal ${p.nearestHealerYd ?? '—'}y · spread ${p.teamSpreadYd ?? '—'}y${escape}`;
+}
+
 function offensiveWindowsBlock(windows: MatchMetrics['offensiveWindows']): string {
   if (!windows?.length) return '';
   const rows = windows
@@ -80,13 +88,8 @@ function offensiveWindowsBlock(windows: MatchMetrics['offensiveWindows']): strin
       const avail = w.mitigation.available.length;
       const cc = w.counterPlay.ccOnDefenders.length;
       const imm = w.counterPlay.threatImmuneAuras.length;
-      const p = w.positioning;
-      const posCell = p
-        ? `threat ${p.threatDistanceStartYd ?? '—'}→${p.threatDistanceMinYd ?? '—'}y · heal ${p.nearestHealerYd ?? '—'}y · spread ${p.teamSpreadYd ?? '—'}y` +
-          (p.escape ? ` · escape ${p.escape.anchorPlaced ? '✓' : '✗'}${p.escape.escapeAvailable ? '(rdy)' : ''}` : '')
-        : '—';
       return `<tr><td>${w.startSec}-${w.endSec}s</td><td>${escapeHtml(TEAM_LABEL[w.attackingTeam] ?? w.attackingTeam)}</td>` +
-        `<td>${openers}</td><td>${w.teamDamageTaken}</td><td>${used}/${avail}</td><td>${cc}${imm ? ` · immune:${imm}` : ''}</td><td>${posCell}</td></tr>`;
+        `<td>${openers}</td><td>${w.teamDamageTaken}</td><td>${used}/${avail}</td><td>${cc}${imm ? ` · immune:${imm}` : ''}</td><td>${positioningCell(w.positioning)}</td></tr>`;
     })
     .join('');
   return `<details><summary>offensive windows (${windows.length})</summary>
