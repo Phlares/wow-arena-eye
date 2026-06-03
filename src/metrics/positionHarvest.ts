@@ -16,7 +16,12 @@ const FALLBACK_TZ = 'America/New_York';
 /**
  * Stream raw combat-log lines through the parser's own per-line pipeline and collect
  * PLAYER positions, keyed by the active arena zoneId. Positions are recorded only while
- * a match is active (between ARENA_MATCH_START and ARENA_MATCH_END). Events that fail to
+ * a match is active: the window opens at ARENA_MATCH_START and closes at ARENA_MATCH_END
+ * OR the next ZONE_CHANGE. The ZONE_CHANGE bound matters because real logs routinely omit
+ * ARENA_MATCH_END (one sampled corpus file had 43 starts but 32 ends) — leaving the arena
+ * always emits a ZONE_CHANGE to the city, so without this bound the post-match city
+ * positions would pollute the arena grid and blow up its bounds. No ZONE_CHANGE fires
+ * between a start and its end, so this never truncates a live match. Events that fail to
  * parse (e.g. the version-shifted COMBATANT_INFO in older logs) are dropped harmlessly by
  * logLineToCombatEvent's internal try/catch, so a bad event never aborts harvesting.
  *
@@ -39,7 +44,7 @@ export async function harvestPositions(
       zone = (ev as { zoneId?: string }).zoneId ?? null;
       return;
     }
-    if (kind === 'ARENA_MATCH_END') {
+    if (kind === 'ARENA_MATCH_END' || kind === 'ZONE_CHANGE') {
       zone = null;
       return;
     }

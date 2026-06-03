@@ -35,6 +35,15 @@ describe('harvestPositions', () => {
     expect(m.get('1825')).toEqual([{ x: 972.96, y: -299.03 }]);
   });
 
+  it('closes the collection window on ZONE_CHANGE when ARENA_MATCH_END is missing', async () => {
+    // Real logs often omit ARENA_MATCH_END; leaving the arena emits a ZONE_CHANGE to the
+    // city. Positions after that ZONE_CHANGE (e.g. casting in the city) must NOT pollute
+    // the arena zone.
+    const ZONE_CITY = '5/28/2026 20:11:35.000-4  ZONE_CHANGE,2552,"Dornogal",0';
+    const m = await harvestPositions([START, CAST_PLAYER, ZONE_CITY, CAST_PLAYER]);
+    expect(m.get('1825')).toEqual([{ x: 972.96, y: -299.03 }]); // only the in-arena cast
+  });
+
   it('separates positions from different zones into different keys', async () => {
     const START2 = '5/28/2026 20:20:00.000-4  ARENA_MATCH_START,572,41,3v3,1';
     const m = await harvestPositions([START, CAST_PLAYER, END, START2, CAST_PLAYER, END]);
