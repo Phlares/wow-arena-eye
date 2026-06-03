@@ -10,10 +10,13 @@ import { position as evPosition, srcId as evSrc } from '../src/metrics/eventAcce
 import { unitKind } from '../src/metrics/types.js';
 import { Z_AXIS_MAPS } from '../src/metadata/occupancy.js'; // single source of truth (avoid drift)
 
-/** World (x,y) → integer grid cell. Clamps into [0,cols) / [0,rows). */
+/** World (x,y) → integer grid cell. Clamps into [0,cols) / [0,rows).
+ *  maxCol/maxRow are floored at 0 so a degenerate sub-cell bounds span can't yield a negative index. */
 export function worldToCell(bounds, cellSize, x, y) {
-  const col = Math.min(Math.max(0, Math.floor((x - bounds.minX) / cellSize)), Math.floor((bounds.maxX - bounds.minX) / cellSize) - 1);
-  const row = Math.min(Math.max(0, Math.floor((y - bounds.minY) / cellSize)), Math.floor((bounds.maxY - bounds.minY) / cellSize) - 1);
+  const maxCol = Math.max(0, Math.floor((bounds.maxX - bounds.minX) / cellSize) - 1);
+  const maxRow = Math.max(0, Math.floor((bounds.maxY - bounds.minY) / cellSize) - 1);
+  const col = Math.min(Math.max(0, Math.floor((x - bounds.minX) / cellSize)), maxCol);
+  const row = Math.min(Math.max(0, Math.floor((y - bounds.minY) / cellSize)), maxRow);
   return { col, row };
 }
 
