@@ -52,13 +52,14 @@ describe('addWindowPositioning', () => {
   });
 
   it('reports escape when an anchor was placed, with availability from the return-spell cooldown', () => {
-    const match = { events: [{ timestamp: 1000 }, { event: 'SPELL_CAST_SUCCESS', srcUnitId: 'F1', spellId: '48018', advancedActorPositionX: 0, advancedActorPositionY: 0, timestamp: 5000 }] };
+    // F1 placed Demon Circle (48018) at ms 5000 at (3, 4); target F1 sits at origin → anchorDistance = 5.
+    const match = { events: [{ timestamp: 1000 }, { event: 'SPELL_CAST_SUCCESS', srcUnitId: 'F1', spellId: '48018', advancedActorPositionX: 3, advancedActorPositionY: 4, timestamp: 5000 }] };
     // Teleport (48020) last cast at ms 1000 → at window start (11_000), 10_000ms < 30_000 CD → NOT available.
     const casts = new Map<string, CastEvent[]>([['F1', [{ spellId: 48020, name: 'Demonic Circle: Teleport', ms: 1000 }]]]);
     const out = addWindowPositioning([baseWindow({})], tracks, units, match, casts);
     const esc = out[0].positioning!.escape!;
     expect(esc.anchorPlaced).toBe(true);
-    expect(esc.anchorDistanceYd).toBeCloseTo(0);
+    expect(esc.anchorDistanceYd).toBeCloseTo(5);
     expect(esc.escapeAvailable).toBe(false);
   });
 

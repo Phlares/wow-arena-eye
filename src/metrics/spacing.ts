@@ -1,6 +1,6 @@
 import type { UnitMetrics, PositionTrack, SpacingSummary, DistanceBandRow, OffensiveWindow, WindowPositioning } from './types.js';
 import { distanceAt, resolvePosition } from './positionTracks.js';
-import { matchStartMs, eventType, srcId, spellId, eventTimeMs } from './eventAccess.js';
+import { matchStartMs, eventType, srcId, spellId, eventTimeMs, position } from './eventAccess.js';
 import { anchorInfo } from '../metadata/repositioning.js';
 import { isAvailable, type CastEvent } from './cooldownTimeline.js';
 import { HEALER_SPEC_IDS } from './registry.js';
@@ -112,19 +112,8 @@ const r1 = (x: number | undefined) => (x === undefined ? undefined : round1(x));
 
 export interface AnchorPlacement { unitId: string; spellId: number; x: number; y: number; ms: number; }
 
-/** Raw advanced-log coords of an event, WITHOUT the (0,0)="no data" guard that `position()`
- *  applies. An anchor placement is a deliberate cast we've already type-gated, so its reported
- *  position is taken as-is (a real placement can legitimately sit at the map origin). */
-function rawXY(ev: unknown): { x: number; y: number } | undefined {
-  const e = ev as Record<string, unknown>;
-  const x = e?.advancedActorPositionX;
-  const y = e?.advancedActorPositionY;
-  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return undefined;
-  return { x, y };
-}
-
 /** Anchor (e.g. Demon Circle) placements per unit, in chronological order, with the caster
- *  position captured from the placement cast. */
+ *  position captured from the placement cast (via the shared `position` accessor). */
 export function collectAnchors(match: unknown): Map<string, AnchorPlacement[]> {
   const m = match as { events?: unknown[] };
   const events = Array.isArray(m.events) ? m.events : [];
@@ -135,7 +124,7 @@ export function collectAnchors(match: unknown): Map<string, AnchorPlacement[]> {
     if (!anchorInfo(sid)) continue;
     const s = srcId(ev);
     const ms = eventTimeMs(ev);
-    const p = rawXY(ev);
+    const p = position(ev);
     if (!s || ms === undefined || !p) continue;
     const arr = out.get(s) ?? [];
     arr.push({ unitId: s, spellId: sid!, x: p.x, y: p.y, ms });
@@ -161,11 +150,7 @@ function windowPositioning(
   const attackers = players.filter((p) => p.team === w.attackingTeam).map((p) => tracks.get(p.unitId)).filter(keep);
   const defenders = players.filter((p) => p.team === w.defendingTeam);
 
-  const nearestAttacker = (t: number): number | undefined => {
-    let min: number | undefined;
-    for (const a of attackers) { const d = distanceAt(target, a, t); if (d !== undefined && (min === undefined || d < min)) min = d; }
-    return min;
-  };
+  const nearestAttacker = (t: number): number | undefined => nearest(target, attackers, t);
 
   const threatDistanceStartYd = nearestAttacker(w.startSec);
   let threatDistanceMinYd: number | undefined;
