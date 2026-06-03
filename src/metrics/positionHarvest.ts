@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { Subject } from 'rxjs';
 import { stringToLogLine, logLineToCombatEvent } from '@wowarenalogs/parser';
-import { srcId, position } from './eventAccess.js';
+import { srcId, position, eventType } from './eventAccess.js';
 
 export interface XY {
   x: number;
@@ -20,8 +20,9 @@ const FALLBACK_TZ = 'America/New_York';
  * parse (e.g. the version-shifted COMBATANT_INFO in older logs) are dropped harmlessly by
  * logLineToCombatEvent's internal try/catch, so a bad event never aborts harvesting.
  *
- * Event-kind detection uses constructor.name (not instanceof): under tsx/vitest the action
- * classes can resolve to distinct module identities, which silently breaks instanceof.
+ * Event-kind detection uses eventAccess.eventType (logLine.event) — the same stable
+ * discriminator the parser's own action classes use — rather than `instanceof`, which
+ * silently breaks when tsx/vitest resolve the action classes to distinct module identities.
  */
 export async function harvestPositions(
   lines: Iterable<string> | AsyncIterable<string>,
@@ -29,14 +30,16 @@ export async function harvestPositions(
 ): Promise<Map<string, XY[]>> {
   const subject = new Subject<string>();
   let zone: string | null = null;
-  const sub = subject.pipe(stringToLogLine(FALLBACK_TZ), logLineToCombatEvent('retail')).subscribe((ev) => {
+  // The pipe is synchronous (subject.next drives the subscriber inline), so the
+  // subscription needs no explicit teardown — subject.complete() ends it.
+  subject.pipe(stringToLogLine(FALLBACK_TZ), logLineToCombatEvent('retail')).subscribe((ev) => {
     if (typeof ev === 'string') return;
-    const kind = (ev as { constructor?: { name?: string } })?.constructor?.name;
-    if (kind === 'ArenaMatchStart') {
-      zone = (ev as unknown as { zoneId: string }).zoneId;
+    const kind = eventType(ev);
+    if (kind === 'ARENA_MATCH_START') {
+      zone = (ev as { zoneId?: string }).zoneId ?? null;
       return;
     }
-    if (kind === 'ArenaMatchEnd') {
+    if (kind === 'ARENA_MATCH_END') {
       zone = null;
       return;
     }
@@ -51,7 +54,6 @@ export async function harvestPositions(
   });
   for await (const line of lines) subject.next(line);
   subject.complete();
-  sub.unsubscribe();
   return into;
 }
 
