@@ -33,6 +33,7 @@ export function floodFillExterior(voidness, cols, rows, voidThreshold) {
 export function buildOccluderGrid(zoneId, positions, opts = {}) {
   const cellSize = opts.cellSize ?? 2;
   const saturationCount = opts.saturationCount ?? 8;
+  const voidThreshold = opts.voidThreshold ?? 0.5; // cells this void-or-more are flood-fill-traversable
   const isZAxisMap = !!opts.isZAxisMap;
   const bounds = opts.bounds ?? boundsOf(positions, cellSize);
   const cols = Math.max(1, Math.floor((bounds.maxX - bounds.minX) / cellSize));
@@ -42,9 +43,9 @@ export function buildOccluderGrid(zoneId, positions, opts = {}) {
   // void-ness = 1 - min(visits/saturation, 1)
   const voidness = counts.map((n) => 1 - Math.min(n / saturationCount, 1));
   // exterior void (border-reachable) → zeroed; only enclosed void stays occluder
-  const ext = floodFillExterior(voidness, cols, rows, 0.5);
+  const ext = floodFillExterior(voidness, cols, rows, voidThreshold);
   for (let i = 0; i < voidness.length; i++) if (ext[i]) voidness[i] = 0;
   const walkable = counts.filter((n) => n >= saturationCount).length;
-  const inb = counts.filter((n) => n > 0).length || 1;
+  const inb = counts.filter((n) => n > 0).length || 1; // || 1 avoids /0 on an empty/unvisited grid
   return { zoneId, bounds, cellSize, cols, rows, voidness, sampleCount: positions.length, coverage: walkable / inb, isZAxisMap };
 }

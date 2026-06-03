@@ -7,4 +7,4 @@ export interface OccluderGridLite {
 export function worldToCell(bounds: GridBounds, cellSize: number, x: number, y: number): { col: number; row: number };
 export function boundsOf(positions: XY[], cellSize: number): GridBounds;
 export function floodFillExterior(voidness: number[], cols: number, rows: number, voidThreshold: number): boolean[];
-export function buildOccluderGrid(zoneId: string, positions: XY[], opts?: { cellSize?: number; saturationCount?: number; isZAxisMap?: boolean; bounds?: GridBounds }): OccluderGridLite;
+export function buildOccluderGrid(zoneId: string, positions: XY[], opts?: { cellSize?: number; saturationCount?: number; voidThreshold?: number; isZAxisMap?: boolean; bounds?: GridBounds }): OccluderGridLite;
