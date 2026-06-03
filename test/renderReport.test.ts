@@ -90,13 +90,18 @@ describe('renderReport', () => {
 });
 
 describe('renderReport metrics block (per-player)', () => {
-  it('renders team sections with a player combined line', () => {
-    const metrics: MatchMetrics = {
+  const metrics: MatchMetrics = {
       playerUnitId: 'P',
       timeline: [{ tSec: 5, unitId: 'P', unitName: 'You', kind: 'cast', spell: 'Agony' }],
       coordination: [{ team: 'friendly', summary: { topFocusTarget: 'EnemyDps', targetPriority: [{ name: 'EnemyDps', damageTaken: 1000 }], healerPressureDamage: 300, swaps: 4, attackerFocus: [{ attacker: 'A1', attackerName: 'Ally1', swaps: 2, topTarget: 'EnemyDps', topTargetSec: 12.5, engagedSec: 20 }], alignmentFraction: 0.8, alignedTimeSec: 16 } }],
       focusTracks: { stepMs: 500, tickCount: 0, startMs: 0, tracks: [] },
-      offensiveWindows: [], positionTracks: [], distanceBands: [],
+      offensiveWindows: [{
+        attackingTeam: 'enemy', defendingTeam: 'friendly', startSec: 10, endSec: 20,
+        openedBy: [{ spellId: 107574, spellName: 'Avatar', unitId: 'E1', startSec: 10, endSec: 20 }],
+        teamDamageTaken: 5000, damageByTarget: [{ unitId: 'P', name: 'You', damage: 5000 }],
+        mitigation: { available: [], used: [] }, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] },
+        positioning: { primaryTargetId: 'P', threatDistanceStartYd: 5, threatDistanceMinYd: 3, nearestHealerYd: 12, teamSpreadYd: 18, escape: { anchorPlaced: true, anchorDistanceYd: 4, escapeAvailable: false } },
+      }], positionTracks: [], distanceBands: [],
       teams: [
         {
           team: 'friendly',
@@ -108,7 +113,7 @@ describe('renderReport metrics block (per-player)', () => {
                 casts: 100, topCasts: [{ spellName: 'Agony', count: 30 }], interruptsLanded: 0, interruptsLandedBySpell: [],
                 dispels: 0, purges: 0, purgesBySpell: [], cleanses: 0, cleansesBySpell: [], spellsteals: 0, spellstealsBySpell: [],
                 deaths: 0, deathTimesSec: [], distanceMoved: 1234.5, positionSamples: 200, timeStationarySec: 12.3,
-                track: [], spacing: { meleeRangeSec: 0, isolatedSec: 0 }, interruptsSuffered: 0, interruptsSufferedBySpell: [],
+                track: [], spacing: { meleeRangeSec: 7.5, isolatedSec: 3 }, interruptsSuffered: 0, interruptsSufferedBySpell: [],
                 deathsWhileCcd: 0, deathsWhileCcdBySpell: [], defensivesUsed: 0, defensivesUsedBySpell: [], defensivesIntoBurst: 0, cdUsage: [],
                 ccReceived: { timeSec: 12.5, castDenialSec: 6, hardCcSec: 4.5, rootSec: 2, count: 5, byCategory: [] },
                 ccDone: { timeSec: 8, castDenialSec: 2, hardCcSec: 6, rootSec: 0, count: 4, byCategory: [] },
@@ -134,6 +139,8 @@ describe('renderReport metrics block (per-player)', () => {
         },
       ],
     };
+
+  it('renders team sections with a player combined line', () => {
     const html = renderReport([match({ metrics })], index());
     expect(html).toContain('Your team');
     expect(html).toContain('Zhaazhem');
@@ -152,6 +159,13 @@ describe('renderReport metrics block (per-player)', () => {
     expect(html).toContain('CC done');
     expect(html).toContain('immuned');
     expect(html).toContain('Polymorph');
+  });
+
+  it('renders per-window positioning and per-unit spacing', () => {
+    const html = renderReport([match({ metrics })], index());
+    expect(html).toContain('threat');       // positioning column header / cell
+    expect(html).toContain('spread');       // team spread shown
+    expect(html).toContain('melee');        // per-unit spacing in the move cell
   });
 });
 
