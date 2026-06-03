@@ -88,12 +88,16 @@ function offensiveWindowsBlock(windows: MatchMetrics['offensiveWindows']): strin
       const avail = w.mitigation.available.length;
       const cc = w.counterPlay.ccOnDefenders.length;
       const imm = w.counterPlay.threatImmuneAuras.length;
+      const lo = w.lineOfSight;
+      const losCell = lo
+        ? `${lo.result}${lo.clearFraction !== undefined ? ` (${Math.round(lo.clearFraction * 100)}% clear)` : ''}${lo.approximate ? ' ~approx' : ''}${lo.disruptorsActive.length ? ' · ' + lo.disruptorsActive.join(',') : ''}`
+        : '—';
       return `<tr><td>${w.startSec}-${w.endSec}s</td><td>${escapeHtml(TEAM_LABEL[w.attackingTeam] ?? w.attackingTeam)}</td>` +
-        `<td>${openers}</td><td>${w.teamDamageTaken}</td><td>${used}/${avail}</td><td>${cc}${imm ? ` · immune:${imm}` : ''}</td><td>${positioningCell(w.positioning)}</td></tr>`;
+        `<td>${openers}</td><td>${w.teamDamageTaken}</td><td>${used}/${avail}</td><td>${cc}${imm ? ` · immune:${imm}` : ''}</td><td>${positioningCell(w.positioning)}</td><td>${losCell}</td></tr>`;
     })
     .join('');
   return `<details><summary>offensive windows (${windows.length})</summary>
-  <table><tr><th>t</th><th>attacker</th><th>opened by</th><th>dmg taken</th><th>mit CDs used/ready</th><th>counter</th><th>positioning</th></tr>${rows}</table></details>`;
+  <table><tr><th>t</th><th>attacker</th><th>opened by</th><th>dmg taken</th><th>mit CDs used/ready</th><th>counter</th><th>positioning</th><th>LoS</th></tr>${rows}</table></details>`;
 }
 
 export function metricsBlock(mm: MatchMetrics | undefined): string {
