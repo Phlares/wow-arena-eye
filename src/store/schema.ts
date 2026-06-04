@@ -1,7 +1,7 @@
 import type { DatabaseSync } from './sqlite.js';
 
 /** All DDL for the match store. `IF NOT EXISTS` everywhere so migrate() is idempotent. */
-export const SCHEMA_SQL = `
+const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS match (
   match_id        TEXT PRIMARY KEY,
   start_ms        INTEGER,
@@ -49,6 +49,7 @@ CREATE INDEX IF NOT EXISTS ix_match_start     ON match(start_ms);
 CREATE INDEX IF NOT EXISTS ix_match_enemycomp ON match(enemy_comp_sig);
 CREATE INDEX IF NOT EXISTS ix_match_zone      ON match(zone_id);
 CREATE INDEX IF NOT EXISTS ix_metric_lookup   ON metric(metric_id, scope);
+-- NOTE: the metric_id values in the CASEs below mirror metricRows.ts UNIT_METRICS — keep in sync.
 CREATE VIEW IF NOT EXISTS dataset_export AS
 SELECT m.match_id, m.start_ms, m.bracket, m.zone_id, m.result,
        m.ally_comp_sig, m.enemy_comp_sig, m.player_rating, m.player_spec,

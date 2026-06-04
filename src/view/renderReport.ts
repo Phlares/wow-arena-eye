@@ -1,4 +1,5 @@
 import type { SidecarIndex, SidecarEntry } from '../sidecar/sidecarIndex.js';
+import { nearestSidecar, SIDECAR_MATCH_WINDOW_MS } from '../sidecar/sidecarIndex.js';
 import type { MatchMetrics } from '../metrics/types.js';
 import { escapeHtml } from './html.js';
 import { metricsBlock } from './renderMetrics.js';
@@ -34,22 +35,9 @@ export interface RenderOpts {
   linesAfterError?: number;
 }
 
-const MATCH_WINDOW_MS = 15 * 60 * 1000;
-
-function nearest(idx: SidecarIndex, startMs: number | null): { entry: SidecarEntry; deltaMs: number } | null {
-  if (startMs === null) return null;
-  let best: { entry: SidecarEntry; deltaMs: number } | null = null;
-  for (const e of idx.entries) {
-    if (e.startEpochMs === null) continue;
-    const deltaMs = Math.abs(e.startEpochMs - startMs);
-    if (best === null || deltaMs < best.deltaMs) best = { entry: e, deltaMs };
-  }
-  return best;
-}
-
 function matchSection(m: ParsedMatchView, near: { entry: SidecarEntry; deltaMs: number } | null): string {
   let videoBlock: string;
-  if (near && near.deltaMs <= MATCH_WINDOW_MS) {
+  if (near && near.deltaMs <= SIDECAR_MATCH_WINDOW_MS) {
     const sec = (near.deltaMs / 1000).toFixed(1);
     videoBlock =
       `<p class="vid">nearest video (naive ±15min preview): ` +
@@ -92,11 +80,11 @@ function matchSection(m: ParsedMatchView, near: { entry: SidecarEntry; deltaMs: 
 }
 
 export function renderReport(matches: ParsedMatchView[], idx: SidecarIndex, opts: RenderOpts = {}): string {
-  const nearests = matches.map((m) => nearest(idx, m.startTimeMs));
+  const nearests = matches.map((m) => nearestSidecar(idx, m.startTimeMs));
 
   const deltas: number[] = [];
   nearests.forEach((near) => {
-    if (near && near.deltaMs <= MATCH_WINDOW_MS) deltas.push(near.deltaMs);
+    if (near && near.deltaMs <= SIDECAR_MATCH_WINDOW_MS) deltas.push(near.deltaMs);
   });
   deltas.sort((a, b) => a - b);
   const fmt = (ms: number) => `${(ms / 1000).toFixed(1)}s`;

@@ -4,7 +4,9 @@ export interface CombatantRow { unitId: string; name: string; spec: string; team
 export interface MetricRow { scope: string; metricId: string; value: number; }
 export interface Extracted { combatants: CombatantRow[]; metrics: MetricRow[]; }
 
-/** Declarative per-unit scalar metric extractors. Add a metric = add one entry. */
+/** Declarative per-unit scalar metric extractors. Add a metric = add one entry.
+ *  NOTE: ids consumed by the dataset_export view in schema.ts (its CASE columns) must
+ *  stay in sync with the ids here. */
 const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number }[] = [
   { id: 'casts', get: (u) => u.casts },
   { id: 'interruptsLanded', get: (u) => u.interruptsLanded },
