@@ -39,6 +39,7 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
     durationInSeconds?: unknown; winningTeamId?: unknown; playerId?: unknown; playerTeamId?: unknown;
     units?: Record<string, { info?: { teamId?: unknown } }>; linesNotParsedCount?: unknown;
   };
+  if (m.id == null) throw new Error('upsertMatch: rawMatch.id is required (it is the idempotency key)');
   const matchId = String(m.id);
   const si = m.startInfo ?? {};
   const ei = m.endInfo ?? {};
@@ -58,8 +59,10 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
   const playerRating = mmrFor(rawTeam);
   const enemyMmr = mmrFor(rawTeam === '0' ? '1' : rawTeam === '1' ? '0' : null) ?? opts.enemyMmrFallback;
   const startMs = typeof si.timestamp === 'number' ? si.timestamp : null;
-  const now = opts.nowMs ?? Date.now();
+  const now = i(opts.nowMs) ?? Date.now();
 
+  // BEGIN is intentionally outside the try: if it throws, no transaction was opened, so
+  // there is nothing to ROLLBACK and the error simply propagates.
   db.exec('BEGIN');
   try {
     db.prepare('DELETE FROM metric WHERE match_id=?').run(matchId);
@@ -90,7 +93,7 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
 
     db.exec('COMMIT');
   } catch (e) {
-    db.exec('ROLLBACK');
+    try { db.exec('ROLLBACK'); } catch { /* keep the original error below */ }
     throw e;
   }
 }
