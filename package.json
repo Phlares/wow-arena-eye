@@ -6,8 +6,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "postinstall": "node scripts/apply-patches.mjs",
-    "test": "vitest run",
+"test": "vitest run",
     "test:watch": "vitest",
     "ingest": "tsx src/cli/ingest.ts",
     "view": "tsx src/cli/view.ts",

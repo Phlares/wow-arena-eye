@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from './sqlite.js';
 
 /** All DDL for the match store. `IF NOT EXISTS` everywhere so migrate() is idempotent. */
 export const SCHEMA_SQL = `

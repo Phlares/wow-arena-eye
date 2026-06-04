@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync } from '../src/store/sqlite.js';
 import { migrate } from '../src/store/schema.js';
 
 describe('store schema', () => {
