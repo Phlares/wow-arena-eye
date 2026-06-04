@@ -36,17 +36,12 @@ export function floodFillExterior(voidness, cols, rows, voidThreshold) {
   return ext;
 }
 
-/** Build an OccluderGrid from observed world positions. */
-export function buildOccluderGrid(zoneId, positions, opts = {}) {
-  const cellSize = opts.cellSize ?? 2;
+/** Void-ness + exterior flood-fill + coverage from a per-cell count grid. Shared by the
+ *  positions path (buildOccluderGrid) and the streaming path (gridFromCellAccum). */
+export function gridFromCounts(zoneId, counts, bounds, cellSize, cols, rows, sampleCount, opts = {}) {
   const saturationCount = opts.saturationCount ?? 8;
   const voidThreshold = opts.voidThreshold ?? 0.5; // cells this void-or-more are flood-fill-traversable
   const isZAxisMap = !!opts.isZAxisMap;
-  const bounds = opts.bounds ?? boundsOf(positions, cellSize);
-  const cols = Math.max(1, Math.floor((bounds.maxX - bounds.minX) / cellSize));
-  const rows = Math.max(1, Math.floor((bounds.maxY - bounds.minY) / cellSize));
-  const counts = new Array(cols * rows).fill(0);
-  for (const p of positions) { const { col, row } = worldToCell(bounds, cellSize, p.x, p.y); counts[row * cols + col]++; }
   // void-ness = 1 - min(visits/saturation, 1)
   const voidness = counts.map((n) => 1 - Math.min(n / saturationCount, 1));
   // exterior void (border-reachable) → zeroed; only enclosed void stays occluder
@@ -54,7 +49,57 @@ export function buildOccluderGrid(zoneId, positions, opts = {}) {
   for (let i = 0; i < voidness.length; i++) if (ext[i]) voidness[i] = 0;
   const walkable = counts.filter((n) => n >= saturationCount).length;
   const inb = counts.filter((n) => n > 0).length || 1; // || 1 avoids /0 on an empty/unvisited grid
-  return { zoneId, bounds, cellSize, cols, rows, voidness, sampleCount: positions.length, coverage: walkable / inb, isZAxisMap };
+  return { zoneId, bounds, cellSize, cols, rows, voidness, sampleCount, coverage: walkable / inb, isZAxisMap };
+}
+
+/** Build an OccluderGrid from observed world positions (kept for small in-memory inputs). */
+export function buildOccluderGrid(zoneId, positions, opts = {}) {
+  const cellSize = opts.cellSize ?? 2;
+  const bounds = opts.bounds ?? boundsOf(positions, cellSize);
+  const cols = Math.max(1, Math.floor((bounds.maxX - bounds.minX) / cellSize));
+  const rows = Math.max(1, Math.floor((bounds.maxY - bounds.minY) / cellSize));
+  const counts = new Array(cols * rows).fill(0);
+  for (const p of positions) { const { col, row } = worldToCell(bounds, cellSize, p.x, p.y); counts[row * cols + col]++; }
+  return gridFromCounts(zoneId, counts, bounds, cellSize, cols, rows, positions.length, opts);
+}
+
+/** Fold observed positions into an absolute-cell count map. Memory is O(distinct occupied
+ *  cells) — a few thousand per zone — independent of how many positions stream through, so
+ *  a corpus of tens of millions of positions never has to be held at once. Cell key is
+ *  "col,row" with col = floor(x/cellSize). Mutates and returns `cellMap`. */
+export function accumulateCells(cellMap, positions, cellSize) {
+  for (const p of positions) {
+    const key = Math.floor(p.x / cellSize) + ',' + Math.floor(p.y / cellSize);
+    cellMap.set(key, (cellMap.get(key) ?? 0) + 1);
+  }
+  return cellMap;
+}
+
+/** Materialize an OccluderGrid from an absolute-cell count map, with a one-cell void border
+ *  on every side so the exterior flood-fill has somewhere to start (mirrors boundsOf's pad). */
+export function gridFromCellAccum(zoneId, cellMap, sampleCount, opts = {}) {
+  const cellSize = opts.cellSize ?? 2;
+  let minCol = Infinity, minRow = Infinity, maxCol = -Infinity, maxRow = -Infinity;
+  for (const key of cellMap.keys()) {
+    const ci = key.indexOf(',');
+    const col = +key.slice(0, ci), row = +key.slice(ci + 1);
+    if (col < minCol) minCol = col; if (col > maxCol) maxCol = col;
+    if (row < minRow) minRow = row; if (row > maxRow) maxRow = row;
+  }
+  if (!Number.isFinite(minCol)) { // no cells observed
+    return gridFromCounts(zoneId, [0], { minX: 0, minY: 0, maxX: cellSize, maxY: cellSize }, cellSize, 1, 1, sampleCount, opts);
+  }
+  const padMinCol = minCol - 1, padMinRow = minRow - 1;
+  const cols = maxCol - minCol + 3; // observed span + one void cell each side
+  const rows = maxRow - minRow + 3;
+  const bounds = { minX: padMinCol * cellSize, minY: padMinRow * cellSize, maxX: (padMinCol + cols) * cellSize, maxY: (padMinRow + rows) * cellSize };
+  const counts = new Array(cols * rows).fill(0);
+  for (const [key, n] of cellMap) {
+    const ci = key.indexOf(',');
+    const col = +key.slice(0, ci) - padMinCol, row = +key.slice(ci + 1) - padMinRow;
+    counts[row * cols + col] = n;
+  }
+  return gridFromCounts(zoneId, counts, bounds, cellSize, cols, rows, sampleCount, opts);
 }
 
 const MIN_SAMPLES = 200; // fewer observed positions than this → too sparse to infer a usable grid; skip the arena
@@ -63,22 +108,31 @@ async function main() {
   const corpusEnv = process.env.WAE_LOG_CORPUS;
   if (!corpusEnv) { console.error('Set WAE_LOG_CORPUS to your logs directory (or several, separated by the OS path delimiter)'); process.exit(1); }
   const dirs = corpusEnv.split(delimiter).map((s) => s.trim()).filter(Boolean);
-  const byZone = new Map();
+  // Per-zone absolute-cell counts; bounded memory regardless of corpus size. Raw per-file
+  // positions are folded in then discarded, so we never hold the whole corpus at once.
+  const cellAccum = new Map(); // zoneId -> { cells: Map<string, number>, n: number }
   for (const dir of dirs) {
     let files;
     try { files = readdirSync(dir).filter((f) => /WoWCombatLog.*\.txt$/i.test(f)); }
     catch (e) { console.error('skip corpus dir (unreadable)', dir, String(e)); continue; }
     console.error('corpus', dir, '-', files.length, 'log files');
     for (const f of files) {
-      try { await harvestFile(join(dir, f), byZone); }
-      catch (e) { console.error('skip', f, String(e)); }
+      try {
+        const fileZones = await harvestFile(join(dir, f)); // fresh Map for this file only
+        for (const [zoneId, positions] of fileZones) {
+          let acc = cellAccum.get(zoneId);
+          if (!acc) { acc = { cells: new Map(), n: 0 }; cellAccum.set(zoneId, acc); }
+          accumulateCells(acc.cells, positions, 2);
+          acc.n += positions.length;
+        }
+      } catch (e) { console.error('skip', f, String(e)); }
     }
   }
   const outDir = fileURLToPath(new URL('../src/metadata/occupancy/', import.meta.url));
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
-  for (const [zoneId, positions] of byZone) {
-    if (positions.length < MIN_SAMPLES) { console.error('thin coverage, skipping', zoneId, positions.length); continue; }
-    const grid = buildOccluderGrid(zoneId, positions, { cellSize: 2, saturationCount: 8, isZAxisMap: Z_AXIS_MAPS.has(zoneId) });
+  for (const [zoneId, acc] of cellAccum) {
+    if (acc.n < MIN_SAMPLES) { console.error('thin coverage, skipping', zoneId, acc.n); continue; }
+    const grid = gridFromCellAccum(zoneId, acc.cells, acc.n, { cellSize: 2, saturationCount: 8, isZAxisMap: Z_AXIS_MAPS.has(zoneId) });
     writeFileSync(join(outDir, zoneId + '.json'), JSON.stringify(grid));
     console.log('wrote', zoneId, 'cells', grid.cols + 'x' + grid.rows, 'coverage', grid.coverage.toFixed(2), 'samples', grid.sampleCount);
   }
