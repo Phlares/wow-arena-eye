@@ -1,0 +1,22 @@
+diff --git a/node_modules/vite-node/dist/utils.cjs b/node_modules/vite-node/dist/utils.cjs
+index 1111111..2222222 100644
+--- a/node_modules/vite-node/dist/utils.cjs
++++ b/node_modules/vite-node/dist/utils.cjs
+@@ -34,7 +34,7 @@
+ function isInternalRequest(id) {
+   return internalRequestRegexp.test(id);
+ }
+-const prefixedBuiltins = /* @__PURE__ */ new Set(["node:test"]);
++const prefixedBuiltins = /* @__PURE__ */ new Set(["node:test", "node:sqlite"]);
+ const builtins = /* @__PURE__ */ new Set([
+diff --git a/node_modules/vite-node/dist/utils.mjs b/node_modules/vite-node/dist/utils.mjs
+index 1111111..2222222 100644
+--- a/node_modules/vite-node/dist/utils.mjs
++++ b/node_modules/vite-node/dist/utils.mjs
+@@ -32,7 +32,7 @@
+ function isInternalRequest(id) {
+   return internalRequestRegexp.test(id);
+ }
+-const prefixedBuiltins = /* @__PURE__ */ new Set(["node:test"]);
++const prefixedBuiltins = /* @__PURE__ */ new Set(["node:test", "node:sqlite"]);
+ const builtins = /* @__PURE__ */ new Set([
