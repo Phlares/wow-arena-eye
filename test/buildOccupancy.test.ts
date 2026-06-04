@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { worldToCell, buildOccluderGrid, collectPositionsByZone } from '../scripts/build-occupancy.mjs';
+import { worldToCell, buildOccluderGrid, accumulateCells, gridFromCellAccum } from '../scripts/build-occupancy.mjs';
 
 describe('occupancy grid builder', () => {
   it('maps world coords to grid cells', () => {
@@ -28,16 +28,38 @@ describe('occupancy grid builder', () => {
     expect(grid.coverage).toBeGreaterThan(0);
   });
 
-  it('aggregates observed player positions by zoneId from a match shape', () => {
-    const match = {
-      startInfo: { zoneId: '1825' },
-      units: { P: { type: 1 }, PET: { type: 3 } },
-      events: [
-        { event: 'SPELL_CAST_SUCCESS', srcUnitId: 'P', advancedActorPositionX: 10, advancedActorPositionY: 20 },
-        { event: 'SPELL_CAST_SUCCESS', srcUnitId: 'PET', advancedActorPositionX: 99, advancedActorPositionY: 99 }, // pet → excluded
-      ],
-    };
-    const m = collectPositionsByZone(match, new Map());
-    expect(m.get('1825')).toEqual([{ x: 10, y: 20 }]); // only the player
+  it('streaming cell-accumulation reaches the same occluder/walkable conclusions as the positions path', () => {
+    // Same central-hole scenario, but fed through the memory-bounded streaming path:
+    // accumulate absolute-cell counts, then materialize the grid. The enclosed 2x2 hole
+    // must be an occluder; walked cells must be low-void.
+    const positions: { x: number; y: number }[] = [];
+    for (let c = 0; c < 9; c++) for (let r = 0; r < 10; r++) {
+      if (c >= 4 && c <= 5 && r >= 4 && r <= 5) continue; // central hole
+      for (let k = 0; k < 10; k++) positions.push({ x: c * 2 + 1, y: r * 2 + 1 });
+    }
+    const cells = accumulateCells(new Map(), positions, 2);
+    const grid = gridFromCellAccum('TEST', cells, positions.length, { cellSize: 2, saturationCount: 8 });
+    // For x=c*2+1, abs col = floor(x/2)=c; the pad shifts indices by +1, so walked region
+    // sits at grid cols/rows 1..N and the hole (c,r in {4,5}) lands at grid col/row {5,6}.
+    const at = (gc: number, gr: number) => grid.voidness[gr * grid.cols + gc];
+    expect(at(5, 5)).toBeGreaterThan(0.9); // enclosed hole = occluder
+    expect(at(1, 1)).toBeLessThan(0.2);    // walked = clear
+    expect(at(0, 0)).toBe(0);              // padded border = exterior void → zeroed
+    expect(grid.sampleCount).toBe(positions.length);
+    expect(grid.coverage).toBeGreaterThan(0);
+  });
+
+  it('drops far outlier cells so a few stray positions cannot blow up the grid bounds', () => {
+    const cells = new Map<string, number>();
+    // dense 5x5 arena cluster (cols/rows 500..504), heavily visited
+    for (let c = 500; c <= 504; c++) for (let r = 500; r <= 504; r++) cells.set(`${c},${r}`, 50);
+    // one stray position ~2000 cells (~4000yd) away — a garbage/cross-zone coordinate
+    cells.set('2500,2500', 1);
+    const grid = gridFromCellAccum('TEST', cells, 1251, { cellSize: 2 });
+    // Without outlier rejection the grid would span ~2000x2000 cells; anchored on the
+    // mass-median and clamped to the max arena radius, it stays tight around the cluster.
+    expect(grid.cols).toBeLessThan(20);
+    expect(grid.rows).toBeLessThan(20);
+    expect(grid.voidness.some((v) => v < 0.2)).toBe(true); // the dense cluster survived
   });
 });
