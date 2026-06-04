@@ -42,12 +42,16 @@ A new `src/store/` module, three single-responsibility units, plus one CLI:
   `{ combatants: CombatantRow[]; metrics: MetricRow[] }`. Flattens `MatchMetrics` /
   `UnitMetrics` into `(scope, metric_id, value)` tuples and combatant identity. No DB, no
   I/O — the testable heart.
+- **`src/store/resolvePlayer.ts`** — pure: `resolvePlayerUnitId(rawMatch, registry) → string | undefined`.
+  Identifies *which of the user's characters* recorded this log (see "Player identification"
+  below). No DB, no I/O.
 - **`src/store/store.ts`** — `openDb(path)` (wraps `node:sqlite` `DatabaseSync` + `migrate`)
   and `upsertMatch(db, rawMatch, metrics, opts)` which writes one match idempotently in a
-  transaction. `opts` carries the resolved player GUID and optional sidecar enrichment.
+  transaction. `opts` carries the resolved player unit id and optional sidecar enrichment.
 - **`src/cli/ingest-db.ts`** — `npm run ingest-db -- <dir...>`: for each `WoWCombatLog*.txt`
-  in each dir, parse → set `match.playerId` from config → `computeMatchMetrics` →
-  `upsertMatch`. Prints an ingest summary. Runs under `--experimental-sqlite`.
+  in each dir, parse → `computeMatchMetrics` → resolve the recording character via
+  `resolvePlayerUnitId(match, config.players)` → `upsertMatch`. Prints an ingest summary.
+  Runs under `--experimental-sqlite`.
 
 The existing `view` / `ingest` per-log paths are untouched.
 
@@ -70,6 +74,9 @@ CREATE TABLE IF NOT EXISTS match (
   zone_id         TEXT,
   duration_sec    REAL,
   result          TEXT,               -- 'win' | 'loss' | 'unknown' (player's perspective)
+  player_unit_id  TEXT,               -- the recording character's GUID this match
+  player_name     TEXT,               -- e.g. 'Phlares-Stormrage-US' (which of my chars)
+  player_spec     TEXT,               -- recording char's specId (per-class slicing)
   player_team_id  TEXT,
   winning_team_id TEXT,
   ally_comp_sig   TEXT,               -- sorted spec signature of player's team
@@ -87,13 +94,14 @@ CREATE TABLE IF NOT EXISTS match (
 CREATE TABLE IF NOT EXISTS combatant (
   match_id  TEXT, unit_id TEXT,       -- unit_id = in-game GUID
   name      TEXT, realm TEXT, class TEXT, spec TEXT,
-  team_id   TEXT, reaction TEXT,      -- 'friendly' | 'hostile' (vs player)
-  is_player INTEGER,                  -- 1 = recording player
+  team      TEXT,                     -- 'friendly' | 'enemy' | 'neutral' (relative to me,
+                                      --   from MatchMetrics.teams; raw teamId is junk-prone)
+  is_player INTEGER,                  -- 1 = the recording character this match
   PRIMARY KEY (match_id, unit_id)
 );
 CREATE TABLE IF NOT EXISTS metric (
   match_id  TEXT,
-  scope     TEXT,                     -- unit_id | 'team:0' | 'team:1' | 'match'
+  scope     TEXT,                     -- unit_id | 'team:friendly' | 'team:enemy' | 'match'
   metric_id TEXT,
   value     REAL,
   PRIMARY KEY (match_id, scope, metric_id)
@@ -114,16 +122,26 @@ match-level values.
 
 ## Ingest pipeline
 
-1. **Resolve the player.** `config.player.guid` (e.g. `Player-60-0E38D99F`). For each
-   parsed match, if a unit with that GUID exists in `match.units`, set `match.playerId` to
-   it before `computeMatchMetrics` (this also drives the existing player-team grouping),
-   and mark that combatant `is_player = 1`. A match with no such unit is still ingested,
-   but flagged in the summary as "no-player-found" (result stays computable from team only
-   if a team can be assigned; otherwise `result = 'unknown'`).
-2. **Outcome, computed from teams (not the parser's player-relative `result`).**
-   `player_team_id` = the player unit's team; `result` = `'win'` iff
-   `winning_team_id === player_team_id`, else `'loss'`, else `'unknown'` when either is
-   missing. This is robust regardless of whether the parser populated its own `result`.
+1. **Resolve the recording character** (`resolvePlayerUnitId(rawMatch, registry)`). The user
+   plays many characters (several warlocks), so identity is **not** a hardcoded name — it is
+   *whoever recorded this log*, resolved in priority order:
+   1. **Parser auto-detect** — `rawMatch.playerId`, if it's a GUID present in `rawMatch.units`.
+      The parser derives this from the advanced-logging owner, so it correctly identifies
+      whichever character recorded the log, with zero config. (Verified on the fixture:
+      `playerId = Player-60-0E38D99F`, name `Phlares-Stormrage-US`.)
+   2. **Registry match** — else, the first unit whose GUID, or `name`/`name-realm`, appears in
+      `config.players` (the user's known characters). This is the fallback for a log whose
+      auto-detect is absent, and the guard that a stray non-user log isn't scored as "me".
+   3. Else `undefined` → still ingested, flagged "no-player-found" in the summary; `is_player`
+      is 0 for all and `result` falls to `'unknown'`.
+   The resolved unit id is passed to `extractMetricRows` (sets `is_player`) and stored as
+   `match.player_unit_id`; its `name`/`spec` populate `match.player_name`/`player_spec`.
+2. **Outcome, computed from the raw teams (not the parser's player-relative `result` field).**
+   `player_team_id` = the resolved player unit's raw `info.teamId`
+   (`rawMatch.units[id].info.teamId`, fallback `rawMatch.playerTeamId` when the id is the
+   auto-detected one); `result` = `'win'` iff `winning_team_id === player_team_id`, else
+   `'loss'`, else `'unknown'` when either is missing. Robust regardless of the parser's own
+   `result` enum. (Verified: fixture player teamId `1` === winningTeamId `1` → `win`.)
 3. **Comp signatures.** `ally_comp_sig` / `enemy_comp_sig` = the sorted, joined spec list
    of each team (friendly vs hostile relative to the player), so "same enemy comp" is a
    string equality.
@@ -133,8 +151,11 @@ match-level values.
    `ccDone.hardCcSec`/`ccDone.rootSec`/`ccDone.count`, `ccReceived.*`, `deaths`,
    `deathsWhileCcd`, `immuneReceived`, `meleeRangeSec`, `isolatedSec`, `distanceMoved`,
    `timeStationarySec`, `defensivesIntoBurst`, …) → `scope = unit_id`; team coordination
-   (`alignmentFraction`, `swaps`) → `scope = team:N`; match-level → `scope = 'match'`.
-   Nested fields flatten with dotted ids (`ccDone.hardCcSec`).
+   (`alignmentFraction`, `alignedTimeSec`, `swaps`, `healerPressureDamage`) →
+   `scope = team:friendly` / `team:enemy`; match-level → `scope = 'match'`.
+   Nested fields flatten with dotted ids (`ccDone.hardCcSec`). The exact metric set is a
+   declarative extractor list in `metricRows.ts` (one entry per metric id), so adding a
+   metric is a one-line change.
 6. **Sidecar enrichment.** Reuse `loadSidecarIndex(config.videoDirs)` once per run; for
    each match attach the nearest entry by `start_ms` within ±15 min → `video_path`,
    `sidecar_path`, and MMR if the log lacked it. Missing sidecar → null columns, never fatal.
@@ -156,31 +177,49 @@ schema is sufficient:
 - Per-metric baselines → `SELECT value FROM metric WHERE metric_id=? AND scope=<player>`
   joined to `match` filtered by the slice; the scorecard computes avg / season-best / split
   and the current-match delta. `dataset_export` gives the same as a convenient wide row.
+- **Multi-character slicing** → `match.player_spec` lets the scorecard compare like-class
+  ("my warlock matches") and `match.player_name` lets it go per-character; querying across
+  all of them ("me, on anything") is just no character filter. The recording character is
+  always identified per match (parser auto-detect + registry), never assumed.
 
 ## Testing
 
 TDD, golden-style against the committed fixture (`test-data/fixtures/arena-sample.log`,
 zone 1825). No private corpus; paths via config/env only.
 
-- **`extractMetricRows`** — pure unit tests: feed the fixture's computed `MatchMetrics` →
-  assert specific tuples (a known combatant's `damageDone`, `deaths`, an interrupt count),
-  correct `scope` values, exactly one combatant carrying the player flag when the player
-  GUID is present, and a team-scoped `alignmentFraction` row.
-- **`schema` / `store`** — ingest the fixture into an in-memory `:memory:` DB:
-  - one `match` row with correct `bracket`/`zone_id`/`result`/`player_team_id`;
-  - the right `combatant` count with exactly one `is_player = 1`;
-  - `metric` rows present for the player scope;
+- **`resolvePlayerUnitId`** — pure: a synthetic match with `playerId` set returns it
+  (auto-detect path); with `playerId` absent but a unit GUID in the registry returns that
+  (registry path); with neither returns `undefined`. Proves identification is character-
+  agnostic, not hardcoded.
+- **`extractMetricRows`** — pure unit tests on a synthetic `MatchMetrics` (full control of
+  unit ids): assert specific tuples (a unit's `damageDone`, `deaths`), correct `scope`
+  values, exactly one combatant flagged `isPlayer` for the given playerUnitId, a
+  `team:friendly`-scoped `alignmentFraction` row, and `compSignatures` producing sorted
+  ally/enemy spec strings.
+- **`schema` / `store`** — ingest the real fixture into an in-memory `:memory:` DB (player
+  resolved via auto-detect):
+  - one `match` row: `bracket='3v3'`, `zone_id='1825'`, `result='win'`, `player_team_id='1'`,
+    `player_name='Phlares-Stormrage-US'`, `player_spec='265'`, `player_rating=2425`;
+  - 6 `combatant` rows, exactly one `is_player=1`;
+  - the player's `damageDone` metric row = `2021381`;
+  - `dataset_export` returns one row for the match with `damageDone=2021381`;
   - **idempotency**: ingesting the same match twice leaves all three tables' row counts
     unchanged.
-- Type-check `npx tsc --noEmit`. Run tests with
-  `npx vitest run <file> --no-file-parallelism` (full `vitest run` oversubscribes/hangs).
+- Type-check `npx tsc --noEmit`. Tests that touch `node:sqlite` (`schema`, `store`) run with
+  the flag: `NODE_OPTIONS=--experimental-sqlite npx vitest run <file> --no-file-parallelism`
+  (full `vitest run` oversubscribes/hangs). Pure tests (`resolvePlayer`, `metricRows`) need
+  no flag.
 
 ## Self-review notes
 
 - *Placeholders:* none — schema, ingest steps, and tests are concrete.
-- *Consistency:* result is computed from `winning_team_id` vs the player's team everywhere;
-  comp signatures defined once (sorted specs); `scope` vocabulary fixed
-  (`unit_id`/`team:N`/`match`).
+- *Consistency:* result is computed from `winning_team_id` vs the player's raw team
+  everywhere; comp signatures defined once (sorted specs); `scope` vocabulary fixed
+  (`unit_id`/`team:friendly`/`team:enemy`/`match`).
+- *Player identity:* never hardcoded — resolved per match (parser auto-detect → registry →
+  none), covering all of the user's characters. `config.player` (singular) is generalized to
+  a `config.players` registry; `loadConfig` accepts either and normalizes to a list
+  (a singular `player` becomes a one-element registry, so existing configs keep working).
 - *Scope:* one subsystem (store + ingest); scorecard queries and "season" definition are
   explicitly sub-project B. The timeline/position gap is named as a deliberate boundary.
 - *Ambiguity:* "result" precedence (team-computed, not parser `result`) and the idempotency
