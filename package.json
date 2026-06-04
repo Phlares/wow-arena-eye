@@ -12,6 +12,7 @@
     "view": "tsx src/cli/view.ts",
     "build-occupancy": "tsx scripts/build-occupancy.mjs",
     "view-occupancy": "node scripts/view-occupancy.mjs",
+    "ingest-db": "node --experimental-sqlite --import tsx src/cli/ingest-db.ts",
     "extract-fixture": "tsx src/util/extractMatchFixture.ts"
   },
   "dependencies": {

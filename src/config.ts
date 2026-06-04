@@ -13,6 +13,7 @@ export interface Config {
   outputDir: string;
   dbPath?: string;
   player: PlayerIdentity;
+  players: PlayerIdentity[];
 }
 
 function requireString(obj: Record<string, unknown>, key: string, displayKey?: string): string {
@@ -54,6 +55,23 @@ export function loadConfig(path?: string): Config {
     videoDirs = raw.videoDirs as string[];
   }
 
+  let extraPlayers: PlayerIdentity[] = [];
+  if (raw.players !== undefined) {
+    if (!Array.isArray(raw.players)) throw new Error('Config error: "players" must be an array');
+    extraPlayers = (raw.players as Record<string, unknown>[]).map((p) => ({
+      name: requireString(p, 'name', 'players[].name'),
+      realm: requireString(p, 'realm', 'players[].realm'),
+      guid: typeof p.guid === 'string' ? p.guid : undefined,
+    }));
+  }
+  // de-dupe by name-realm, keeping the singular player first
+  const seen = new Set<string>();
+  const players: PlayerIdentity[] = [];
+  for (const p of [player, ...extraPlayers]) {
+    const key = `${p.name}-${p.realm}`.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); players.push(p); }
+  }
+
   return {
     sampleLogsDir,
     outputDir,
@@ -61,5 +79,6 @@ export function loadConfig(path?: string): Config {
     dbPath: typeof raw.dbPath === 'string' ? raw.dbPath : undefined,
     videoDirs,
     player,
+    players,
   };
 }
