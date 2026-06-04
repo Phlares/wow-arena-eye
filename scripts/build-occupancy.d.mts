@@ -5,7 +5,7 @@ export interface OccluderGridLite {
   zoneId: string; bounds: GridBounds; cellSize: number; cols: number; rows: number;
   voidness: number[]; sampleCount: number; coverage: number; isZAxisMap: boolean;
 }
-export interface GridOpts { cellSize?: number; saturationCount?: number; voidThreshold?: number; isZAxisMap?: boolean; bounds?: GridBounds }
+export interface GridOpts { cellSize?: number; saturationCount?: number; voidThreshold?: number; isZAxisMap?: boolean; bounds?: GridBounds; maxRadiusCells?: number }
 export function worldToCell(bounds: GridBounds, cellSize: number, x: number, y: number): { col: number; row: number };
 export function boundsOf(positions: XY[], cellSize: number): GridBounds;
 export function floodFillExterior(voidness: number[], cols: number, rows: number, voidThreshold: number): boolean[];

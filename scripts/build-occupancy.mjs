@@ -75,30 +75,56 @@ export function accumulateCells(cellMap, positions, cellSize) {
   return cellMap;
 }
 
+// Bigger than any real arena's half-extent (~125 cells / 250yd) yet far short of the
+// thousands-of-cells distance of stray garbage/cross-zone coordinates — so it drops
+// outliers without ever clipping legitimate arena geometry.
+const MAX_ARENA_RADIUS_CELLS = 300;
+
+/** Mass-weighted median of cells along one axis ('col' | 'row'). Robust to far outliers
+ *  (unlike min/max or the mean), so it reliably anchors on the dense arena center. */
+function massMedian(cells, axis, total) {
+  const mass = new Map();
+  for (const c of cells) mass.set(c[axis], (mass.get(c[axis]) ?? 0) + c.n);
+  const keys = [...mass.keys()].sort((a, b) => a - b);
+  let cum = 0;
+  for (const k of keys) { cum += mass.get(k); if (cum >= total / 2) return k; }
+  return keys[keys.length - 1];
+}
+
 /** Materialize an OccluderGrid from an absolute-cell count map, with a one-cell void border
- *  on every side so the exterior flood-fill has somewhere to start (mirrors boundsOf's pad). */
+ *  on every side so the exterior flood-fill has somewhere to start (mirrors boundsOf's pad).
+ *  Far outlier cells (stray/garbage coordinates more than maxRadiusCells from the mass-median
+ *  center) are dropped so a handful of bad positions can't balloon the grid bounds. */
 export function gridFromCellAccum(zoneId, cellMap, sampleCount, opts = {}) {
   const cellSize = opts.cellSize ?? 2;
-  let minCol = Infinity, minRow = Infinity, maxCol = -Infinity, maxRow = -Infinity;
-  for (const key of cellMap.keys()) {
+  const maxRadius = opts.maxRadiusCells ?? MAX_ARENA_RADIUS_CELLS;
+  const cells = [];
+  for (const [key, n] of cellMap) {
     const ci = key.indexOf(',');
-    const col = +key.slice(0, ci), row = +key.slice(ci + 1);
-    if (col < minCol) minCol = col; if (col > maxCol) maxCol = col;
-    if (row < minRow) minRow = row; if (row > maxRow) maxRow = row;
+    cells.push({ col: +key.slice(0, ci), row: +key.slice(ci + 1), n });
   }
-  if (!Number.isFinite(minCol)) { // no cells observed
+  if (!cells.length) { // no cells observed
     return gridFromCounts(zoneId, [0], { minX: 0, minY: 0, maxX: cellSize, maxY: cellSize }, cellSize, 1, 1, sampleCount, opts);
+  }
+  const total = cells.reduce((s, c) => s + c.n, 0);
+  const medCol = massMedian(cells, 'col', total), medRow = massMedian(cells, 'row', total);
+  const kept = cells.filter((c) => Math.abs(c.col - medCol) <= maxRadius && Math.abs(c.row - medRow) <= maxRadius);
+  const droppedCells = cells.length - kept.length;
+  if (droppedCells) {
+    const droppedSamples = total - kept.reduce((s, c) => s + c.n, 0);
+    console.error('  dropped', droppedCells, 'outlier cells /', droppedSamples, 'samples (>' + maxRadius * cellSize + 'yd from center) for zone', zoneId);
+  }
+  let minCol = Infinity, minRow = Infinity, maxCol = -Infinity, maxRow = -Infinity;
+  for (const c of kept) {
+    if (c.col < minCol) minCol = c.col; if (c.col > maxCol) maxCol = c.col;
+    if (c.row < minRow) minRow = c.row; if (c.row > maxRow) maxRow = c.row;
   }
   const padMinCol = minCol - 1, padMinRow = minRow - 1;
   const cols = maxCol - minCol + 3; // observed span + one void cell each side
   const rows = maxRow - minRow + 3;
   const bounds = { minX: padMinCol * cellSize, minY: padMinRow * cellSize, maxX: (padMinCol + cols) * cellSize, maxY: (padMinRow + rows) * cellSize };
   const counts = new Array(cols * rows).fill(0);
-  for (const [key, n] of cellMap) {
-    const ci = key.indexOf(',');
-    const col = +key.slice(0, ci) - padMinCol, row = +key.slice(ci + 1) - padMinRow;
-    counts[row * cols + col] = n;
-  }
+  for (const c of kept) counts[(c.row - padMinRow) * cols + (c.col - padMinCol)] = c.n;
   return gridFromCounts(zoneId, counts, bounds, cellSize, cols, rows, sampleCount, opts);
 }
 

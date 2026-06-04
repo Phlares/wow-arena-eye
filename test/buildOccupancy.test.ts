@@ -48,4 +48,18 @@ describe('occupancy grid builder', () => {
     expect(grid.sampleCount).toBe(positions.length);
     expect(grid.coverage).toBeGreaterThan(0);
   });
+
+  it('drops far outlier cells so a few stray positions cannot blow up the grid bounds', () => {
+    const cells = new Map<string, number>();
+    // dense 5x5 arena cluster (cols/rows 500..504), heavily visited
+    for (let c = 500; c <= 504; c++) for (let r = 500; r <= 504; r++) cells.set(`${c},${r}`, 50);
+    // one stray position ~2000 cells (~4000yd) away — a garbage/cross-zone coordinate
+    cells.set('2500,2500', 1);
+    const grid = gridFromCellAccum('TEST', cells, 1251, { cellSize: 2 });
+    // Without outlier rejection the grid would span ~2000x2000 cells; anchored on the
+    // mass-median and clamped to the max arena radius, it stays tight around the cluster.
+    expect(grid.cols).toBeLessThan(20);
+    expect(grid.rows).toBeLessThan(20);
+    expect(grid.voidness.some((v) => v < 0.2)).toBe(true); // the dense cluster survived
+  });
 });
