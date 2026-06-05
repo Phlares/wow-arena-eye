@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
 import { loadPlayerMatches } from '../scorecard/loadMatches.js';
-import { buildScorecard, DEFAULT_RATING_BAND, DEFAULT_TIME_OF_DAY_HOURS } from '../scorecard/scorecard.js';
+import { buildScorecard, DEFAULT_RATING_BAND, DEFAULT_TIME_OF_DAY_HOURS, MIN_COHORT } from '../scorecard/scorecard.js';
 import { renderScorecardText } from '../scorecard/render.js';
 import type { PlayerMatch, Scope } from '../scorecard/types.js';
 
@@ -41,14 +41,14 @@ async function main(): Promise<void> {
   if (has('--comp')) scope.comp = true;
   if (has('--season')) scope.season = true;
   const rb = arg('--rating-band');
-  if (has('--rating-band')) { const v = Number(rb); scope.ratingBand = rb !== undefined && Number.isFinite(v) ? v : DEFAULT_RATING_BAND; }
+  if (has('--rating-band')) { const v = Number(rb); scope.ratingBand = rb !== undefined && Number.isFinite(v) && v >= 0 ? v : DEFAULT_RATING_BAND; }
   const tod = arg('--time-of-day');
-  if (has('--time-of-day')) { const v = Number(tod); scope.timeOfDayHours = tod !== undefined && Number.isFinite(v) ? v : DEFAULT_TIME_OF_DAY_HOURS; }
+  if (has('--time-of-day')) { const v = Number(tod); scope.timeOfDayHours = tod !== undefined && Number.isFinite(v) && v >= 0 ? v : DEFAULT_TIME_OF_DAY_HOURS; }
 
   const sc = buildScorecard(matches, targetId, { scope, seasons: cfg.seasons });
   if (has('--json')) { console.log(JSON.stringify(sc, null, 2)); return; }
   console.log(renderScorecardText(sc));
-  if (sc.cohort.n < 5) console.log(`\n  note: thin sample (n=${sc.cohort.n}); verdicts may read n/a.`);
+  if (sc.cohort.n < MIN_COHORT) console.log(`\n  note: thin sample (n=${sc.cohort.n}); verdicts may read n/a.`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1])
