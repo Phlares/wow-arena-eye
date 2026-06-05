@@ -10,7 +10,7 @@ const tree: FilterOptions['classSpecTree'] = [
 it('checking a class emits its class name; expanding + checking a spec emits the spec id', () => {
   const onChange = vi.fn();
   render(<CompFilterTree label="Enemy" tree={tree} specs="" classes="" onChange={onChange} />);
-  fireEvent.click(screen.getByText('Enemy'));                       // open popover
+  fireEvent.click(screen.getByRole('button', { name: /Enemy/ }));                       // open popover
   fireEvent.click(screen.getByLabelText('Death Knight'));           // class checkbox
   expect(onChange).toHaveBeenCalledWith({ classes: 'Death Knight', specs: '' });
 });

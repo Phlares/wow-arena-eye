@@ -27,14 +27,11 @@ export function CompFilterTree({ label, tree, specs, classes, onChange }: Props)
       : { specs, classes: join(next) });
   };
 
-  const summary = count === 0 ? 'any' : `${count} ▾`;
-
   return (
     <div className="compfilter">
-      <button className="compbtn" data-summary={`: ${summary}`} onClick={() => setOpen((o) => !o)}>
-        {label}
+      <button className="compbtn" onClick={() => setOpen((o) => !o)}>
+        {label}: {count === 0 ? 'any' : `${count} ▾`}
       </button>
-      <span className="compsum">{label}: {summary}</span>
       {open && (
         <div className="comppop">
           {tree.map((c) => (

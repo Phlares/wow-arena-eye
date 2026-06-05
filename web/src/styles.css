@@ -29,5 +29,3 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .comparrow{cursor:pointer;color:#889;width:12px}
 .compspecs{margin-left:20px;border-left:1px solid #2a2a36;padding-left:6px}
 .compspec{display:block}
-.compbtn::after{content:attr(data-summary)}
-.compsum{display:none}
