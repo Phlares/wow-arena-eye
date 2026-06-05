@@ -13,7 +13,10 @@ export interface MatchSummary {
   enemyComp: string;
   enemyCompLabel: string;
   rating: number | null;
-  ratingDelta: number | null; // vs the previous match for this character in the result set
+  ratingDelta: number | null; // MMR delta vs the previous game for this character+bracket (enrichRatingDeltas)
+  cr: number | null;          // true rating (personalRating)
+  crDelta: number | null;
+  buildVersion: string;
   result: string;
   sessionId: string | null;
   damageDone: number | null;
@@ -31,6 +34,7 @@ export interface FilterOptions {
   maps: { value: string; label: string }[];
   ratingRange: { min: number; max: number } | null;
   dateRange: { minMs: number; maxMs: number } | null;
+  classSpecTree: { className: string; specs: { id: string; specName: string }[] }[];
 }
 
 export interface MatchQuery {
@@ -39,6 +43,10 @@ export interface MatchQuery {
   bracket?: string;
   myComp?: string;
   enemyComp?: string;
+  allySpecs?: string;    // comma-separated spec ids
+  allyClasses?: string;  // comma-separated class names
+  enemySpecs?: string;
+  enemyClasses?: string;
   map?: string;
   result?: string;
   minRating?: number;
