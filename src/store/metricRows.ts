@@ -22,6 +22,8 @@ const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number; combine?: tru
   { id: 'timeStationarySec', get: (u) => u.timeStationarySec },
   { id: 'defensivesUsed', get: (u) => u.defensivesUsed },
   { id: 'defensivesIntoBurst', get: (u) => u.defensivesIntoBurst },
+  // Throughput stays player-only: combining pet damage/healing here would change long-standing
+  // numbers and risk double-counting — only pet-performed ACTIONS (above) roll up to the owner.
   { id: 'damageDone', get: (u) => u.damageDone },
   { id: 'healingDone', get: (u) => u.healingDone },
   { id: 'absorbDone', get: (u) => u.absorbDone },
@@ -52,9 +54,10 @@ export function extractMetricRows(metrics: MatchMetrics, playerUnitId: string | 
       const u = pg.player;
       combatants.push({ unitId: u.unitId, name: u.name, spec: u.spec ?? '', team: tg.team, isPlayer: u.unitId === playerUnitId });
       for (const ex of UNIT_METRICS) {
-        const v = ex.combine
-          ? ex.get(u) + pg.pets.reduce((acc, p) => acc + ex.get(p), 0)
-          : ex.get(u);
+        const petSum = ex.combine
+          ? pg.pets.reduce((acc, p) => { const pv = ex.get(p); return acc + (Number.isFinite(pv) ? pv : 0); }, 0)
+          : 0;
+        const v = ex.get(u) + petSum;
         if (typeof v === 'number' && Number.isFinite(v)) rows.push({ scope: u.unitId, metricId: ex.id, value: v });
       }
     }

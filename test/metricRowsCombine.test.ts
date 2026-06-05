@@ -36,4 +36,16 @@ describe('extractMetricRows combine', () => {
     expect(val('deaths')).toBe(1);             // player-only (NOT 2)
     expect(val('damageDone')).toBe(1000);      // throughput player-only in this increment
   });
+  it('sums multiple pets into the combined value', () => {
+    const player = u({ unitId: 'P', interruptsLanded: 1 });
+    const pet1 = u({ unitId: 'Pet1', kind: 'primary-pet', ownerId: 'P', interruptsLanded: 2 });
+    const pet2 = u({ unitId: 'Pet2', kind: 'temp-pet', ownerId: 'P', interruptsLanded: 3 });
+    const { metrics: rows } = extractMetricRows(metrics(player, [pet1, pet2]), 'P');
+    expect(rows.find((r) => r.scope === 'P' && r.metricId === 'interruptsLanded')?.value).toBe(6);
+  });
+  it('combine with no pets returns the player value unchanged', () => {
+    const player = u({ unitId: 'P', interruptsLanded: 3 });
+    const { metrics: rows } = extractMetricRows(metrics(player, []), 'P');
+    expect(rows.find((r) => r.scope === 'P' && r.metricId === 'interruptsLanded')?.value).toBe(3);
+  });
 });
