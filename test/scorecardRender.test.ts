@@ -25,4 +25,21 @@ describe('renderScorecardText', () => {
     expect(out).toContain('win-like');
     expect(out.toLowerCase()).toContain('best'); // new-best marker for DPS
   });
+
+  it('suppresses vs-avg for insufficient, renders null value as em dash, omits ★ when value is null, and shows the season line', () => {
+    const sc2: Scorecard = {
+      matchId: 'T', character: 'Alt-Realm-US', bracket: '2v2', zoneId: '572',
+      enemyComp: 'rmp', rating: null, result: 'win', startMs: 0, season: 'S4',
+      cohort: { description: '2v2', n: 2, wins: 1, losses: 1 },
+      metrics: [
+        { id: 'healingDone', label: 'Healing done', polarity: 'higher-better', value: null, mean: 0, stdev: 0, n: 2, z: null, verdict: 'insufficient', seasonBest: null, isNewBest: true, winLikeness: 'neutral' },
+      ],
+    };
+    const out = renderScorecardText(sc2);
+    expect(out).toContain('—');                  // null value renders as em dash
+    expect(out).toContain('· n/a');              // insufficient glyph
+    expect(out).not.toContain('avg');            // vs-avg cell suppressed for insufficient (only place 'avg' would appear)
+    expect(out).not.toContain('season best');    // ★ marker suppressed because value is null, despite isNewBest=true
+    expect(out).toContain('season S4');          // optional season header line present
+  });
 });
