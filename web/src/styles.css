@@ -12,3 +12,8 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .matches .sel{background:#1a2740}
 .sep td{background:#181826;color:#aac;font-size:11px}
 .empty{padding:30px;color:#889}
+.drawer{width:210px;flex:0 0 210px;background:#13131a;border-left:1px solid var(--line);padding:12px;border-radius:6px}
+.drow{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #20202a;font-size:12px}
+.dk{color:#889}
+.dhead{font-weight:700;margin-bottom:6px}
+.soon{margin-top:10px;padding:7px;border:1px dashed #556;border-radius:6px;color:#99a;font-size:11px;text-align:center}
