@@ -1,7 +1,7 @@
 import type { DatabaseSync } from './sqlite.js';
 
-/** All DDL for the match store. `IF NOT EXISTS` everywhere so migrate() is idempotent. */
-const SCHEMA_SQL = `
+/** Table DDL only — `IF NOT EXISTS` so safe to re-run. */
+const TABLES_SQL = `
 CREATE TABLE IF NOT EXISTS match (
   match_id        TEXT PRIMARY KEY,
   start_ms        INTEGER,
@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS match (
   ally_comp_sig   TEXT,
   enemy_comp_sig  TEXT,
   player_rating   INTEGER,
+  player_cr       INTEGER,
   enemy_mmr       INTEGER,
   is_ranked       INTEGER,
   build_version   TEXT,
@@ -45,12 +46,16 @@ CREATE TABLE IF NOT EXISTS metric (
   value     REAL,
   PRIMARY KEY (match_id, scope, metric_id)
 );
-CREATE INDEX IF NOT EXISTS ix_match_start     ON match(start_ms);
-CREATE INDEX IF NOT EXISTS ix_match_enemycomp ON match(enemy_comp_sig);
-CREATE INDEX IF NOT EXISTS ix_match_zone      ON match(zone_id);
-CREATE INDEX IF NOT EXISTS ix_metric_lookup   ON metric(metric_id, scope);
--- NOTE: the metric_id values in the CASEs below mirror metricRows.ts UNIT_METRICS — keep in sync.
-CREATE VIEW IF NOT EXISTS dataset_export AS
+`;
+
+/** Index / view DDL — each is a separate statement, run individually. */
+const INDEX_VIEW_STMTS = [
+  'CREATE INDEX IF NOT EXISTS ix_match_start     ON match(start_ms)',
+  'CREATE INDEX IF NOT EXISTS ix_match_enemycomp ON match(enemy_comp_sig)',
+  'CREATE INDEX IF NOT EXISTS ix_match_zone      ON match(zone_id)',
+  'CREATE INDEX IF NOT EXISTS ix_metric_lookup   ON metric(metric_id, scope)',
+  // NOTE: the metric_id values in the CASEs below mirror metricRows.ts UNIT_METRICS — keep in sync.
+  `CREATE VIEW IF NOT EXISTS dataset_export AS
 SELECT m.match_id, m.start_ms, m.bracket, m.zone_id, m.result,
        m.ally_comp_sig, m.enemy_comp_sig, m.player_rating, m.player_spec,
        MAX(CASE WHEN x.metric_id = 'damageDone'        THEN x.value END) AS damageDone,
@@ -64,10 +69,16 @@ SELECT m.match_id, m.start_ms, m.bracket, m.zone_id, m.result,
 FROM match m
 JOIN combatant c ON c.match_id = m.match_id AND c.is_player = 1
 JOIN metric x    ON x.match_id = m.match_id AND x.scope = c.unit_id
-GROUP BY m.match_id;
-`;
+GROUP BY m.match_id`,
+];
 
-/** Create all tables/indices/views if absent. Safe to call repeatedly. */
+/** Create all tables/indices/views if absent. Safe to call repeatedly. Also adds columns
+ *  that were introduced after a DB was first created (additive migrations). */
 export function migrate(db: DatabaseSync): void {
-  db.exec(SCHEMA_SQL);
+  db.exec(TABLES_SQL);
+  const matchCols = (db.prepare('PRAGMA table_info(match)').all() as { name: string }[]).map((c) => c.name);
+  if (!matchCols.includes('player_cr')) db.exec('ALTER TABLE match ADD COLUMN player_cr INTEGER');
+  for (const stmt of INDEX_VIEW_STMTS) {
+    try { db.exec(stmt); } catch { /* index/view may reference columns absent in pre-migration tables */ }
+  }
 }
