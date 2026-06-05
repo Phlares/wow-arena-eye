@@ -45,3 +45,51 @@ describe('buildScorecard', () => {
 });
 
 it('exposes MIN_COHORT', () => { expect(MIN_COHORT).toBeGreaterThan(0); });
+
+describe('buildScorecard season-best', () => {
+  const seasons = [{ name: 'S1', startMs: 1000 }, { name: 'S2', startMs: 2000 }];
+  function mk2(matchId: string, startMs: number, metrics: Record<string, number>): PlayerMatch {
+    return { matchId, startMs, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e',
+      rating: 2000, result: 'win', character: 'Me', metrics };
+  }
+  it('seasonBest uses only the target season (higher-better) and flags a new best', () => {
+    const matches = [
+      mk2('T', 2500, { damageDone: 5000 }),    // target, season S2
+      mk2('S2a', 2100, { damageDone: 3000 }),  // S2
+      mk2('S2b', 2200, { damageDone: 4000 }),  // S2 -> season best 4000
+      mk2('S1a', 1500, { damageDone: 9000 }),  // S1 -> excluded from S2 season-best
+    ];
+    const dd = buildScorecard(matches, 'T', { scope: {}, seasons }).metrics.find((m) => m.id === 'damageDone')!;
+    expect(dd.seasonBest).toBe(4000);
+    expect(dd.isNewBest).toBe(true);
+  });
+  it('does not flag a new best when the target does not beat the season best', () => {
+    const matches = [
+      mk2('T', 2500, { damageDone: 3500 }),
+      mk2('S2b', 2200, { damageDone: 4000 }),
+      mk2('S2c', 2300, { damageDone: 3800 }),
+    ];
+    const dd = buildScorecard(matches, 'T', { scope: {}, seasons }).metrics.find((m) => m.id === 'damageDone')!;
+    expect(dd.seasonBest).toBe(4000);
+    expect(dd.isNewBest).toBe(false);
+  });
+  it('lower-better season best uses the minimum prior value', () => {
+    const matches = [
+      mk2('T', 2500, { deaths: 1 }),
+      mk2('S2a', 2100, { deaths: 2 }),
+      mk2('S2b', 2200, { deaths: 3 }),
+    ];
+    const d = buildScorecard(matches, 'T', { scope: {}, seasons }).metrics.find((m) => m.id === 'deaths')!;
+    expect(d.seasonBest).toBe(2);
+    expect(d.isNewBest).toBe(true);
+  });
+  it('with no seasons configured, season-best degrades to all-time best', () => {
+    const matches = [
+      mk2('T', 2500, { damageDone: 5000 }),
+      mk2('H1', 1500, { damageDone: 9000 }), // no seasons configured → still counts toward "best"
+    ];
+    const dd = buildScorecard(matches, 'T', { scope: {}, seasons: [] }).metrics.find((m) => m.id === 'damageDone')!;
+    expect(dd.seasonBest).toBe(9000);
+    expect(dd.isNewBest).toBe(false);
+  });
+});
