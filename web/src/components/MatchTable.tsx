@@ -22,9 +22,11 @@ export function MatchTable({ matches, sessions, selectedId, onSelect }: Props) {
   const bySession = new Map<string, MatchSummary[]>();
   for (const m of matches) {
     const key = m.sessionId ?? '∅';
-    (bySession.get(key) ?? bySession.set(key, []).get(key)!).push(m);
+    if (!bySession.has(key)) bySession.set(key, []);
+    bySession.get(key)!.push(m);
   }
-  const groups = [...bySession.keys()].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const rank = (k: string) => { const i = order.indexOf(k); return i === -1 ? order.length : i; };
+  const groups = [...bySession.keys()].sort((a, b) => rank(a) - rank(b));
   return (
     <table className="matches">
       <thead><tr>

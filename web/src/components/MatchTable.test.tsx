@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MatchTable } from './MatchTable.js';
 import type { MatchSummary, SessionSummary } from '../api.js';
 
@@ -28,4 +28,26 @@ it('clicking a row calls onSelect with the match id', () => {
 it('shows an empty state when there are no matches', () => {
   render(<MatchTable matches={[]} sessions={[]} selectedId={null} onSelect={() => {}} />);
   expect(screen.getByText(/No matches/i)).toBeInTheDocument();
+});
+
+it('places unsessioned (∅ bucket) matches after sessioned ones', () => {
+  const matches = [
+    m({ matchId: 'A', sessionId: 'A', mapName: 'Enigma Crucible' }),
+    m({ matchId: 'Z', sessionId: null, mapName: 'Black Rook Hold' }),
+  ];
+  render(<MatchTable matches={matches} sessions={sessions} selectedId={null} onSelect={() => {}} />);
+  const rows = screen.getAllByRole('row').map((r) => r.textContent ?? '');
+  const sessioned = rows.findIndex((t) => t.includes('Enigma Crucible'));
+  const unsessioned = rows.findIndex((t) => t.includes('Black Rook Hold'));
+  expect(sessioned).toBeLessThan(unsessioned);
+});
+
+it('applies the sel class to the selected row', () => {
+  render(<MatchTable matches={[m({ matchId: 'A' })]} sessions={sessions} selectedId={'A'} onSelect={() => {}} />);
+  expect(screen.getByText('Enigma Crucible').closest('tr')).toHaveClass('sel');
+});
+
+it('renders em dashes for null rating/damage/kicks', () => {
+  render(<MatchTable matches={[m({ matchId: 'A', rating: null, ratingDelta: null, damageDone: null, interruptsLanded: null })]} sessions={sessions} selectedId={null} onSelect={() => {}} />);
+  expect(screen.getAllByText('—').length).toBeGreaterThan(0);
 });
