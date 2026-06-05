@@ -2,3 +2,7 @@
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; }
 .win { color:#6d6; font-weight:700; } .loss { color:#e77; font-weight:700; }
+.rail{width:160px;flex:0 0 160px;background:var(--panel);padding:10px;border-radius:6px}
+.rail .grp{margin-bottom:10px;display:flex;flex-direction:column;gap:3px}
+.rail .label{color:#889;font-size:10px;text-transform:uppercase}
+.rail select,.rail input{background:#1c1c26;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:3px}
