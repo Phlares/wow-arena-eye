@@ -37,20 +37,28 @@ export function handleApi(db: DatabaseSync, method: string, path: string, params
   if (path === '/api/matches') {
     const query = parseQuery(params);
     const matches = loadViewerMatches(db, query);
-    const character = query.character ?? matches[0]?.character;
-    let sessions: ReturnType<typeof sessionize> = [];
-    if (character) {
-      const hist = loadViewerMatches(db, { character }).map<SessionInput>((m) => ({
+    // sessions are per character; compute for every character present so an all-characters
+    // view still groups each match under its own character's session.
+    const chars = query.character ? [query.character] : [...new Set(matches.map((m) => m.character).filter((c) => c !== ''))];
+    const sessions: ReturnType<typeof sessionize> = [];
+    for (const ch of chars) {
+      const hist = loadViewerMatches(db, { character: ch }).map<SessionInput>((m) => ({
         matchId: m.matchId, startMs: m.startMs ?? 0, durationSec: m.durationSec,
         rating: m.rating, result: m.result, allyCompLabel: m.allyCompLabel,
       }));
-      sessions = sessionize(hist, gapMs);
+      const chSessions = sessionize(hist, gapMs);
+      sessions.push(...chSessions);
       for (const m of matches) {
-        const s = sessions.find((s) => (m.startMs ?? 0) >= s.startMs && (m.startMs ?? 0) <= s.endMs && m.character === character);
+        if (m.character !== ch) continue;
+        const s = chSessions.find((s) => (m.startMs ?? 0) >= s.startMs && (m.startMs ?? 0) <= s.endMs);
         m.sessionId = s ? s.id : null;
       }
     }
-    return json(200, { matches, sessions, total: matches.length });
+    // true filtered count (ignores pagination) so `total` is honest for any future paging UI
+    const total = query.limit === undefined && query.offset === undefined
+      ? matches.length
+      : loadViewerMatches(db, { ...query, limit: undefined, offset: undefined }).length;
+    return json(200, { matches, sessions, total });
   }
   const single = path.match(/^\/api\/matches\/(.+)$/);
   if (single) {
@@ -60,7 +68,7 @@ export function handleApi(db: DatabaseSync, method: string, path: string, params
   return json(404, { error: 'not found' });
 }
 
-const MIME: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const MIME: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.png': 'image/png', '.webp': 'image/webp', '.woff': 'font/woff', '.woff2': 'font/woff2' };
 
 /** Start the HTTP server: /api/* via handleApi, everything else from web/dist (SPA fallback). */
 export function startServer(db: DatabaseSync, gapMs: number, port: number, distDir: string): ReturnType<typeof createServer> {
@@ -87,7 +95,7 @@ function main(): void {
   const cfg = loadConfig();
   const db = openDb(cfg.dbPath ?? './wow-arena-eye.local.db');
   const gapMs = cfg.sessionGapMinutes * 60_000;
-  const port = Number(process.env.WAE_VIEWER_PORT ?? 5174);
+  const port = Number(process.env.WAE_VIEWER_PORT || 5174);
   const dist = fileURLToPath(new URL('../../web/dist', import.meta.url));
   startServer(db, gapMs, port, dist);
   console.log(`Viewer API + UI on http://localhost:${port}`);

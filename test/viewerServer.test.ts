@@ -37,4 +37,11 @@ describe('handleApi', () => {
   it('404s an unknown api path', () => {
     expect(handleApi(db(), 'GET', '/api/nope', new URLSearchParams(''), 30 * 60_000).status).toBe(404);
   });
+  it('405s a non-GET method', () => {
+    expect(handleApi(db(), 'POST', '/api/matches', new URLSearchParams(''), 30 * 60_000).status).toBe(405);
+  });
+  it('GET /api/matches/:id returns the right match body', () => {
+    const res = handleApi(db(), 'GET', '/api/matches/A', new URLSearchParams(''), 30 * 60_000);
+    expect(JSON.parse(res.body).matchId).toBe('A');
+  });
 });

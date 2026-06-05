@@ -5,6 +5,6 @@ import { spawn } from 'node:child_process';
 const opts = { stdio: 'inherit', shell: true };
 const api = spawn('node', ['--experimental-sqlite', '--import', 'tsx', 'src/viewer/server.ts'], { ...opts, env: { ...process.env, WAE_VIEWER_PORT: '5174' } });
 const web = spawn('npm', ['run', 'dev', '--prefix', 'web'], opts);
-const kill = () => { api.kill(); web.kill(); };
+const kill = () => { api.kill(); web.kill(); process.exit(0); };
 process.on('SIGINT', kill); process.on('SIGTERM', kill);
 api.on('exit', kill); web.on('exit', kill);
