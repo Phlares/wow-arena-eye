@@ -37,13 +37,16 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
   const m = rawMatch as {
     id?: unknown; startInfo?: Record<string, unknown>; endInfo?: Record<string, unknown>;
     durationInSeconds?: unknown; winningTeamId?: unknown; playerId?: unknown; playerTeamId?: unknown;
-    units?: Record<string, { info?: { teamId?: unknown } }>; linesNotParsedCount?: unknown;
+    units?: Record<string, { info?: { teamId?: unknown; personalRating?: unknown } }>; linesNotParsedCount?: unknown;
   };
   if (m.id == null) throw new Error('upsertMatch: rawMatch.id is required (it is the idempotency key)');
   const matchId = String(m.id);
   const si = m.startInfo ?? {};
   const ei = m.endInfo ?? {};
   const pid = opts.playerUnitId;
+  const playerCr = pid && typeof (m.units?.[pid]?.info as { personalRating?: unknown } | undefined)?.personalRating === 'number'
+    ? Math.round((m.units![pid]!.info as { personalRating: number }).personalRating)
+    : null;
 
   const { combatants, metrics: rows } = extractMetricRows(metrics, pid);
   const { ally, enemy } = compSignatures(combatants);
@@ -72,14 +75,14 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
     db.prepare(
       `INSERT INTO match (match_id,start_ms,start_iso,bracket,zone_id,duration_sec,result,
         player_unit_id,player_name,player_spec,player_team_id,winning_team_id,
-        ally_comp_sig,enemy_comp_sig,player_rating,enemy_mmr,is_ranked,build_version,
+        ally_comp_sig,enemy_comp_sig,player_rating,player_cr,enemy_mmr,is_ranked,build_version,
         video_path,sidecar_path,source_file,ingested_ms,lines_unparsed)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     ).run(
       matchId, n(startMs), startMs != null ? new Date(startMs).toISOString() : null,
       s(si.bracket), s(si.zoneId), n(m.durationInSeconds), result,
       s(pid), s(playerCombatant?.name), s(playerCombatant?.spec), rawTeam, winning,
-      ally, enemy, i(playerRating), i(enemyMmr), si.isRanked ? 1 : 0, s(opts.buildVersion),
+      ally, enemy, i(playerRating), i(playerCr), i(enemyMmr), si.isRanked ? 1 : 0, s(opts.buildVersion),
       s(opts.videoPath), s(opts.sidecarPath), s(opts.sourceFile), now, n(m.linesNotParsedCount),
     );
 

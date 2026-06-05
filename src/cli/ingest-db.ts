@@ -8,6 +8,7 @@ import { upsertMatch, openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
 import { allLogs } from '../util/logFiles.js';
 import { loadSidecarIndex, nearestSidecar, SIDECAR_MATCH_WINDOW_MS, type SidecarIndex, type SidecarEntry } from '../sidecar/sidecarIndex.js';
+import { readBuildVersion } from '../util/buildVersion.js';
 
 export interface IngestSummary { files: number; ingested: number; skipped: number; noPlayer: number; noSidecar: number; }
 
@@ -19,6 +20,7 @@ export async function ingestLogsIntoDb(
   for (const f of files) {
     let res;
     try { res = await parseLogFile(f); } catch (e) { console.error('skip file', f, String(e)); continue; }
+    const buildVersion = readBuildVersion(f) ?? undefined;
     for (const m of res.arenaMatches) {
       try {
         const metrics = computeMatchMetrics(m);
@@ -32,7 +34,7 @@ export async function ingestLogsIntoDb(
           if (!sc) summary.noSidecar += 1;
         }
         upsertMatch(db, m, metrics, {
-          playerUnitId, sourceFile: basename(f),
+          playerUnitId, sourceFile: basename(f), buildVersion,
           videoPath: sc?.videoPath, sidecarPath: sc?.jsonPath,
         });
         summary.ingested += 1;
