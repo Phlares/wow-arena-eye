@@ -7,14 +7,14 @@ export interface Extracted { combatants: CombatantRow[]; metrics: MetricRow[]; }
 /** Declarative per-unit scalar metric extractors. Add a metric = add one entry.
  *  NOTE: ids consumed by the dataset_export view in schema.ts (its CASE columns) must
  *  stay in sync with the ids here. */
-const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number }[] = [
+const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number; combine?: true }[] = [
   { id: 'casts', get: (u) => u.casts },
-  { id: 'interruptsLanded', get: (u) => u.interruptsLanded },
+  { id: 'interruptsLanded', get: (u) => u.interruptsLanded, combine: true },
   { id: 'interruptsSuffered', get: (u) => u.interruptsSuffered },
-  { id: 'dispels', get: (u) => u.dispels },
-  { id: 'purges', get: (u) => u.purges },
-  { id: 'cleanses', get: (u) => u.cleanses },
-  { id: 'spellsteals', get: (u) => u.spellsteals },
+  { id: 'dispels', get: (u) => u.dispels, combine: true },
+  { id: 'purges', get: (u) => u.purges, combine: true },
+  { id: 'cleanses', get: (u) => u.cleanses, combine: true },
+  { id: 'spellsteals', get: (u) => u.spellsteals, combine: true },
   { id: 'deaths', get: (u) => u.deaths },
   { id: 'deathsWhileCcd', get: (u) => u.deathsWhileCcd },
   { id: 'distanceMoved', get: (u) => u.distanceMoved },
@@ -52,7 +52,9 @@ export function extractMetricRows(metrics: MatchMetrics, playerUnitId: string | 
       const u = pg.player;
       combatants.push({ unitId: u.unitId, name: u.name, spec: u.spec ?? '', team: tg.team, isPlayer: u.unitId === playerUnitId });
       for (const ex of UNIT_METRICS) {
-        const v = ex.get(u);
+        const v = ex.combine
+          ? ex.get(u) + pg.pets.reduce((acc, p) => acc + ex.get(p), 0)
+          : ex.get(u);
         if (typeof v === 'number' && Number.isFinite(v)) rows.push({ scope: u.unitId, metricId: ex.id, value: v });
       }
     }
