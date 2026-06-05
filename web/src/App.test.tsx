@@ -4,11 +4,13 @@ import { App } from './App.js';
 import type { FilterOptions, MatchesResponse } from './api.js';
 
 const filters: FilterOptions = { characters: ['Me-R'], brackets: ['3v3'], myComps: [], enemyComps: [],
+  classSpecTree: [],
   maps: [{ value: '1825', label: 'Hook Point' }], ratingRange: { min: 1900, max: 2100 }, dateRange: null };
 const matches: MatchesResponse = {
   matches: [{ matchId: 'A', startMs: 1000, durationSec: 161, bracket: '3v3', character: 'Me-R', mapId: '2547',
     mapName: 'Enigma Crucible', allyComp: 'x', allyCompLabel: 'WLS', enemyComp: 'y', enemyCompLabel: 'RMP',
-    rating: 2008, ratingDelta: -12, result: 'loss', sessionId: 'A', damageDone: 4_200_000, dps: 26_100, interruptsLanded: 3 }],
+    rating: 2008, ratingDelta: -12, cr: null, crDelta: null, buildVersion: '12.0.5',
+    result: 'loss', sessionId: 'A', damageDone: 4_200_000, dps: 26_100, interruptsLanded: 3 }],
   sessions: [{ id: 'A', startMs: 1000, endMs: 2000, count: 1, wins: 0, losses: 1, ratingStart: 2008, ratingEnd: 2008, comps: ['WLS'] }],
   total: 1,
 };

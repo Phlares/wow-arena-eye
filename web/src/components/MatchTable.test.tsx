@@ -5,7 +5,8 @@ import type { MatchSummary, SessionSummary } from '../api.js';
 function m(over: Partial<MatchSummary>): MatchSummary {
   return { matchId: 'A', startMs: 1000, durationSec: 120, bracket: '3v3', character: 'Me-R', mapId: '2547',
     mapName: 'Enigma Crucible', allyComp: 'x', allyCompLabel: 'WLS', enemyComp: 'y', enemyCompLabel: 'RMP',
-    rating: 2000, ratingDelta: 14, result: 'win', sessionId: 'A', damageDone: 4_200_000, dps: 26_000,
+    rating: 2000, ratingDelta: 14, cr: null, crDelta: null, buildVersion: '12.0.5',
+    result: 'win', sessionId: 'A', damageDone: 4_200_000, dps: 26_000,
     interruptsLanded: 3, ...over };
 }
 const sessions: SessionSummary[] = [{ id: 'A', startMs: 1000, endMs: 2000, count: 2, wins: 1, losses: 1, ratingStart: 2000, ratingEnd: 2016, comps: ['WLS'] }];

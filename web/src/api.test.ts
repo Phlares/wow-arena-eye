@@ -31,3 +31,12 @@ it('fetchFilters encodes a character into the query', async () => {
   expect((spy.mock.calls[0][0] as string)).toContain('character=Me-R');
   spy.mockRestore();
 });
+
+it('fetchMatches forwards comp-filter csv params', async () => {
+  const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ matches: [], sessions: [], total: 0 })));
+  await fetchMatches({ enemyClasses: 'Death Knight', enemySpecs: '62,63' });
+  const url = String(spy.mock.calls[0][0]);
+  expect(url).toContain('enemyClasses=Death+Knight');
+  expect(url).toContain('enemySpecs=62%2C63');
+  spy.mockRestore();
+});
