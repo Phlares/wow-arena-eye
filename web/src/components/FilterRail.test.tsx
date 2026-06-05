@@ -24,3 +24,24 @@ it('toggling a result checkbox updates the filter', () => {
   fireEvent.click(screen.getByLabelText('Loss'));
   expect(onChange).toHaveBeenCalledWith({ result: '' }); // win+loss = no filter
 });
+
+it('reports a search-box change', () => {
+  const onChange = vi.fn();
+  render(<FilterRail options={opts} filters={{}} onChange={onChange} />);
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'druid' } });
+  expect(onChange).toHaveBeenCalledWith({ q: 'druid' });
+});
+
+it('from both-on, toggling Win narrows to loss-only', () => {
+  const onChange = vi.fn();
+  render(<FilterRail options={opts} filters={{}} onChange={onChange} />);
+  fireEvent.click(screen.getByLabelText('Win'));
+  expect(onChange).toHaveBeenCalledWith({ result: 'loss' });
+});
+
+it('a non-character dropdown (Map) reports its key', () => {
+  const onChange = vi.fn();
+  render(<FilterRail options={opts} filters={{}} onChange={onChange} />);
+  fireEvent.change(screen.getByLabelText('Map'), { target: { value: '2547' } });
+  expect(onChange).toHaveBeenCalledWith({ map: '2547' });
+});
