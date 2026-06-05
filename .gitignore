@@ -14,3 +14,7 @@ vendor/**/dist/
 
 # brainstorming visual companion (local scratch)
 .superpowers/
+
+# web sub-package build artifacts
+web/node_modules/
+web/dist/

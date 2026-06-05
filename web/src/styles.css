@@ -1,0 +1,4 @@
+:root { color-scheme: dark; --bg:#0f0f14; --panel:#15151c; --line:#23232c; --text:#cdd; --accent:#9cf; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; }
+.win { color:#6d6; font-weight:700; } .loss { color:#e77; font-weight:700; }
