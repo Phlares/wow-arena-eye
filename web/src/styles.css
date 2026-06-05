@@ -22,3 +22,12 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .layout{display:flex;gap:12px;align-items:flex-start}
 .main{flex:1;min-width:0}
 .error{padding:10px;margin:8px 0;background:#3a1a1a;border:1px solid #a44;border-radius:6px;color:#f99}
+.compfilter{position:relative}
+.compbtn{width:100%;text-align:left;background:#1c1c26;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:4px}
+.comppop{position:absolute;z-index:10;top:100%;left:0;width:200px;max-height:320px;overflow:auto;background:#0d1422;border:1px solid #2c4660;border-radius:6px;padding:6px;font-size:12px}
+.compcls{display:flex;align-items:center;gap:4px}
+.comparrow{cursor:pointer;color:#889;width:12px}
+.compspecs{margin-left:20px;border-left:1px solid #2a2a36;padding-left:6px}
+.compspec{display:block}
+.compbtn::after{content:attr(data-summary)}
+.compsum{display:none}
