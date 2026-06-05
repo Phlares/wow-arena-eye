@@ -67,6 +67,23 @@ function listJsonFiles(dir: string): string[] {
   return out;
 }
 
+/** ±window used when associating a parsed match with its Warcraft Recorder sidecar by start time. */
+export const SIDECAR_MATCH_WINDOW_MS = 15 * 60 * 1000;
+
+/** The sidecar entry whose start time is closest to `startMs`, plus the absolute delta.
+ *  Returns null when `startMs` is null or no entry carries a start time. Callers decide
+ *  whether the delta is close enough (typically against SIDECAR_MATCH_WINDOW_MS). */
+export function nearestSidecar(idx: SidecarIndex, startMs: number | null): { entry: SidecarEntry; deltaMs: number } | null {
+  if (startMs === null) return null;
+  let best: { entry: SidecarEntry; deltaMs: number } | null = null;
+  for (const e of idx.entries) {
+    if (e.startEpochMs === null) continue;
+    const deltaMs = Math.abs(e.startEpochMs - startMs);
+    if (best === null || deltaMs < best.deltaMs) best = { entry: e, deltaMs };
+  }
+  return best;
+}
+
 export function loadSidecarIndex(videoDirs: string[]): SidecarIndex {
   const entries: SidecarEntry[] = [];
   let skipped = 0;

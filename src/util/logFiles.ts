@@ -1,6 +1,13 @@
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+/** Full paths of every WoWCombatLog*.txt file in dir (order not guaranteed). */
+export function allLogs(dir: string): string[] {
+  return readdirSync(dir)
+    .filter((n) => /^WoWCombatLog.*\.txt$/i.test(n))
+    .map((n) => join(dir, n));
+}
+
 /** Most recently modified WoWCombatLog file in dir (filenames are not chronological). */
 export function firstLog(dir: string): string {
   const files = readdirSync(dir).filter((n) => n.startsWith('WoWCombatLog'));
