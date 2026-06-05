@@ -8,13 +8,14 @@ import type { PlayerMatch, Scope } from '../scorecard/types.js';
 
 /** Most recent match (max startMs) overall, or for one character. undefined if none. */
 export function latestMatchId(matches: PlayerMatch[], character?: string): string | undefined {
-  let best: PlayerMatch | undefined;
+  let bestMs = -Infinity;
+  let bestId: string | undefined;
   for (const m of matches) {
     if (character && m.character !== character) continue;
     if (m.startMs === null) continue;
-    if (!best || best.startMs === null || m.startMs > best.startMs) best = m;
+    if (m.startMs > bestMs) { bestMs = m.startMs; bestId = m.matchId; }
   }
-  return best?.matchId;
+  return bestId;
 }
 
 function arg(flag: string): string | undefined {
@@ -32,15 +33,17 @@ async function main(): Promise<void> {
 
   const targetId = arg('--match') ?? latestMatchId(matches, character);
   if (!targetId || !matches.some((m) => m.matchId === targetId)) {
-    console.error(`Target match not found. Pass --match <id> or ingest matches. (have ${matches.length})`); process.exit(1);
+    console.error(`Target match not found. Pass --match <id>, or run \`npm run ingest-db -- <logsDir>\` to add matches. (have ${matches.length})`); process.exit(1);
   }
 
   const scope: Scope = {};
   if (has('--map')) scope.map = true;
   if (has('--comp')) scope.comp = true;
   if (has('--season')) scope.season = true;
-  const rb = arg('--rating-band'); if (has('--rating-band')) scope.ratingBand = rb ? Number(rb) : 150;
-  const tod = arg('--time-of-day'); if (has('--time-of-day')) scope.timeOfDayHours = tod ? Number(tod) : 2;
+  const rb = arg('--rating-band');
+  if (has('--rating-band')) { const v = Number(rb); scope.ratingBand = rb !== undefined && Number.isFinite(v) ? v : 150; }
+  const tod = arg('--time-of-day');
+  if (has('--time-of-day')) { const v = Number(tod); scope.timeOfDayHours = tod !== undefined && Number.isFinite(v) ? v : 2; }
 
   const sc = buildScorecard(matches, targetId, { scope, seasons: cfg.seasons });
   if (has('--json')) { console.log(JSON.stringify(sc, null, 2)); return; }
@@ -48,4 +51,5 @@ async function main(): Promise<void> {
   if (sc.cohort.n < 5) console.log(`\n  note: thin sample (n=${sc.cohort.n}); verdicts may read n/a.`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1])
+  main().catch((e) => { console.error(e); process.exit(1); });

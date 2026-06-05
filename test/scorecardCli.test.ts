@@ -18,4 +18,11 @@ describe('latestMatchId', () => {
   it('returns undefined for an empty store', () => {
     expect(latestMatchId([])).toBeUndefined();
   });
+  it('ignores matches with a null startMs', () => {
+    const ms: PlayerMatch[] = [
+      { matchId: 'NT', startMs: null, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e', rating: 2000, result: 'win', character: 'Me', metrics: {} },
+      mk('A', 100),
+    ];
+    expect(latestMatchId(ms, 'Me')).toBe('A');
+  });
 });
