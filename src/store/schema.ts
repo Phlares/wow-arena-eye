@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS match (
   ally_comp_sig   TEXT,
   enemy_comp_sig  TEXT,
   player_rating   INTEGER,
+  player_cr       INTEGER,
   enemy_mmr       INTEGER,
   is_ranked       INTEGER,
   build_version   TEXT,
