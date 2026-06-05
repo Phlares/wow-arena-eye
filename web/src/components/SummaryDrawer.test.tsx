@@ -18,3 +18,8 @@ it('shows matchup, map, rating, duration and stats for the selected match', () =
   expect(screen.getByText('4.2M')).toBeInTheDocument();
   expect(screen.getByText(/full detail/i)).toBeInTheDocument(); // inert affordance for sub-project B
 });
+it('shows the result badge with its color and em-dashes null stats', () => {
+  render(<SummaryDrawer match={{ ...m, result: 'win', rating: null, ratingDelta: null, interruptsLanded: null }} />);
+  expect(screen.getByText('WIN')).toHaveClass('win');
+  expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+});

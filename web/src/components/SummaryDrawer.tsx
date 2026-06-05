@@ -16,7 +16,7 @@ export function SummaryDrawer({ match: m }: { match: MatchSummary | null }) {
       <Row k="Duration" v={fmtDuration(m.durationSec)} />
       <Row k="Damage" v={fmtNum(m.damageDone)} />
       <Row k="DPS" v={fmtNum(m.dps)} />
-      <Row k="Kicks" v={m.interruptsLanded === null ? '—' : String(m.interruptsLanded)} />
+      <Row k="Kicks" v={fmtNum(m.interruptsLanded)} />
       <div className="soon">Open full detail → (coming in B)<br />Compare to history → (coming in C)</div>
     </aside>
   );
