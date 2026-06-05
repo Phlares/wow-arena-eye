@@ -14,6 +14,7 @@ export interface Config {
   dbPath?: string;
   player: PlayerIdentity;
   players: PlayerIdentity[];
+  seasons: { name: string; startMs: number }[];
 }
 
 function requireString(obj: Record<string, unknown>, key: string, displayKey?: string): string {
@@ -72,6 +73,15 @@ export function loadConfig(path?: string): Config {
     if (!seen.has(key)) { seen.add(key); players.push(p); }
   }
 
+  let seasons: { name: string; startMs: number }[] = [];
+  if (raw.seasons !== undefined) {
+    if (!Array.isArray(raw.seasons)) throw new Error('Config error: "seasons" must be an array');
+    seasons = (raw.seasons as Record<string, unknown>[]).map((sObj) => ({
+      name: requireString(sObj, 'name', 'seasons[].name'),
+      startMs: typeof sObj.startMs === 'number' ? sObj.startMs : (() => { throw new Error('Config error: seasons[].startMs must be a number'); })(),
+    }));
+  }
+
   return {
     sampleLogsDir,
     outputDir,
@@ -80,5 +90,6 @@ export function loadConfig(path?: string): Config {
     videoDirs,
     player,
     players,
+    seasons,
   };
 }
