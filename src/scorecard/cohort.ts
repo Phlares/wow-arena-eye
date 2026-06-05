@@ -1,4 +1,4 @@
-import type { PlayerMatch, Scope } from './types.js';
+import type { PlayerMatch, Scope, Season } from './types.js';
 
 export interface Stats { mean: number; stdev: number; n: number; min: number; max: number; }
 
@@ -21,9 +21,9 @@ export function hourDiff(a: number, b: number): number {
 }
 
 /** Name of the latest season starting at or before startMs; null if before the first/none. */
-export function seasonOf(seasons: { name: string; startMs: number }[], startMs: number | null): string | null {
+export function seasonOf(seasons: Season[], startMs: number | null): string | null {
   if (startMs === null) return null;
-  let best: { name: string; startMs: number } | null = null;
+  let best: Season | null = null;
   for (const s of seasons) {
     if (s.startMs <= startMs && (best === null || s.startMs > best.startMs)) best = s;
   }
@@ -36,7 +36,7 @@ export function filterCohort(
   matches: PlayerMatch[],
   target: PlayerMatch,
   scope: Scope,
-  seasons: { name: string; startMs: number }[] = [],
+  seasons: Season[] = [],
 ): PlayerMatch[] {
   const targetHour = target.startMs !== null ? new Date(target.startMs).getHours() : null;
   const targetSeason = seasonOf(seasons, target.startMs);

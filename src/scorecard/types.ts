@@ -16,6 +16,9 @@ export type Verdict = 'better' | 'worse' | 'average' | 'insufficient';
 export type WinLikeness = 'win-like' | 'loss-like' | 'neutral';
 export type Polarity = 'higher-better' | 'lower-better';
 
+/** A ranked season: a match belongs to the latest season whose startMs is ≤ its start. */
+export interface Season { name: string; startMs: number; }
+
 /** Active baseline narrowing. Bracket is always matched and is not part of Scope. */
 export interface Scope {
   map?: boolean;             // same zone_id as target

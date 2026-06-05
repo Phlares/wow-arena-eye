@@ -1,8 +1,12 @@
-import type { MetricScore, PlayerMatch, Polarity, Scope, Scorecard, Verdict, WinLikeness } from './types.js';
+import type { MetricScore, PlayerMatch, Polarity, Scope, Scorecard, Season, Verdict, WinLikeness } from './types.js';
 import { filterCohort, seasonOf, stats } from './cohort.js';
 
 export const MIN_COHORT = 5;
 const Z_AVG_BAND = 0.5;
+
+/** Defaults for the optional numeric scope flags when a flag is given without a value. */
+export const DEFAULT_RATING_BAND = 150;
+export const DEFAULT_TIME_OF_DAY_HOURS = 2;
 
 /** Curated, polarity-aware indicators. ids are a subset of the store's metric table
  *  (metricRows.ts UNIT_METRICS). Polarity is tuned for a ranged caster (Affliction). */
@@ -21,11 +25,16 @@ export const SCORECARD_METRICS: { id: string; label: string; polarity: Polarity 
   { id: 'spacing.meleeRangeSec', label: 'Time in melee (s)', polarity: 'lower-better' },
 ];
 
-export interface BuildOpts { scope: Scope; seasons: { name: string; startMs: number }[]; minCohort?: number; }
+export interface BuildOpts { scope: Scope; seasons: Season[]; minCohort?: number; }
 
 function num(m: PlayerMatch, id: string): number | undefined {
   const v = m.metrics[id];
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+/** The finite values of one metric across a set of matches (missing/non-finite dropped). */
+function collect(matches: PlayerMatch[], id: string): number[] {
+  return matches.map((m) => num(m, id)).filter((v): v is number => v !== undefined);
 }
 
 function verdictFor(value: number | null, mean: number, stdev: number, n: number, polarity: Polarity, minCohort: number): { verdict: Verdict; z: number | null } {
@@ -59,22 +68,22 @@ export function buildScorecard(matches: PlayerMatch[], targetMatchId: string, op
   const cohort = filterCohort(matches, target, opts.scope, opts.seasons);
   const wins = cohort.filter((m) => m.result === 'win');
   const losses = cohort.filter((m) => m.result === 'loss');
-  // season-best cohort: same bracket + same season, ignoring the narrower scope (target excluded)
-  const seasonCohort = filterCohort(matches, target, { season: opts.seasons.length > 0 }, opts.seasons);
+  // season-best cohort: same bracket + same season, ignoring the narrower scope (target excluded).
+  // the season filter only bites when seasons are configured; otherwise it spans all history.
+  const seasonScoped = opts.seasons.length > 0;
+  const seasonCohort = filterCohort(matches, target, { season: seasonScoped }, opts.seasons);
 
   const metrics: MetricScore[] = SCORECARD_METRICS.map((def) => {
     const value = num(target, def.id) ?? null;
-    const vals = cohort.map((m) => num(m, def.id)).filter((v): v is number => v !== undefined);
-    const st = stats(vals);
+    const st = stats(collect(cohort, def.id));
     const { verdict, z } = verdictFor(value, st.mean, st.stdev, st.n, def.polarity, minCohort);
-    const seasonVals = seasonCohort.map((m) => num(m, def.id)).filter((v): v is number => v !== undefined);
+    const seasonVals = collect(seasonCohort, def.id);
     const seasonBest = seasonVals.length
       ? (def.polarity === 'higher-better' ? Math.max(...seasonVals) : Math.min(...seasonVals))
       : null;
     const isNewBest = value !== null && (seasonBest === null
       || (def.polarity === 'higher-better' ? value > seasonBest : value < seasonBest));
-    const winLikeness = winLikenessFor(value, wins.map((m) => num(m, def.id)).filter((v): v is number => v !== undefined),
-      losses.map((m) => num(m, def.id)).filter((v): v is number => v !== undefined));
+    const winLikeness = winLikenessFor(value, collect(wins, def.id), collect(losses, def.id));
     return { id: def.id, label: def.label, polarity: def.polarity, value, mean: st.mean, stdev: st.stdev, n: st.n, z, verdict, seasonBest, isNewBest, winLikeness };
   });
 

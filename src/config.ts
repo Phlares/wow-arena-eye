@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import type { Season } from './scorecard/types.js';
 
 export interface PlayerIdentity {
   name: string;
@@ -14,13 +15,21 @@ export interface Config {
   dbPath?: string;
   player: PlayerIdentity;
   players: PlayerIdentity[];
-  seasons: { name: string; startMs: number }[];
+  seasons: Season[];
 }
 
 function requireString(obj: Record<string, unknown>, key: string, displayKey?: string): string {
   const v = obj[key];
   if (typeof v !== 'string' || v.length === 0) {
     throw new Error(`Config error: required field "${displayKey ?? key}" must be a non-empty string`);
+  }
+  return v;
+}
+
+function requireFiniteNumber(obj: Record<string, unknown>, key: string, displayKey?: string): number {
+  const v = obj[key];
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(`Config error: ${displayKey ?? key} must be a finite number`);
   }
   return v;
 }
@@ -73,14 +82,12 @@ export function loadConfig(path?: string): Config {
     if (!seen.has(key)) { seen.add(key); players.push(p); }
   }
 
-  let seasons: { name: string; startMs: number }[] = [];
+  let seasons: Season[] = [];
   if (raw.seasons !== undefined) {
     if (!Array.isArray(raw.seasons)) throw new Error('Config error: "seasons" must be an array');
     seasons = (raw.seasons as Record<string, unknown>[]).map((sObj) => ({
       name: requireString(sObj, 'name', 'seasons[].name'),
-      startMs: (typeof sObj.startMs === 'number' && Number.isFinite(sObj.startMs))
-        ? sObj.startMs
-        : (() => { throw new Error('Config error: seasons[].startMs must be a finite number'); })(),
+      startMs: requireFiniteNumber(sObj, 'startMs', 'seasons[].startMs'),
     }));
   }
 

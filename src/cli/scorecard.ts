@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
 import { loadPlayerMatches } from '../scorecard/loadMatches.js';
-import { buildScorecard } from '../scorecard/scorecard.js';
+import { buildScorecard, DEFAULT_RATING_BAND, DEFAULT_TIME_OF_DAY_HOURS } from '../scorecard/scorecard.js';
 import { renderScorecardText } from '../scorecard/render.js';
 import type { PlayerMatch, Scope } from '../scorecard/types.js';
 
@@ -41,9 +41,9 @@ async function main(): Promise<void> {
   if (has('--comp')) scope.comp = true;
   if (has('--season')) scope.season = true;
   const rb = arg('--rating-band');
-  if (has('--rating-band')) { const v = Number(rb); scope.ratingBand = rb !== undefined && Number.isFinite(v) ? v : 150; }
+  if (has('--rating-band')) { const v = Number(rb); scope.ratingBand = rb !== undefined && Number.isFinite(v) ? v : DEFAULT_RATING_BAND; }
   const tod = arg('--time-of-day');
-  if (has('--time-of-day')) { const v = Number(tod); scope.timeOfDayHours = tod !== undefined && Number.isFinite(v) ? v : 2; }
+  if (has('--time-of-day')) { const v = Number(tod); scope.timeOfDayHours = tod !== undefined && Number.isFinite(v) ? v : DEFAULT_TIME_OF_DAY_HOURS; }
 
   const sc = buildScorecard(matches, targetId, { scope, seasons: cfg.seasons });
   if (has('--json')) { console.log(JSON.stringify(sc, null, 2)); return; }
