@@ -4,7 +4,7 @@ import { App } from './App.js';
 import type { FilterOptions, MatchesResponse } from './api.js';
 
 const filters: FilterOptions = { characters: ['Me-R'], brackets: ['3v3'], myComps: [], enemyComps: [],
-  maps: [{ value: '2547', label: 'Enigma Crucible' }], ratingRange: { min: 1900, max: 2100 }, dateRange: null };
+  maps: [{ value: '1825', label: 'Hook Point' }], ratingRange: { min: 1900, max: 2100 }, dateRange: null };
 const matches: MatchesResponse = {
   matches: [{ matchId: 'A', startMs: 1000, durationSec: 161, bracket: '3v3', character: 'Me-R', mapId: '2547',
     mapName: 'Enigma Crucible', allyComp: 'x', allyCompLabel: 'WLS', enemyComp: 'y', enemyCompLabel: 'RMP',
