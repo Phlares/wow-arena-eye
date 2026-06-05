@@ -12,7 +12,8 @@ export function SummaryDrawer({ match: m }: { match: MatchSummary | null }) {
       <div className="dhead"><span className={m.result === 'win' ? 'win' : 'loss'}>{m.result.toUpperCase()}</span></div>
       <Row k="Matchup" v={`${m.allyCompLabel} vs ${m.enemyCompLabel}`} />
       <Row k="Map" v={m.mapName} />
-      <Row k="Rating" v={fmtRating(m.rating, m.ratingDelta)} />
+      <Row k="CR" v={fmtRating(m.cr, m.crDelta)} />
+      <Row k="MMR" v={fmtRating(m.rating, m.ratingDelta)} />
       <Row k="Duration" v={fmtDuration(m.durationSec)} />
       <Row k="Damage" v={fmtNum(m.damageDone)} />
       <Row k="DPS" v={fmtNum(m.dps)} />

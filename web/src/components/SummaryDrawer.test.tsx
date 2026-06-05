@@ -19,6 +19,13 @@ it('shows matchup, map, rating, duration and stats for the selected match', () =
   expect(screen.getByText('4.2M')).toBeInTheDocument();
   expect(screen.getByText(/full detail/i)).toBeInTheDocument(); // inert affordance for sub-project B
 });
+it('shows CR and MMR as separate rows, each with its chronological delta', () => {
+  render(<SummaryDrawer match={{ ...m, cr: 1834, crDelta: 8 }} />);
+  expect(screen.getByText('CR')).toBeInTheDocument();
+  expect(screen.getByText('1834 +8')).toBeInTheDocument();
+  expect(screen.getByText('MMR')).toBeInTheDocument();
+  expect(screen.getByText('2008 −12')).toBeInTheDocument(); // U+2212 minus, per fmtRatingDelta
+});
 it('shows the result badge with its color and em-dashes null stats', () => {
   render(<SummaryDrawer match={{ ...m, result: 'win', rating: null, ratingDelta: null, interruptsLanded: null }} />);
   expect(screen.getByText('WIN')).toHaveClass('win');

@@ -20,7 +20,9 @@ export async function ingestLogsIntoDb(
   for (const f of files) {
     let res;
     try { res = await parseLogFile(f); } catch (e) { console.error('skip file', f, String(e)); continue; }
-    const buildVersion = readBuildVersion(f) ?? undefined;
+    // Best-effort: a header-read failure costs only the build version, never the whole file.
+    let buildVersion: string | undefined;
+    try { buildVersion = readBuildVersion(f) ?? undefined; } catch (e) { console.error('build version unreadable', f, String(e)); }
     for (const m of res.arenaMatches) {
       try {
         const metrics = computeMatchMetrics(m);
