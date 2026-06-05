@@ -21,3 +21,4 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .app h1{font-size:18px;margin:0 0 12px}
 .layout{display:flex;gap:12px;align-items:flex-start}
 .main{flex:1;min-width:0}
+.error{padding:10px;margin:8px 0;background:#3a1a1a;border:1px solid #a44;border-radius:6px;color:#f99}

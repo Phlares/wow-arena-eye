@@ -36,3 +36,9 @@ it('clears the open drawer when a filter changes', async () => {
   fireEvent.change(screen.getByLabelText('Character'), { target: { value: 'Me-R' } });
   await waitFor(() => expect(screen.queryByText(/WLS vs RMP/)).toBeNull());
 });
+
+it('shows an error banner when the API fails', async () => {
+  vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('boom'));
+  render(<App />);
+  await waitFor(() => expect(screen.getByText(/viewer server running/i)).toBeInTheDocument());
+});

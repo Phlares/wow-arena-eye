@@ -19,15 +19,21 @@ export function App() {
   const [filters, setFilters] = useState<Filters>(readUrlFilters);
   const [data, setData] = useState<MatchesResponse>({ matches: [], sessions: [], total: 0 });
   const [selected, setSelected] = useState<MatchSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { void fetchFilters().then(setOptions); }, []);
-  useEffect(() => { writeUrlFilters(filters); void fetchMatches(filters).then(setData); }, [filters]);
+  useEffect(() => { void fetchFilters().then(setOptions).catch((e: unknown) => setError(String(e))); }, []);
+  useEffect(() => {
+    setError(null);
+    writeUrlFilters(filters);
+    void fetchMatches(filters).then(setData).catch((e: unknown) => setError(String(e)));
+  }, [filters]);
 
   const onChange = (patch: Filters) => { setSelected(null); setFilters((f) => ({ ...f, ...patch })); };
 
   return (
     <div className="app">
       <h1>Arena Match Viewer</h1>
+      {error && <div className="error">{error} — is the viewer server running? (npm run viewer)</div>}
       <div className="layout">
         {options && <FilterRail options={options} filters={filters} onChange={onChange} />}
         <div className="main">

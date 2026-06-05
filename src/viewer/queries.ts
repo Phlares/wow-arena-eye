@@ -37,7 +37,10 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
   const order = q.order === 'asc' ? 'ASC' : 'DESC';
   let limit = '', offset = '';
   if (q.limit !== undefined) { limit = ' LIMIT ?'; args.push(q.limit); }
-  if (q.offset !== undefined) { offset = ' OFFSET ?'; args.push(q.offset); }
+  if (q.offset !== undefined) {
+    if (q.limit === undefined) limit = ' LIMIT -1'; // SQLite requires LIMIT before OFFSET; -1 = no limit
+    offset = ' OFFSET ?'; args.push(q.offset);
+  }
   const sql =
     `SELECT m.match_id, m.start_ms, m.duration_sec, m.bracket, m.zone_id, m.ally_comp_sig,
             m.enemy_comp_sig, m.player_rating, m.result, m.player_name,

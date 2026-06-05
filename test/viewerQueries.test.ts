@@ -57,6 +57,10 @@ describe('loadViewerMatches', () => {
     // newest-first default [C,B,A]; offset 1 limit 1 -> [B]
     expect(loadViewerMatches(db(), { limit: 1, offset: 1 }).map((m) => m.matchId)).toEqual(['B']);
   });
+  it('handles offset without limit (no SQL error)', () => {
+    // newest-first [C,B,A]; offset 1, no limit -> [B, A]
+    expect(loadViewerMatches(db(), { offset: 1 }).map((m) => m.matchId)).toEqual(['B', 'A']);
+  });
 });
 
 describe('loadFilterOptions', () => {
