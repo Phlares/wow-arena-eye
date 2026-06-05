@@ -42,4 +42,37 @@ describe('sessionize', () => {
   it('returns [] for no matches', () => {
     expect(sessionize([], 30 * MIN)).toEqual([]);
   });
+  it('keeps matches together when the idle gap equals the threshold exactly', () => {
+    const a = mk({ matchId: 'A', startMs: 0, durationSec: 120 });
+    const b = mk({ matchId: 'B', startMs: 120_000 + 30 * MIN }); // gap == 30min exactly (not >)
+    expect(sessionize([a, b], 30 * MIN)).toHaveLength(1);
+  });
+  it('splits a 3-match run mid-stream into two sessions', () => {
+    const a = mk({ matchId: 'A', startMs: 0, durationSec: 120 });
+    const b = mk({ matchId: 'B', startMs: 200_000, durationSec: 120 });    // within gap of A -> same session
+    const c = mk({ matchId: 'C', startMs: 200_000 + 120_000 + 31 * MIN }); // >30min after B ends -> new session
+    const sessions = sessionize([a, b, c], 30 * MIN);
+    expect(sessions.map((s) => s.count)).toEqual([2, 1]);
+    expect(sessions.map((s) => s.id)).toEqual(['A', 'C']);
+  });
+  it('ratingStart/End skip leading/trailing null ratings', () => {
+    const ms = [
+      mk({ matchId: 'A', startMs: 0, rating: null }),
+      mk({ matchId: 'B', startMs: 100_000, rating: 2000 }),
+      mk({ matchId: 'C', startMs: 200_000, rating: null }),
+    ];
+    const [s] = sessionize(ms, 30 * MIN);
+    expect(s.ratingStart).toBe(2000);
+    expect(s.ratingEnd).toBe(2000);
+  });
+  it('counts only win/loss results; unknown results sit in count but neither bucket', () => {
+    const ms = [
+      mk({ matchId: 'A', startMs: 0, result: 'win' }),
+      mk({ matchId: 'B', startMs: 100_000, result: 'unknown' }),
+    ];
+    const [s] = sessionize(ms, 30 * MIN);
+    expect(s.count).toBe(2);
+    expect(s.wins).toBe(1);
+    expect(s.losses).toBe(0);
+  });
 });
