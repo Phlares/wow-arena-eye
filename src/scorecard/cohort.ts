@@ -1,0 +1,59 @@
+import type { PlayerMatch, Scope } from './types.js';
+
+export interface Stats { mean: number; stdev: number; n: number; min: number; max: number; }
+
+/** Population mean/stdev/min/max. Empty → all zeros. */
+export function stats(values: number[]): Stats {
+  const n = values.length;
+  if (n === 0) return { mean: 0, stdev: 0, n: 0, min: 0, max: 0 };
+  let sum = 0, min = Infinity, max = -Infinity;
+  for (const v of values) { sum += v; if (v < min) min = v; if (v > max) max = v; }
+  const mean = sum / n;
+  let sq = 0;
+  for (const v of values) sq += (v - mean) * (v - mean);
+  return { mean, stdev: Math.sqrt(sq / n), n, min, max };
+}
+
+/** Smallest circular distance between two hours-of-day (0..23). */
+export function hourDiff(a: number, b: number): number {
+  const d = Math.abs(a - b) % 24;
+  return Math.min(d, 24 - d);
+}
+
+/** Name of the latest season starting at or before startMs; null if before the first/none. */
+export function seasonOf(seasons: { name: string; startMs: number }[], startMs: number | null): string | null {
+  if (startMs === null) return null;
+  let best: { name: string; startMs: number } | null = null;
+  for (const s of seasons) {
+    if (s.startMs <= startMs && (best === null || s.startMs > best.startMs)) best = s;
+  }
+  return best ? best.name : null;
+}
+
+/** The recording character's past matches matching the active scope. Always enforces the
+ *  target's bracket and excludes the target match itself. */
+export function filterCohort(
+  matches: PlayerMatch[],
+  target: PlayerMatch,
+  scope: Scope,
+  seasons: { name: string; startMs: number }[] = [],
+): PlayerMatch[] {
+  const targetHour = target.startMs !== null ? new Date(target.startMs).getHours() : null;
+  const targetSeason = seasonOf(seasons, target.startMs);
+  return matches.filter((m) => {
+    if (m.matchId === target.matchId) return false;
+    if (m.bracket !== target.bracket) return false;
+    if (scope.map && m.zoneId !== target.zoneId) return false;
+    if (scope.comp && m.enemyComp !== target.enemyComp) return false;
+    if (scope.ratingBand !== undefined) {
+      if (m.rating === null || target.rating === null) return false;
+      if (Math.abs(m.rating - target.rating) > scope.ratingBand) return false;
+    }
+    if (scope.timeOfDayHours !== undefined) {
+      if (m.startMs === null || targetHour === null) return false;
+      if (hourDiff(new Date(m.startMs).getHours(), targetHour) > scope.timeOfDayHours) return false;
+    }
+    if (scope.season && seasonOf(seasons, m.startMs) !== targetSeason) return false;
+    return true;
+  });
+}
