@@ -62,3 +62,20 @@ it('shows a version fold header and a sum/avg totals footer', () => {
   expect(screen.getByText('avg')).toBeInTheDocument();
   expect(screen.getByText('3.0M')).toBeInTheDocument();       // avg
 });
+
+it('shows CR/MMR averages as raw ratings, not k-abbreviated', () => {
+  render(<MatchTable matches={[m({ matchId: 'A', cr: 1800 }), m({ matchId: 'B', cr: 1820 })]}
+    sessions={sessions} selectedId={null} onSelect={() => {}} sort={null} onSort={() => {}} />);
+  expect(screen.getByText('1810')).toBeInTheDocument(); // (1800+1820)/2 raw, not '1.8k'
+});
+it('shows the sort indicator on the active column header', () => {
+  render(<MatchTable matches={[m({ matchId: 'A' })]} sessions={sessions} selectedId={null} onSelect={() => {}}
+    sort={{ col: 'damageDone', dir: 'desc' }} onSort={() => {}} />);
+  expect(screen.getByText(/Dmg ▼/)).toBeInTheDocument();
+});
+it('renders a separate version fold per build_version', () => {
+  render(<MatchTable matches={[m({ matchId: 'A', buildVersion: '12.0.5' }), m({ matchId: 'B', buildVersion: '12.1.0', sessionId: null })]}
+    sessions={sessions} selectedId={null} onSelect={() => {}} sort={null} onSort={() => {}} />);
+  expect(screen.getByText(/12\.0\.5/)).toBeInTheDocument();
+  expect(screen.getByText(/12\.1\.0/)).toBeInTheDocument();
+});

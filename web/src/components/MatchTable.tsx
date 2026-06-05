@@ -52,6 +52,11 @@ export function MatchTable({ matches, sessions, selectedId, onSelect, sort, onSo
   const sum = (f: (m: MatchSummary) => number | null) => matches.reduce((a, m) => a + (f(m) ?? 0), 0);
   const n = matches.length;
   const wins = matches.filter((m) => m.result === 'win').length;
+  const avg = (f: (m: MatchSummary) => number | null) => {
+    const vals = matches.map(f).filter((v): v is number => v !== null);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+  const avgRating = (f: (m: MatchSummary) => number | null) => { const a = avg(f); return a === null ? null : Math.round(a); };
 
   return (
     <table className="matches">
@@ -81,7 +86,7 @@ export function MatchTable({ matches, sessions, selectedId, onSelect, sort, onSo
       </tbody>
       <tfoot>
         <tr className="totals"><td>Σ</td><td>{wins}W–{n - wins}L</td><td colSpan={3} /><td></td><td></td><td>{fmtNum(sum((m) => m.damageDone))}</td><td>{fmtNum(sum((m) => m.dps))}</td><td>{fmtNum(sum((m) => m.interruptsLanded))}</td></tr>
-        <tr className="totals"><td>avg</td><td colSpan={4} /><td>{fmtNum(Math.round(sum((m) => m.cr) / n))}</td><td>{fmtNum(Math.round(sum((m) => m.rating) / n))}</td><td>{fmtNum(sum((m) => m.damageDone) / n)}</td><td>{fmtNum(sum((m) => m.dps) / n)}</td><td>{fmtNum(sum((m) => m.interruptsLanded) / n)}</td></tr>
+        <tr className="totals"><td>avg</td><td colSpan={4} /><td>{fmtRating(avgRating((m) => m.cr), null)}</td><td>{fmtRating(avgRating((m) => m.rating), null)}</td><td>{fmtNum(avg((m) => m.damageDone))}</td><td>{fmtNum(avg((m) => m.dps))}</td><td>{fmtNum(avg((m) => m.interruptsLanded))}</td></tr>
       </tfoot>
     </table>
   );
