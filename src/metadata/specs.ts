@@ -18,3 +18,13 @@ export function compLabel(sig: string): string {
   if (sig === '') return '';
   return sig.split('_').map(specLabel).join('·');
 }
+
+/** Class name for a spec id; '' if unknown. */
+export function className(id: string): string {
+  return TABLE[id]?.className ?? '';
+}
+
+/** All spec ids belonging to a class (by className). */
+export function specsOfClass(cls: string): string[] {
+  return Object.keys(TABLE).filter((id) => TABLE[id].className === cls);
+}
