@@ -6,3 +6,9 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .rail .grp{margin-bottom:10px;display:flex;flex-direction:column;gap:3px}
 .rail .label{color:#889;font-size:10px;text-transform:uppercase}
 .rail select,.rail input{background:#1c1c26;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:3px}
+.matches{width:100%;border-collapse:collapse}
+.matches td,.matches th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:12px}
+.matches tbody tr:hover{background:#1a1a24;cursor:pointer}
+.matches .sel{background:#1a2740}
+.sep td{background:#181826;color:#aac;font-size:11px}
+.empty{padding:30px;color:#889}
