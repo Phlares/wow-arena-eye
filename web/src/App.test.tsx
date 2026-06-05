@@ -44,3 +44,10 @@ it('shows an error banner when the API fails', async () => {
   render(<App />);
   await waitFor(() => expect(screen.getByText(/viewer server running/i)).toBeInTheDocument());
 });
+
+it('sorts within folds when a column header is clicked', async () => {
+  render(<App />);
+  await waitFor(() => expect(screen.getByText('Enigma Crucible')).toBeInTheDocument());
+  fireEvent.click(screen.getByText('Dmg'));
+  await waitFor(() => expect(screen.getByText(/Dmg ▲|Dmg ▼/)).toBeInTheDocument());
+});
