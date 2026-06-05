@@ -16,7 +16,7 @@ const SORT_COLS: Record<NonNullable<MatchQuery['sort']>, string> = {
   startMs: 'm.start_ms', rating: 'm.player_rating', damageDone: 'd.damageDone', dps: 'd.dps',
 };
 
-/** Filtered, label-resolved matches. ratingDelta is computed per character over the returned set. */
+/** Filtered, label-resolved matches. CR/MMR deltas are filled separately by enrichRatingDeltas. */
 export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary[] {
   const where: string[] = [];
   const args: (string | number)[] = [];
@@ -94,18 +94,18 @@ export function loadMatchScalars(db: DatabaseSync, matchId: string): MatchSummar
 /** Attach CR/MMR deltas to each match vs the chronologically-previous game by the same
  *  (character, bracket), over FULL history (filter-independent). null when no prior game. */
 export function enrichRatingDeltas(db: DatabaseSync, matches: MatchSummary[]): void {
-  const need = [...new Set(matches.map((m) => `${m.character} ${m.bracket}`))];
+  const keyOf = (character: string, bracket: string) => `${character}\0${bracket}`;
+  const need = [...new Set(matches.map((m) => keyOf(m.character, m.bracket)))];
   type Hist = { startMs: number | null; cr: number | null; mmr: number | null; matchId: string };
   const hist = new Map<string, Hist[]>();
+  const stmt = db.prepare('SELECT match_id, start_ms, player_cr, player_rating FROM match WHERE player_name = ? AND bracket = ? ORDER BY start_ms');
   for (const key of need) {
-    const [character, bracket] = key.split(' ');
-    const rows = db.prepare(
-      'SELECT match_id, start_ms, player_cr, player_rating FROM match WHERE player_name = ? AND bracket = ? ORDER BY start_ms',
-    ).all(character, bracket) as { match_id: string; start_ms: number | null; player_cr: number | null; player_rating: number | null }[];
+    const [character, bracket] = key.split('\0');
+    const rows = stmt.all(character, bracket) as { match_id: string; start_ms: number | null; player_cr: number | null; player_rating: number | null }[];
     hist.set(key, rows.map((r) => ({ startMs: r.start_ms, cr: r.player_cr, mmr: r.player_rating, matchId: r.match_id })));
   }
   for (const m of matches) {
-    const arr = hist.get(`${m.character} ${m.bracket}`);
+    const arr = hist.get(keyOf(m.character, m.bracket));
     if (!arr) continue;
     const i = arr.findIndex((h) => h.matchId === m.matchId);
     const prev = i > 0 ? arr[i - 1] : undefined;

@@ -19,20 +19,12 @@ export function compLabel(sig: string): string {
   return sig.split('_').map(specLabel).join('·');
 }
 
-/** Normalize a raw className from specs.json to a display name with spaces.
- *  'DeathKnight' → 'Death Knight', 'DemonHunter' → 'Demon Hunter', etc. */
-function displayClassName(raw: string): string {
-  return raw.replace(/([a-z])([A-Z])/g, '$1 $2');
-}
-
-/** Class name for a spec id (display form with spaces, e.g. 'Death Knight'); '' if unknown. */
+/** Class name for a spec id; '' if unknown. */
 export function className(id: string): string {
-  const raw = TABLE[id]?.className;
-  return raw ? displayClassName(raw) : '';
+  return TABLE[id]?.className ?? '';
 }
 
-/** All spec ids belonging to a class (by className, accepts both display form and raw form). */
+/** All spec ids belonging to a class (by display className). */
 export function specsOfClass(cls: string): string[] {
-  const normalized = cls.replace(/\s+/g, ''); // strip spaces for comparison
-  return Object.keys(TABLE).filter((id) => TABLE[id].className === normalized || TABLE[id].className === cls);
+  return Object.keys(TABLE).filter((id) => TABLE[id].className === cls);
 }

@@ -49,6 +49,16 @@ describe('enrichRatingDeltas', () => {
     enrichRatingDeltas(d, ms);
     expect(ms.find((m) => m.matchId === 'M1')!.crDelta).toBeNull();
   });
+  it('handles brackets containing spaces (e.g. Solo Shuffle)', () => {
+    const d = new DatabaseSync(':memory:'); migrate(d);
+    seed(d, { id: 'S1', t: 1000, bracket: 'Solo Shuffle', cr: 1700, mmr: 1900, build: '12.0.5', name: 'Me-R', result: 'win',
+      combatants: [{ unit: 'P', spec: '265', team: 'friendly', isPlayer: true }] });
+    seed(d, { id: 'S2', t: 5000, bracket: 'Solo Shuffle', cr: 1710, mmr: 1908, build: '12.0.5', name: 'Me-R', result: 'loss',
+      combatants: [{ unit: 'P', spec: '265', team: 'friendly', isPlayer: true }] });
+    const ms = loadViewerMatches(d, {});
+    enrichRatingDeltas(d, ms);
+    expect(ms.find((m) => m.matchId === 'S2')!.crDelta).toBe(10); // 1710-1700; bracket not truncated
+  });
 });
 
 describe('loadFilterOptions v2', () => {
