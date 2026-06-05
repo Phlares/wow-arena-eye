@@ -18,7 +18,9 @@ const SORT_COLS: Record<NonNullable<MatchQuery['sort']>, string> = {
 export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary[] {
   const where: string[] = [];
   const args: (string | number)[] = [];
+  // empty string and undefined both mean "no filter" (omitted form fields send '')
   const eq = (col: string, v: string | number | undefined) => { if (v !== undefined && v !== '') { where.push(`${col} = ?`); args.push(v); } };
+  eq('m.match_id', q.id);
   eq('m.player_name', q.character);
   eq('m.bracket', q.bracket);
   eq('m.ally_comp_sig', q.myComp);
@@ -32,8 +34,9 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
 
   const sortCol = SORT_COLS[q.sort ?? 'startMs'];
   const order = q.order === 'asc' ? 'ASC' : 'DESC';
-  const limit = q.limit !== undefined ? ' LIMIT ?' : '';
-  const offset = q.offset !== undefined ? ' OFFSET ?' : '';
+  let limit = '', offset = '';
+  if (q.limit !== undefined) { limit = ' LIMIT ?'; args.push(q.limit); }
+  if (q.offset !== undefined) { offset = ' OFFSET ?'; args.push(q.offset); }
   const sql =
     `SELECT m.match_id, m.start_ms, m.duration_sec, m.bracket, m.zone_id, m.ally_comp_sig,
             m.enemy_comp_sig, m.player_rating, m.result, m.player_name,
@@ -42,8 +45,6 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
      LEFT JOIN dataset_export d ON d.match_id = m.match_id
      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
      ORDER BY ${sortCol} ${order}${limit}${offset}`;
-  if (q.limit !== undefined) args.push(q.limit);
-  if (q.offset !== undefined) args.push(q.offset);
   const rows = db.prepare(sql).all(...args) as unknown as Row[];
 
   let mapped: MatchSummary[] = rows.map((r) => ({
@@ -72,8 +73,7 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
 
 /** Single match's scalar row for the summary drawer; null if absent. */
 export function loadMatchScalars(db: DatabaseSync, matchId: string): MatchSummary | null {
-  const rows = loadViewerMatches(db, {}).filter((m) => m.matchId === matchId);
-  return rows[0] ?? null;
+  return loadViewerMatches(db, { id: matchId })[0] ?? null;
 }
 
 /** Distinct filter values + ranges across the store (optionally scoped to one character). */

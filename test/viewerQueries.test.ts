@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DatabaseSync } from '../src/store/sqlite.js';
 import { migrate } from '../src/store/schema.js';
-import { loadFilterOptions, loadViewerMatches } from '../src/viewer/queries.js';
+import { loadFilterOptions, loadMatchScalars, loadViewerMatches } from '../src/viewer/queries.js';
 
 function seedMatch(db: InstanceType<typeof DatabaseSync>, o: {
   id: string; startMs: number; dur: number; bracket: string; zone: string;
@@ -46,6 +46,17 @@ describe('loadViewerMatches', () => {
     expect(ms.find((m) => m.matchId === 'B')!.ratingDelta).toBe(16); // 2016 - 2000
     expect(ms.find((m) => m.matchId === 'A')!.ratingDelta).toBeNull(); // first
   });
+  it('filters by myComp (ally_comp_sig)', () => {
+    expect(loadViewerMatches(db(), { myComp: '105_265' }).map((m) => m.matchId).sort()).toEqual(['A', 'B']);
+  });
+  it('applies the free-text q filter over resolved labels', () => {
+    expect(loadViewerMatches(db(), { q: 'Enigma' }).map((m) => m.matchId).sort()).toEqual(['A', 'C']); // both on zone 2547
+    expect(loadViewerMatches(db(), { q: 'zzz-none' })).toHaveLength(0);
+  });
+  it('applies LIMIT and OFFSET with correctly-ordered params', () => {
+    // newest-first default [C,B,A]; offset 1 limit 1 -> [B]
+    expect(loadViewerMatches(db(), { limit: 1, offset: 1 }).map((m) => m.matchId)).toEqual(['B']);
+  });
 });
 
 describe('loadFilterOptions', () => {
@@ -55,5 +66,22 @@ describe('loadFilterOptions', () => {
     expect(o.brackets.sort()).toEqual(['2v2', '3v3']);
     expect(o.maps.map((m) => m.label)).toContain('Enigma Crucible');
     expect(o.ratingRange).toEqual({ min: 1900, max: 2016 });
+  });
+});
+
+describe('loadMatchScalars', () => {
+  it('returns one match by id, or null when absent', () => {
+    expect(loadMatchScalars(db(), 'B')!.matchId).toBe('B');
+    expect(loadMatchScalars(db(), 'NOPE')).toBeNull();
+  });
+});
+
+describe('empty store', () => {
+  it('returns no matches and null ranges', () => {
+    const d = new DatabaseSync(':memory:'); migrate(d);
+    expect(loadViewerMatches(d, {})).toEqual([]);
+    const o = loadFilterOptions(d);
+    expect(o.characters).toEqual([]);
+    expect(o.ratingRange).toBeNull();
   });
 });

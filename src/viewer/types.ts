@@ -34,6 +34,7 @@ export interface FilterOptions {
 }
 
 export interface MatchQuery {
+  id?: string;            // exact match_id (internal — single-match fetch)
   character?: string;
   bracket?: string;
   myComp?: string;
