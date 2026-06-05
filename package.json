@@ -14,6 +14,8 @@
     "view-occupancy": "node scripts/view-occupancy.mjs",
     "ingest-db": "node --experimental-sqlite --import tsx src/cli/ingest-db.ts",
     "scorecard": "node --experimental-sqlite --import tsx src/cli/scorecard.ts",
+    "viewer": "npm run build --prefix web && node --experimental-sqlite --import tsx src/viewer/server.ts",
+    "viewer:dev": "node scripts/viewer-dev.mjs",
     "extract-fixture": "tsx src/util/extractMatchFixture.ts"
   },
   "dependencies": {

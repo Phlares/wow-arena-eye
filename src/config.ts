@@ -16,6 +16,7 @@ export interface Config {
   player: PlayerIdentity;
   players: PlayerIdentity[];
   seasons: Season[];
+  sessionGapMinutes: number;
 }
 
 function requireString(obj: Record<string, unknown>, key: string, displayKey?: string): string {
@@ -91,6 +92,14 @@ export function loadConfig(path?: string): Config {
     }));
   }
 
+  let sessionGapMinutes = 30;
+  if (raw.sessionGapMinutes !== undefined) {
+    if (typeof raw.sessionGapMinutes !== 'number' || !Number.isFinite(raw.sessionGapMinutes) || raw.sessionGapMinutes <= 0) {
+      throw new Error('Config error: "sessionGapMinutes" must be a positive number');
+    }
+    sessionGapMinutes = raw.sessionGapMinutes;
+  }
+
   return {
     sampleLogsDir,
     outputDir,
@@ -100,5 +109,6 @@ export function loadConfig(path?: string): Config {
     player,
     players,
     seasons,
+    sessionGapMinutes,
   };
 }
