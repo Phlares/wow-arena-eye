@@ -51,3 +51,14 @@ it('sorts within folds when a column header is clicked', async () => {
   fireEvent.click(screen.getByText('Dmg'));
   await waitFor(() => expect(screen.getByText(/Dmg ▲|Dmg ▼/)).toBeInTheDocument());
 });
+
+it('cycles the Dmg sort desc → asc → cleared on repeated clicks', async () => {
+  render(<App />);
+  await waitFor(() => expect(screen.getByText('Enigma Crucible')).toBeInTheDocument());
+  fireEvent.click(screen.getByText('Dmg'));
+  await waitFor(() => expect(screen.getByText(/Dmg ▼/)).toBeInTheDocument());   // 1st click → desc
+  fireEvent.click(screen.getByText(/Dmg ▼/));
+  await waitFor(() => expect(screen.getByText(/Dmg ▲/)).toBeInTheDocument());   // 2nd → asc
+  fireEvent.click(screen.getByText(/Dmg ▲/));
+  await waitFor(() => expect(screen.getByText('Dmg')).toBeInTheDocument());     // 3rd → cleared (no arrow)
+});

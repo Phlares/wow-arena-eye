@@ -21,6 +21,7 @@ export function App() {
   const [selected, setSelected] = useState<MatchSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<{ col: string; dir: 'asc' | 'desc' } | null>(null);
+  // click a sortable header: new col → desc, same col desc → asc, same col asc → cleared
   const onSort = (col: string) => setSort((s) =>
     s?.col !== col ? { col, dir: 'desc' } : s.dir === 'desc' ? { col, dir: 'asc' } : null);
 
