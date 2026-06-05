@@ -18,3 +18,12 @@ it('formats a clock from epoch ms', () => {
   expect(fmtClock(null)).toBe('—');
   expect(typeof fmtClock(1_000_000)).toBe('string');
 });
+it('handles number boundaries and +0 delta', () => {
+  expect(fmtNum(1000)).toBe('1.0k');
+  expect(fmtNum(999_999)).toBe('1.0M');
+  expect(fmtNum(999)).toBe('999');
+  expect(fmtRatingDelta(0)).toBe('+0');
+});
+it('rounds fractional durations without overflowing seconds', () => {
+  expect(fmtDuration(119.6)).toBe('2:00');
+});

@@ -26,9 +26,11 @@ function qs(filters: Filters): string {
 }
 export async function fetchMatches(filters: Filters): Promise<MatchesResponse> {
   const r = await fetch(`/api/matches${qs(filters)}`);
+  if (!r.ok) throw new Error(`/api/matches ${r.status}`);
   return r.json() as Promise<MatchesResponse>;
 }
 export async function fetchFilters(character?: string): Promise<FilterOptions> {
   const r = await fetch(`/api/filters${character ? `?character=${encodeURIComponent(character)}` : ''}`);
+  if (!r.ok) throw new Error(`/api/filters ${r.status}`);
   return r.json() as Promise<FilterOptions>;
 }

@@ -19,3 +19,15 @@ it('fetchFilters hits /api/filters', async () => {
   expect((spy.mock.calls[0][0] as string)).toContain('/api/filters');
   spy.mockRestore();
 });
+it('fetchMatches returns the parsed body', async () => {
+  const body: MatchesResponse = { matches: [], sessions: [], total: 0 };
+  const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(body)));
+  expect(await fetchMatches({})).toEqual(body);
+  spy.mockRestore();
+});
+it('fetchFilters encodes a character into the query', async () => {
+  const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ characters: [] })));
+  await fetchFilters('Me-R');
+  expect((spy.mock.calls[0][0] as string)).toContain('character=Me-R');
+  spy.mockRestore();
+});
