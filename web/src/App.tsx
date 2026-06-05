@@ -38,7 +38,8 @@ export function App() {
         {options && <FilterRail options={options} filters={filters} onChange={onChange} />}
         <div className="main">
           <MatchTable matches={data.matches} sessions={data.sessions} selectedId={selected?.matchId ?? null}
-            onSelect={(id) => setSelected(data.matches.find((m) => m.matchId === id) ?? null)} />
+            onSelect={(id) => setSelected(data.matches.find((m) => m.matchId === id) ?? null)}
+            sort={null} onSort={() => {}} />
         </div>
         <SummaryDrawer match={selected} />
       </div>

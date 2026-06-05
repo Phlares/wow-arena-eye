@@ -29,3 +29,6 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .comparrow{cursor:pointer;color:#889;width:12px}
 .compspecs{margin-left:20px;border-left:1px solid #2a2a36;padding-left:6px}
 .compspec{display:block}
+.vsep td{background:#10203a;color:#9cf;font-weight:700;font-size:11px}
+.matches th.sortable{cursor:pointer}.matches th.sortable:hover{color:var(--accent)}
+.matches tfoot .totals td{border-top:2px solid var(--line);color:#aab;font-weight:600}
