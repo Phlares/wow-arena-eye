@@ -134,15 +134,28 @@ extend.
 - **Styling:** hand-rolled CSS, dark theme consistent with the existing report. No component
   library in v1.
 
-## Labeling (pure, server-side, unit-tested)
+## Labeling (generated metadata + pure resolvers, unit-tested)
 
-- **Comp signatures → labels.** `comp_sig` is a sorted, `_`-joined list of **spec id** strings.
-  `src/metadata/specs.ts` maps spec id → `{ class, spec, abbrev }`; a comp label is the joined
-  abbrevs (e.g. `Affli·RSham·Balance`). Reuse the parser's spec metadata if it exposes
-  class/spec names; otherwise a small curated table (the arena spec-id set is finite). Well-known
-  comp **nicknames** (RMP/TSG/WLS/…) are an optional thin overlay map and may be deferred.
-- **Zone id → arena name.** No name map exists today (only occupancy JSON keyed by id). Add a
-  curated `src/metadata/arenas.ts` (`zoneId → name`, ~20 arenas). Unknown id → render the raw id.
+Spec and map names are sourced from authoritative WoW client **DB2 tables** (via wago.tools),
+using the project's existing metadata-generator pattern — a script reads the DB2 CSV and writes
+committed JSON, refreshed per patch like `import-cc-categories.mjs` / `import-cooldowns.mjs`.
+They are **not** hand-curated lists.
+
+- **Comp signatures → labels.** `comp_sig` is a sorted, `_`-joined list of **spec id** strings
+  (WoW specialization ids, e.g. `265` = Affliction). `scripts/import-specs.mjs` reads wago.tools
+  DB2 — `ChrSpecialization` (`/db2/ChrSpecialization/csv?build=<build>` → spec id, `Name_lang`,
+  `ClassID`) joined with `ChrClasses` (class `Name_lang`) — and writes committed
+  `src/metadata/specs.json` (`specId → { classId, className, specName }`). Runtime
+  `src/metadata/specs.ts` is a pure lookup over that JSON and derives the short display form; a
+  comp label is the joined per-spec short names (e.g. `Affli·RSham·Balance`). Refresh per patch:
+  `WAE_DB2_BUILD=<build> node scripts/import-specs.mjs`. Exact CSV column names are confirmed at
+  generator-build time. Well-known comp **nicknames** (RMP/TSG/WLS/…) remain an optional thin
+  overlay and may be deferred.
+- **Zone id → arena name.** Likewise generated, not curated: `scripts/import-maps.mjs` reads the
+  DB2 `Map` table (`/db2/Map/csv?build=<build>`, `MapName_lang`) → committed
+  `src/metadata/arenas.json`, read by a pure `src/metadata/arenas.ts`. Unknown id → render the
+  raw id. (The generator can be scoped to the arena map ids we have / encounter; it expands as
+  new arenas appear.)
 
 ## Error handling
 
