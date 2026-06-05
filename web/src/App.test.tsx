@@ -27,3 +27,12 @@ it('loads matches and opens the drawer on row click', async () => {
   fireEvent.click(screen.getByText('Enigma Crucible'));
   await waitFor(() => expect(screen.getByText(/WLS vs RMP/)).toBeInTheDocument());
 });
+
+it('clears the open drawer when a filter changes', async () => {
+  render(<App />);
+  await waitFor(() => expect(screen.getByText('Enigma Crucible')).toBeInTheDocument());
+  fireEvent.click(screen.getByText('Enigma Crucible'));
+  await waitFor(() => expect(screen.getByText(/WLS vs RMP/)).toBeInTheDocument());
+  fireEvent.change(screen.getByLabelText('Character'), { target: { value: 'Me-R' } });
+  await waitFor(() => expect(screen.queryByText(/WLS vs RMP/)).toBeNull());
+});
