@@ -8,4 +8,7 @@ describe('mapName', () => {
   it('falls back to the raw id when unknown', () => {
     expect(mapName('999999')).toBe('999999');
   });
+  it("resolves an arena whose name contains an apostrophe (double-quoted in source)", () => {
+    expect(mapName('1552')).toBe("Ashamane's Fall");
+  });
 });
