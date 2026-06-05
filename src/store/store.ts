@@ -44,9 +44,8 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
   const si = m.startInfo ?? {};
   const ei = m.endInfo ?? {};
   const pid = opts.playerUnitId;
-  const playerCr = pid && typeof (m.units?.[pid]?.info as { personalRating?: unknown } | undefined)?.personalRating === 'number'
-    ? Math.round((m.units![pid]!.info as { personalRating: number }).personalRating)
-    : null;
+  const playerInfo = (pid ? m.units?.[pid]?.info : undefined) as { personalRating?: unknown } | undefined;
+  const playerCr = typeof playerInfo?.personalRating === 'number' ? Math.round(playerInfo.personalRating) : null;
 
   const { combatants, metrics: rows } = extractMetricRows(metrics, pid);
   const { ally, enemy } = compSignatures(combatants);
