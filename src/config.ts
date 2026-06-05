@@ -78,7 +78,9 @@ export function loadConfig(path?: string): Config {
     if (!Array.isArray(raw.seasons)) throw new Error('Config error: "seasons" must be an array');
     seasons = (raw.seasons as Record<string, unknown>[]).map((sObj) => ({
       name: requireString(sObj, 'name', 'seasons[].name'),
-      startMs: typeof sObj.startMs === 'number' ? sObj.startMs : (() => { throw new Error('Config error: seasons[].startMs must be a number'); })(),
+      startMs: (typeof sObj.startMs === 'number' && Number.isFinite(sObj.startMs))
+        ? sObj.startMs
+        : (() => { throw new Error('Config error: seasons[].startMs must be a finite number'); })(),
     }));
   }
 

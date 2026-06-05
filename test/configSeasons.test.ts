@@ -17,4 +17,10 @@ describe('loadConfig seasons', () => {
     const cfg = withConfig({ ...base, seasons: [{ name: 'S1', startMs: 1000 }, { name: 'S2', startMs: 2000 }] });
     expect(cfg.seasons).toEqual([{ name: 'S1', startMs: 1000 }, { name: 'S2', startMs: 2000 }]);
   });
+  it('throws when seasons is not an array', () => {
+    expect(() => withConfig({ ...base, seasons: 'bad' })).toThrow(/seasons.*array/);
+  });
+  it('throws when seasons[].startMs is not a finite number', () => {
+    expect(() => withConfig({ ...base, seasons: [{ name: 'S1', startMs: 'oops' }] })).toThrow(/startMs/);
+  });
 });
