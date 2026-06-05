@@ -12,7 +12,6 @@ export interface SessionSummary {
 }
 export interface FilterOptions {
   characters: string[]; brackets: string[];
-  myComps: { value: string; label: string }[]; enemyComps: { value: string; label: string }[];
   classSpecTree: { className: string; specs: { id: string; specName: string }[] }[];
   maps: { value: string; label: string }[];
   ratingRange: { min: number; max: number } | null; dateRange: { minMs: number; maxMs: number } | null;

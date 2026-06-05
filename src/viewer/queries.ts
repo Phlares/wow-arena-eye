@@ -25,8 +25,6 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
   eq('m.match_id', q.id);
   eq('m.player_name', q.character);
   eq('m.bracket', q.bracket);
-  eq('m.ally_comp_sig', q.myComp);
-  eq('m.enemy_comp_sig', q.enemyComp);
   eq('m.zone_id', q.map);
   eq('m.result', q.result);
   if (q.minRating !== undefined) { where.push('m.player_rating >= ?'); args.push(q.minRating); }
@@ -35,9 +33,10 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
   if (q.to !== undefined) { where.push('m.start_ms <= ?'); args.push(q.to); }
 
   const compExists = (team: 'friendly' | 'enemy', specsCsv?: string, classesCsv?: string) => {
+    const parseCsv = (s?: string) => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
     const specs = new Set<string>();
-    for (const s of (specsCsv ?? '').split(',').map((x) => x.trim()).filter(Boolean)) specs.add(s);
-    for (const c of (classesCsv ?? '').split(',').map((x) => x.trim()).filter(Boolean)) for (const s of specsOfClass(c)) specs.add(s);
+    for (const s of parseCsv(specsCsv)) specs.add(s);
+    for (const c of parseCsv(classesCsv)) for (const s of specsOfClass(c)) specs.add(s);
     if (specs.size === 0) return;
     const ids = [...specs];
     where.push(`EXISTS (SELECT 1 FROM combatant c2 WHERE c2.match_id = m.match_id AND c2.team = ? AND c2.spec IN (${ids.map(() => '?').join(',')}))`);
@@ -86,7 +85,8 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
   return mapped;
 }
 
-/** Single match's scalar row for the summary drawer; null if absent. */
+/** Single match's scalar row for the summary drawer; null if absent.
+ *  crDelta/ratingDelta are null here (enrichRatingDeltas runs only on the list path). */
 export function loadMatchScalars(db: DatabaseSync, matchId: string): MatchSummary | null {
   return loadViewerMatches(db, { id: matchId })[0] ?? null;
 }
@@ -144,11 +144,6 @@ export function attachSessions(db: DatabaseSync, query: MatchQuery, matches: Mat
 export function loadFilterOptions(db: DatabaseSync, character?: string): FilterOptions {
   const all = loadViewerMatches(db, character ? { character } : {});
   const uniq = (xs: string[]) => [...new Set(xs.filter((x) => x !== ''))];
-  const comps = (pick: (m: MatchSummary) => [string, string]) => {
-    const seen = new Map<string, string>();
-    for (const m of all) { const [v, l] = pick(m); if (v !== '' && !seen.has(v)) seen.set(v, l); }
-    return [...seen].map(([value, label]) => ({ value, label }));
-  };
   const ratings = all.map((m) => m.rating).filter((r): r is number => r !== null);
   const dates = all.map((m) => m.startMs).filter((s): s is number => s !== null);
   const specRows = db.prepare("SELECT DISTINCT spec FROM combatant WHERE spec IS NOT NULL AND spec != ''").all() as { spec: string }[];
@@ -163,11 +158,9 @@ export function loadFilterOptions(db: DatabaseSync, character?: string): FilterO
   return {
     characters: uniq(all.map((m) => m.character)),
     brackets: uniq(all.map((m) => m.bracket)),
-    myComps: comps((m) => [m.allyComp, m.allyCompLabel]),
-    enemyComps: comps((m) => [m.enemyComp, m.enemyCompLabel]),
-    maps: comps((m) => [m.mapId, m.mapName]),
+    classSpecTree,
+    maps: (() => { const seen = new Map<string, string>(); for (const m of all) if (m.mapId !== '' && !seen.has(m.mapId)) seen.set(m.mapId, m.mapName); return [...seen].map(([value, label]) => ({ value, label })); })(),
     ratingRange: ratings.length ? { min: Math.min(...ratings), max: Math.max(...ratings) } : null,
     dateRange: dates.length ? { minMs: Math.min(...dates), maxMs: Math.max(...dates) } : null,
-    classSpecTree,
   };
 }

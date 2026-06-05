@@ -4,8 +4,6 @@ import type { FilterOptions } from '../api.js';
 
 const opts: FilterOptions = {
   characters: ['Me-R', 'Alt-R'], brackets: ['3v3', '2v2'],
-  myComps: [{ value: '105_265', label: 'Resto·Affli' }],
-  enemyComps: [{ value: '62_64', label: 'Arcane·Frost' }],
   classSpecTree: [{ className: 'Warlock', specs: [{ id: '265', specName: 'Affliction' }] }],
   maps: [{ value: '2547', label: 'Enigma Crucible' }],
   ratingRange: { min: 1900, max: 2100 }, dateRange: null,

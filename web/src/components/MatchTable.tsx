@@ -73,11 +73,11 @@ export function MatchTable({ matches, sessions, selectedId, onSelect, sort, onSo
           for (const m of vMatches) { const k = m.sessionId ?? '∅'; if (!bySession.has(k)) bySession.set(k, []); bySession.get(k)!.push(m); }
           const groups = [...bySession.keys()].sort((a, b) => sessRank(a) - sessRank(b));
           return [
-            <tr key={`v-${version}`} className="vsep"><td colSpan={10}>▾ {version} · {vMatches.length} games</td></tr>,
+            <tr key={`v-${version}`} className="vsep"><td colSpan={COLS.length}>▾ {version} · {vMatches.length} games</td></tr>,
             ...groups.flatMap((key) => {
               const s = sessions.find((s) => s.id === key);
               return [
-                s ? <tr key={`s-${key}`} className="sep"><td colSpan={10}>▸ session · {fmtClock(s.startMs)} · {s.count} games · {s.wins}W–{s.losses}L</td></tr> : null,
+                s ? <tr key={`s-${key}`} className="sep"><td colSpan={COLS.length}>▸ session · {fmtClock(s.startMs)} · {s.count} games · {s.wins}W–{s.losses}L</td></tr> : null,
                 ...sortRows(bySession.get(key)!, sort).map((m) => <Row key={m.matchId} m={m} selectedId={selectedId} onSelect={onSelect} />),
               ];
             }),

@@ -20,7 +20,7 @@ function parseQuery(p: URLSearchParams): MatchQuery {
   const sort = p.get('sort');
   const order = p.get('order');
   return {
-    character: str('character'), bracket: str('bracket'), myComp: str('myComp'), enemyComp: str('enemyComp'),
+    character: str('character'), bracket: str('bracket'),
     allySpecs: str('allySpecs'), allyClasses: str('allyClasses'),
     enemySpecs: str('enemySpecs'), enemyClasses: str('enemyClasses'),
     map: str('map'), result: str('result'), minRating: num('minRating'), maxRating: num('maxRating'),

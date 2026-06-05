@@ -48,9 +48,6 @@ describe('loadViewerMatches', () => {
     expect(ms.find((m) => m.matchId === 'B')!.ratingDelta).toBe(16); // 2016 - 2000
     expect(ms.find((m) => m.matchId === 'A')!.ratingDelta).toBeNull(); // first
   });
-  it('filters by myComp (ally_comp_sig)', () => {
-    expect(loadViewerMatches(db(), { myComp: '105_265' }).map((m) => m.matchId).sort()).toEqual(['A', 'B']);
-  });
   it('applies the free-text q filter over resolved labels', () => {
     expect(loadViewerMatches(db(), { q: 'Enigma' }).map((m) => m.matchId).sort()).toEqual(['A', 'C']); // both on zone 2547
     expect(loadViewerMatches(db(), { q: 'zzz-none' })).toHaveLength(0);

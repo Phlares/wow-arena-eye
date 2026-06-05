@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 import { App } from './App.js';
 import type { FilterOptions, MatchesResponse } from './api.js';
 
-const filters: FilterOptions = { characters: ['Me-R'], brackets: ['3v3'], myComps: [], enemyComps: [],
+const filters: FilterOptions = { characters: ['Me-R'], brackets: ['3v3'],
   classSpecTree: [],
   maps: [{ value: '1825', label: 'Hook Point' }], ratingRange: { min: 1900, max: 2100 }, dateRange: null };
 const matches: MatchesResponse = {

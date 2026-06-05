@@ -12,7 +12,7 @@ export interface MatchSummary {
   allyCompLabel: string;
   enemyComp: string;
   enemyCompLabel: string;
-  rating: number | null;
+  rating: number | null; // MMR (DB player_rating) — see cr for the player's true rating
   ratingDelta: number | null; // MMR delta vs the previous game for this character+bracket (enrichRatingDeltas)
   cr: number | null;          // true rating (personalRating)
   crDelta: number | null;
@@ -29,20 +29,16 @@ export type SessionSummary = Session;
 export interface FilterOptions {
   characters: string[];
   brackets: string[];
-  myComps: { value: string; label: string }[];
-  enemyComps: { value: string; label: string }[];
+  classSpecTree: { className: string; specs: { id: string; specName: string }[] }[];
   maps: { value: string; label: string }[];
   ratingRange: { min: number; max: number } | null;
   dateRange: { minMs: number; maxMs: number } | null;
-  classSpecTree: { className: string; specs: { id: string; specName: string }[] }[];
 }
 
 export interface MatchQuery {
   id?: string;            // exact match_id (internal — single-match fetch)
   character?: string;
   bracket?: string;
-  myComp?: string;
-  enemyComp?: string;
   allySpecs?: string;    // comma-separated spec ids
   allyClasses?: string;  // comma-separated class names
   enemySpecs?: string;
