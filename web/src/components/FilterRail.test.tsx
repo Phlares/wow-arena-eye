@@ -56,3 +56,11 @@ it('renders the My team and Enemy comp trees and forwards their params', () => {
   fireEvent.click(screen.getByLabelText('Warlock'));
   expect(onChange).toHaveBeenCalledWith({ enemyClasses: 'Warlock', enemySpecs: '' });
 });
+
+it('the My team tree forwards ally params (not enemy)', () => {
+  const onChange = vi.fn();
+  render(<FilterRail options={opts} filters={{}} onChange={onChange} />);
+  fireEvent.click(screen.getByRole('button', { name: /My team/ }));
+  fireEvent.click(screen.getByLabelText('Warlock'));
+  expect(onChange).toHaveBeenCalledWith({ allyClasses: 'Warlock', allySpecs: '' });
+});
