@@ -18,10 +18,15 @@ export interface FilterOptions {
 export interface MatchesResponse { matches: MatchSummary[]; sessions: SessionSummary[]; total: number; }
 export type Filters = Record<string, string>;
 
-function qs(filters: Filters): string {
+/** A Filters object as URLSearchParams, omitting empty/nullish values. Shared by the
+ *  fetch query-string builder and the App's URL-state writer so they can't drift. */
+export function toParams(filters: Filters): URLSearchParams {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(filters)) if (v !== '' && v != null) p.set(k, v);
-  const s = p.toString();
+  return p;
+}
+function qs(filters: Filters): string {
+  const s = toParams(filters).toString();
   return s ? `?${s}` : '';
 }
 export async function fetchMatches(filters: Filters): Promise<MatchesResponse> {

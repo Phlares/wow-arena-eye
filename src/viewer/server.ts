@@ -5,8 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { DatabaseSync } from '../store/sqlite.js';
 import { openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
-import { loadFilterOptions, loadMatchScalars, loadViewerMatches } from './queries.js';
-import { sessionize, type SessionInput } from '../store/sessions.js';
+import { attachSessions, loadFilterOptions, loadMatchScalars, loadViewerMatches } from './queries.js';
 import type { MatchQuery } from './types.js';
 
 export interface ApiResult { status: number; body: string; }
@@ -37,23 +36,7 @@ export function handleApi(db: DatabaseSync, method: string, path: string, params
   if (path === '/api/matches') {
     const query = parseQuery(params);
     const matches = loadViewerMatches(db, query);
-    // sessions are per character; compute for every character present so an all-characters
-    // view still groups each match under its own character's session.
-    const chars = query.character ? [query.character] : [...new Set(matches.map((m) => m.character).filter((c) => c !== ''))];
-    const sessions: ReturnType<typeof sessionize> = [];
-    for (const ch of chars) {
-      const hist = loadViewerMatches(db, { character: ch }).map<SessionInput>((m) => ({
-        matchId: m.matchId, startMs: m.startMs ?? 0, durationSec: m.durationSec,
-        rating: m.rating, result: m.result, allyCompLabel: m.allyCompLabel,
-      }));
-      const chSessions = sessionize(hist, gapMs);
-      sessions.push(...chSessions);
-      for (const m of matches) {
-        if (m.character !== ch) continue;
-        const s = chSessions.find((s) => (m.startMs ?? 0) >= s.startMs && (m.startMs ?? 0) <= s.endMs);
-        m.sessionId = s ? s.id : null;
-      }
-    }
+    const sessions = attachSessions(db, query, matches, gapMs);
     // true filtered count (ignores pagination) so `total` is honest for any future paging UI
     const total = query.limit === undefined && query.offset === undefined
       ? matches.length

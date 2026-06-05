@@ -1,6 +1,7 @@
 import type { DatabaseSync } from '../store/sqlite.js';
 import { compLabel } from '../metadata/specs.js';
 import { mapName } from '../metadata/arenas.js';
+import { sessionize, type Session, type SessionInput } from '../store/sessions.js';
 import type { FilterOptions, MatchQuery, MatchSummary } from './types.js';
 
 interface Row {
@@ -56,6 +57,9 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
     damageDone: r.damageDone, dps: r.dps, interruptsLanded: r.interruptsLanded,
   }));
 
+  // free-text search runs in JS over RESOLVED labels (which aren't stored columns), so it
+  // applies AFTER any SQL LIMIT/OFFSET — don't combine q with server-side pagination until
+  // it moves into SQL, or a page could under-fill.
   if (q.q) {
     const needle = q.q.toLowerCase();
     mapped = mapped.filter((m) => `${m.allyCompLabel} ${m.enemyCompLabel} ${m.mapName}`.toLowerCase().includes(needle));
@@ -74,6 +78,30 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
 /** Single match's scalar row for the summary drawer; null if absent. */
 export function loadMatchScalars(db: DatabaseSync, matchId: string): MatchSummary | null {
   return loadViewerMatches(db, { id: matchId })[0] ?? null;
+}
+
+/** Compute per-character queue-sessions over each character's FULL history and tag every
+ *  match in `matches` with its sessionId (mutated in place); returns all sessions across the
+ *  characters present. A full-history reload per character is required because sessions must
+ *  span the whole timeline, not just the filtered/paginated page — so it cannot be derived by
+ *  partitioning `matches` whenever any filter other than `character` is active. Reused by C. */
+export function attachSessions(db: DatabaseSync, query: MatchQuery, matches: MatchSummary[], gapMs: number): Session[] {
+  const chars = query.character ? [query.character] : [...new Set(matches.map((m) => m.character).filter((c) => c !== ''))];
+  const sessions: Session[] = [];
+  for (const ch of chars) {
+    const hist = loadViewerMatches(db, { character: ch }).map<SessionInput>((m) => ({
+      matchId: m.matchId, startMs: m.startMs ?? 0, durationSec: m.durationSec,
+      rating: m.rating, result: m.result, allyCompLabel: m.allyCompLabel,
+    }));
+    const chSessions = sessionize(hist, gapMs);
+    sessions.push(...chSessions);
+    for (const m of matches) {
+      if (m.character !== ch) continue;
+      const s = chSessions.find((s) => (m.startMs ?? 0) >= s.startMs && (m.startMs ?? 0) <= s.endMs);
+      m.sessionId = s ? s.id : null;
+    }
+  }
+  return sessions;
 }
 
 /** Distinct filter values + ranges across the store (optionally scoped to one character). */

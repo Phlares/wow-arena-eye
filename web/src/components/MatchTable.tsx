@@ -1,5 +1,5 @@
 import type { MatchSummary, SessionSummary } from '../api.js';
-import { fmtNum, fmtRatingDelta, fmtClock } from '../format.js';
+import { fmtNum, fmtRatingDelta, fmtRating, fmtClock } from '../format.js';
 
 interface Props {
   matches: MatchSummary[]; sessions: SessionSummary[];
@@ -18,14 +18,15 @@ function SessionHeader({ s }: { s: SessionSummary }) {
 
 export function MatchTable({ matches, sessions, selectedId, onSelect }: Props) {
   if (matches.length === 0) return <div className="empty">No matches yet — run <code>npm run ingest-db</code>.</div>;
-  const order = sessions.map((s) => s.id);
+  const order = new Map(sessions.map((s, i) => [s.id, i]));
   const bySession = new Map<string, MatchSummary[]>();
   for (const m of matches) {
     const key = m.sessionId ?? '∅';
     if (!bySession.has(key)) bySession.set(key, []);
     bySession.get(key)!.push(m);
   }
-  const rank = (k: string) => { const i = order.indexOf(k); return i === -1 ? order.length : i; };
+  // unknown keys (the '∅' unsessioned bucket) sort last
+  const rank = (k: string) => order.get(k) ?? sessions.length;
   const groups = [...bySession.keys()].sort((a, b) => rank(a) - rank(b));
   return (
     <table className="matches">
@@ -43,8 +44,8 @@ export function MatchTable({ matches, sessions, selectedId, onSelect }: Props) {
                 <td>{fmtClock(m.startMs)}</td>
                 <td className={m.result === 'win' ? 'win' : 'loss'}>{m.result === 'win' ? 'W' : 'L'}</td>
                 <td>{m.allyCompLabel}</td><td>{m.enemyCompLabel}</td><td>{m.mapName}</td>
-                <td>{m.rating ?? '—'} {fmtRatingDelta(m.ratingDelta)}</td>
-                <td>{fmtNum(m.damageDone)}</td><td>{m.interruptsLanded ?? '—'}</td>
+                <td>{fmtRating(m.rating, m.ratingDelta)}</td>
+                <td>{fmtNum(m.damageDone)}</td><td>{fmtNum(m.interruptsLanded)}</td>
               </tr>
             )),
           ];

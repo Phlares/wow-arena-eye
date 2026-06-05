@@ -9,6 +9,10 @@ export function fmtRatingDelta(v: number | null): string {
   if (v === null) return '';
   return v >= 0 ? `+${v}` : `−${Math.abs(v)}`; // U+2212 minus
 }
+/** A rating with its signed delta, e.g. "2008 −12"; "—" when the rating is absent. */
+export function fmtRating(rating: number | null, delta: number | null): string {
+  return `${rating ?? '—'} ${fmtRatingDelta(delta)}`.trim();
+}
 export function fmtDuration(sec: number | null): string {
   if (sec === null) return '—';
   const total = Math.round(sec);

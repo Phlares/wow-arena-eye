@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FilterRail } from './components/FilterRail.js';
 import { MatchTable } from './components/MatchTable.js';
 import { SummaryDrawer } from './components/SummaryDrawer.js';
-import { fetchFilters, fetchMatches, type FilterOptions, type Filters, type MatchesResponse, type MatchSummary } from './api.js';
+import { fetchFilters, fetchMatches, toParams, type FilterOptions, type Filters, type MatchesResponse, type MatchSummary } from './api.js';
 
 function readUrlFilters(): Filters {
   const out: Filters = {};
@@ -10,8 +10,7 @@ function readUrlFilters(): Filters {
   return out;
 }
 function writeUrlFilters(f: Filters) {
-  const p = new URLSearchParams();
-  for (const [k, v] of Object.entries(f)) if (v) p.set(k, v);
+  const p = toParams(f);
   history.replaceState(null, '', p.toString() ? `?${p}` : location.pathname);
 }
 
