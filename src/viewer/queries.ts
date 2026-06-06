@@ -3,6 +3,7 @@ import { compLabel, specLabel, className, specsOfClass } from '../metadata/specs
 import { mapName } from '../metadata/arenas.js';
 import { sessionize, type Session, type SessionInput } from '../store/sessions.js';
 import { distanceAt } from '../metrics/positionTracks.js';
+import { STEP_SEC, round1 } from '../metrics/spacing.js';
 import type { MatchMetrics, PositionTrack } from '../metrics/types.js';
 import type { FilterOptions, MatchQuery, MatchSummary, RangePoint } from './types.js';
 
@@ -171,8 +172,6 @@ export function loadFilterOptions(db: DatabaseSync, character?: string): FilterO
   };
 }
 
-const RANGE_STEP_SEC = 0.5;
-
 /** Parsed full MatchMetrics for one match, or null if not persisted (a pre-detail ingest). */
 export function loadMatchDetail(db: DatabaseSync, matchId: string): MatchMetrics | null {
   const row = db.prepare('SELECT metrics_json FROM match_detail WHERE match_id=?').get(matchId) as { metrics_json?: string } | undefined;
@@ -189,9 +188,9 @@ export function buildRangeSeries(m: MatchMetrics): RangePoint[] {
   if (!pt || !tt) return [];
   const lastSec = Math.max(pt.samples.at(-1)?.tSec ?? 0, tt.samples.at(-1)?.tSec ?? 0);
   const out: RangePoint[] = [];
-  for (let t = 0; t <= lastSec; t += RANGE_STEP_SEC) {
+  for (let t = 0; t <= lastSec; t += STEP_SEC) {
     const d = distanceAt(pt, tt, t);
-    out.push({ tSec: Math.round(t * 10) / 10, dist: d === undefined ? null : Math.round(d * 10) / 10 });
+    out.push({ tSec: round1(t), dist: d === undefined ? null : round1(d) });
   }
   return out;
 }
