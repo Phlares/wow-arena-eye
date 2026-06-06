@@ -18,6 +18,27 @@ export interface FilterOptions {
   ratingRange: { min: number; max: number } | null; dateRange: { minMs: number; maxMs: number } | null;
 }
 export interface MatchesResponse { matches: MatchSummary[]; sessions: SessionSummary[]; total: number; }
+
+// --- per-match detail (sub-project B). The metrics blob is rendered structurally, so a permissive
+// shape is intentional — only the fields the timeline reads are typed. ---
+export interface RangePoint { tSec: number; dist: number | null }
+export interface DetailTimelineEvent { tSec: number; unitId: string; unitName: string; kind: string; spell?: string; extra?: string; targetId?: string; targetName?: string }
+export interface OffensiveWindow {
+  startSec: number; endSec: number; defendingTeam: string; teamDamageTaken: number;
+  damageByTarget: { unitId: string; name: string; damage: number }[];
+  mitigation: { available: { name: string }[]; used: { name: string }[] };
+  counterPlay?: unknown; positioning?: unknown; lineOfSight?: unknown;
+}
+export interface MatchDetail {
+  metrics: { playerUnitId?: string; timeline: DetailTimelineEvent[]; offensiveWindows: OffensiveWindow[]; losDisruptors: { kind?: string; startSec?: number }[] };
+  rangeSeries: RangePoint[];
+}
+export async function fetchMatchDetail(id: string): Promise<MatchDetail> {
+  const r = await fetch(`/api/matches/${encodeURIComponent(id)}/detail`);
+  if (r.status === 404) throw new Error('no-detail');
+  if (!r.ok) throw new Error(`/detail ${r.status}`);
+  return r.json() as Promise<MatchDetail>;
+}
 export type Filters = Record<string, string>;
 
 /** A Filters object as URLSearchParams, omitting empty/nullish values. Shared by the
