@@ -5,7 +5,8 @@ import type { MatchSummary } from '../api.js';
 const m: MatchSummary = { matchId: 'A', startMs: 1000, durationSec: 161, bracket: '3v3', character: 'Me-R',
   mapId: '2547', mapName: 'Enigma Crucible', allyComp: 'x', allyCompLabel: 'WLS', enemyComp: 'y', enemyCompLabel: 'RMP',
   rating: 2008, ratingDelta: -12, cr: null, crDelta: null, buildVersion: '12.0.5',
-  result: 'loss', sessionId: 'A', damageDone: 4_200_000, dps: 26_100, interruptsLanded: 3 };
+  result: 'loss', sessionId: 'A', damageDone: 4_200_000, dps: 26_100, interruptsLanded: 3,
+  interruptsSuffered: 1, precognitionUptimeSec: null, enemyPrecognitionUptimeSec: null };
 
 it('renders nothing when no match is selected', () => {
   const { container } = render(<SummaryDrawer match={null} />);

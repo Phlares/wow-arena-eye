@@ -10,7 +10,8 @@ const matches: MatchesResponse = {
   matches: [{ matchId: 'A', startMs: 1000, durationSec: 161, bracket: '3v3', character: 'Me-R', mapId: '2547',
     mapName: 'Enigma Crucible', allyComp: 'x', allyCompLabel: 'WLS', enemyComp: 'y', enemyCompLabel: 'RMP',
     rating: 2008, ratingDelta: -12, cr: null, crDelta: null, buildVersion: '12.0.5',
-    result: 'loss', sessionId: 'A', damageDone: 4_200_000, dps: 26_100, interruptsLanded: 3 }],
+    result: 'loss', sessionId: 'A', damageDone: 4_200_000, dps: 26_100, interruptsLanded: 3,
+    interruptsSuffered: 1, precognitionUptimeSec: null, enemyPrecognitionUptimeSec: null }],
   sessions: [{ id: 'A', startMs: 1000, endMs: 2000, count: 1, wins: 0, losses: 1, ratingStart: 2008, ratingEnd: 2008, comps: ['WLS'] }],
   total: 1,
 };

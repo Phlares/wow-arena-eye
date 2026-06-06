@@ -7,7 +7,7 @@ function m(over: Partial<MatchSummary>): MatchSummary {
     mapName: 'Enigma Crucible', allyComp: 'x', allyCompLabel: 'WLS', enemyComp: 'y', enemyCompLabel: 'RMP',
     rating: 2000, ratingDelta: 10, cr: 1800, crDelta: 14, buildVersion: '12.0.5',
     result: 'win', sessionId: 'A', damageDone: 4_200_000, dps: 26_000,
-    interruptsLanded: 3, ...over };
+    interruptsLanded: 3, interruptsSuffered: 1, precognitionUptimeSec: null, enemyPrecognitionUptimeSec: null, ...over };
 }
 const sessions: SessionSummary[] = [{ id: 'A', startMs: 1000, endMs: 2000, count: 2, wins: 1, losses: 1, ratingStart: 2000, ratingEnd: 2016, comps: ['WLS'] }];
 

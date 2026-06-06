@@ -5,6 +5,7 @@ export interface MatchSummary {
   rating: number | null; ratingDelta: number | null; cr: number | null; crDelta: number | null; buildVersion: string;
   result: string; sessionId: string | null;
   damageDone: number | null; dps: number | null; interruptsLanded: number | null;
+  interruptsSuffered: number | null; precognitionUptimeSec: number | null; enemyPrecognitionUptimeSec: number | null;
 }
 export interface SessionSummary {
   id: string; startMs: number; endMs: number; count: number; wins: number; losses: number;
