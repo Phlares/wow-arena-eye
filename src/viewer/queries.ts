@@ -2,7 +2,9 @@ import type { DatabaseSync } from '../store/sqlite.js';
 import { compLabel, specLabel, className, specsOfClass } from '../metadata/specs.js';
 import { mapName } from '../metadata/arenas.js';
 import { sessionize, type Session, type SessionInput } from '../store/sessions.js';
-import type { FilterOptions, MatchQuery, MatchSummary } from './types.js';
+import { distanceAt } from '../metrics/positionTracks.js';
+import type { MatchMetrics, PositionTrack } from '../metrics/types.js';
+import type { FilterOptions, MatchQuery, MatchSummary, RangePoint } from './types.js';
 
 interface Row {
   match_id: string; start_ms: number | null; duration_sec: number | null; bracket: string | null;
@@ -167,4 +169,29 @@ export function loadFilterOptions(db: DatabaseSync, character?: string): FilterO
     ratingRange: ratings.length ? { min: Math.min(...ratings), max: Math.max(...ratings) } : null,
     dateRange: dates.length ? { minMs: Math.min(...dates), maxMs: Math.max(...dates) } : null,
   };
+}
+
+const RANGE_STEP_SEC = 0.5;
+
+/** Parsed full MatchMetrics for one match, or null if not persisted (a pre-detail ingest). */
+export function loadMatchDetail(db: DatabaseSync, matchId: string): MatchMetrics | null {
+  const row = db.prepare('SELECT metrics_json FROM match_detail WHERE match_id=?').get(matchId) as { metrics_json?: string } | undefined;
+  return row?.metrics_json ? (JSON.parse(row.metrics_json) as MatchMetrics) : null;
+}
+
+/** Recording player's distance to the primary threat (highest-damage enemy player) over time.
+ *  null where either position is unknown — gaps are honest, never a fabricated 0. */
+export function buildRangeSeries(m: MatchMetrics): RangePoint[] {
+  const enemies = m.teams.find((t) => t.team === 'enemy')?.players ?? [];
+  const threat = enemies.slice().sort((a, b) => (b.player.damageDone ?? 0) - (a.player.damageDone ?? 0))[0]?.player.unitId;
+  const trackOf = (id?: string): PositionTrack | undefined => m.positionTracks.find((t) => t.unitId === id);
+  const pt = trackOf(m.playerUnitId), tt = trackOf(threat);
+  if (!pt || !tt) return [];
+  const lastSec = Math.max(pt.samples.at(-1)?.tSec ?? 0, tt.samples.at(-1)?.tSec ?? 0);
+  const out: RangePoint[] = [];
+  for (let t = 0; t <= lastSec; t += RANGE_STEP_SEC) {
+    const d = distanceAt(pt, tt, t);
+    out.push({ tSec: Math.round(t * 10) / 10, dist: d === undefined ? null : Math.round(d * 10) / 10 });
+  }
+  return out;
 }
