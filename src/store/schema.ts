@@ -60,6 +60,9 @@ SELECT m.match_id, m.start_ms, m.bracket, m.zone_id, m.result,
        MAX(CASE WHEN x.metric_id = 'deaths'            THEN x.value END) AS deaths,
        MAX(CASE WHEN x.metric_id = 'deathsWhileCcd'    THEN x.value END) AS deathsWhileCcd,
        MAX(CASE WHEN x.metric_id = 'interruptsLanded'  THEN x.value END) AS interruptsLanded,
+       MAX(CASE WHEN x.metric_id = 'interruptsSuffered' THEN x.value END) AS interruptsSuffered,
+       MAX(CASE WHEN x.metric_id = 'precognitionUptimeSec' THEN x.value END) AS precognitionUptimeSec,
+       MAX(CASE WHEN x.metric_id = 'enemyPrecognitionUptimeSec' THEN x.value END) AS enemyPrecognitionUptimeSec,
        MAX(CASE WHEN x.metric_id = 'ccDone.hardCcSec'  THEN x.value END) AS ccDone_hardCcSec,
        MAX(CASE WHEN x.metric_id = 'defensivesIntoBurst' THEN x.value END) AS defensivesIntoBurst
 FROM match m
@@ -71,6 +74,9 @@ GROUP BY m.match_id;
 /** Create all tables/indices/views if absent. Safe to call repeatedly. Also adds columns
  *  that were introduced after a DB was first created (additive migrations). */
 export function migrate(db: DatabaseSync): void {
+  // `CREATE VIEW IF NOT EXISTS` won't refresh an existing view, so drop it first and let
+  // SCHEMA_SQL recreate it — this is how new dataset_export columns reach already-created DBs.
+  db.exec('DROP VIEW IF EXISTS dataset_export');
   db.exec(SCHEMA_SQL);
   const matchCols = (db.prepare('PRAGMA table_info(match)').all() as { name: string }[]).map((c) => c.name);
   if (!matchCols.includes('player_cr')) db.exec('ALTER TABLE match ADD COLUMN player_cr INTEGER');

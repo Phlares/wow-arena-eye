@@ -11,6 +11,9 @@ const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number; combine?: tru
   { id: 'casts', get: (u) => u.casts },
   { id: 'interruptsLanded', get: (u) => u.interruptsLanded, combine: true },
   { id: 'interruptsSuffered', get: (u) => u.interruptsSuffered },
+  // Precognition uptime is player-only (never on a pet) — no combine.
+  { id: 'precognitionUptimeSec', get: (u) => u.precognitionUptimeSec },
+  { id: 'enemyPrecognitionUptimeSec', get: (u) => u.enemyPrecognitionUptimeSec },
   { id: 'dispels', get: (u) => u.dispels, combine: true },
   { id: 'purges', get: (u) => u.purges, combine: true },
   { id: 'cleanses', get: (u) => u.cleanses, combine: true },
