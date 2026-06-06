@@ -26,6 +26,7 @@ export function buildTimeline(match: unknown): TimelineEvent[] {
     const ms = eventTimeMs(ev);
     if (ms === undefined || startMs === undefined) continue;
     const actorId = kind === 'death' ? destId(ev) : srcId(ev);
+    const targetId = kind === 'interrupt' ? destId(ev) : undefined;
     out.push({
       tSec: Math.round((ms - startMs) / 1000),
       unitId: actorId ?? '?',
@@ -33,6 +34,8 @@ export function buildTimeline(match: unknown): TimelineEvent[] {
       kind,
       spell: kind === 'death' ? undefined : spellName(ev),
       extra: kind === 'interrupt' || kind === 'dispel' || kind === 'steal' ? extraSpellName(ev) : undefined,
+      targetId,
+      targetName: targetId ? nameOf(targetId) : undefined,
     });
   }
   // defensive: events are normally chronological, but sort guards against any out-of-order input
