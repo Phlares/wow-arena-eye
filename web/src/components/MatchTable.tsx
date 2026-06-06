@@ -29,6 +29,15 @@ function sortRows(rows: MatchSummary[], sort: Props['sort']): MatchSummary[] {
   return sort.dir === 'desc' ? out.reverse() : out;
 }
 
+/** A session fold's rank value under an active sort: the value of its leading row in the sort
+ *  direction (max for desc, min for asc) — so a session sorts by the row that would top it. */
+function sessionRank(rows: MatchSummary[], sort: NonNullable<Props['sort']>): number {
+  const col = COLS.find((c) => c.key === sort.col);
+  const f = col?.num ?? ((m: MatchSummary) => m.startMs);
+  const vals = rows.map((m) => f(m) ?? -Infinity);
+  return sort.dir === 'desc' ? Math.max(...vals) : Math.min(...vals);
+}
+
 function Row({ m, selectedId, onSelect }: { m: MatchSummary; selectedId: string | null; onSelect: (id: string) => void }) {
   return (
     <tr className={m.matchId === selectedId ? 'sel' : ''} onClick={() => onSelect(m.matchId)}>
@@ -71,7 +80,15 @@ export function MatchTable({ matches, sessions, selectedId, onSelect, sort, onSo
         {[...byVersion.entries()].flatMap(([version, vMatches]) => {
           const bySession = new Map<string, MatchSummary[]>();
           for (const m of vMatches) { const k = m.sessionId ?? '∅'; if (!bySession.has(k)) bySession.set(k, []); bySession.get(k)!.push(m); }
-          const groups = [...bySession.keys()].sort((a, b) => sessRank(a) - sessRank(b));
+          // Patches (version folds) keep their fixed order; sessions within a patch reorder under an
+          // active sort (by their leading row) so the sort is coherent across folds, not just within one.
+          // The unsessioned '∅' bucket always sinks last.
+          const groups = [...bySession.keys()].sort((a, b) => {
+            if (a === '∅' || b === '∅') return a === '∅' ? 1 : -1;
+            if (!sort) return sessRank(a) - sessRank(b);
+            const ra = sessionRank(bySession.get(a)!, sort), rb = sessionRank(bySession.get(b)!, sort);
+            return sort.dir === 'desc' ? rb - ra : ra - rb;
+          });
           return [
             <tr key={`v-${version}`} className="vsep"><td colSpan={COLS.length}>▾ {version} · {vMatches.length} games</td></tr>,
             ...groups.flatMap((key) => {

@@ -79,3 +79,31 @@ it('renders a separate version fold per build_version', () => {
   expect(screen.getByText(/12\.0\.5/)).toBeInTheDocument();
   expect(screen.getByText(/12\.1\.0/)).toBeInTheDocument();
 });
+
+// Two sessions, neutral order = [B, A] (B uppermost). A is the chronologically older session.
+const twoSessions: SessionSummary[] = [
+  { id: 'B', startMs: 3000, endMs: 4000, count: 1, wins: 1, losses: 0, ratingStart: null, ratingEnd: null, comps: [] },
+  { id: 'A', startMs: 1000, endMs: 2000, count: 1, wins: 1, losses: 0, ratingStart: null, ratingEnd: null, comps: [] },
+];
+it('reorders sessions chronologically under a When-ascending sort', () => {
+  const matches = [
+    m({ matchId: 'b1', sessionId: 'B', startMs: 3000, mapName: 'Black Rook Hold' }),
+    m({ matchId: 'a1', sessionId: 'A', startMs: 1000, mapName: 'Enigma Crucible' }),
+  ];
+  render(<MatchTable matches={matches} sessions={twoSessions} selectedId={null} onSelect={() => {}}
+    sort={{ col: 'startMs', dir: 'asc' }} onSort={() => {}} />);
+  const rows = screen.getAllByRole('row').map((r) => r.textContent ?? '');
+  // older session A (Enigma) must rise above newer session B (Black Rook), not stay in neutral [B,A] order
+  expect(rows.findIndex((t) => t.includes('Enigma Crucible'))).toBeLessThan(rows.findIndex((t) => t.includes('Black Rook Hold')));
+});
+it('reorders sessions by a metric sort, highest-leading session first', () => {
+  // neutral order is [B, A] (Black Rook first); the higher-damage session A must override that under Dmg↓
+  const matches = [
+    m({ matchId: 'a1', sessionId: 'A', mapName: 'Enigma Crucible', damageDone: 5_000_000 }),
+    m({ matchId: 'b1', sessionId: 'B', mapName: 'Black Rook Hold', damageDone: 2_000_000 }),
+  ];
+  render(<MatchTable matches={matches} sessions={twoSessions} selectedId={null} onSelect={() => {}}
+    sort={{ col: 'damageDone', dir: 'desc' }} onSort={() => {}} />);
+  const rows = screen.getAllByRole('row').map((r) => r.textContent ?? '');
+  expect(rows.findIndex((t) => t.includes('Enigma Crucible'))).toBeLessThan(rows.findIndex((t) => t.includes('Black Rook Hold')));
+});
