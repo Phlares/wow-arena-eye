@@ -12,9 +12,9 @@ export interface PlayerMatch {
   metrics: Record<string, number>;
 }
 
-export type Verdict = 'better' | 'worse' | 'average' | 'insufficient';
+export type Verdict = 'better' | 'worse' | 'average' | 'insufficient' | 'descriptive';
 export type WinLikeness = 'win-like' | 'loss-like' | 'neutral';
-export type Polarity = 'higher-better' | 'lower-better';
+export type Polarity = 'higher-better' | 'lower-better' | 'neutral';
 
 /** A ranked season: a match belongs to the latest season whose startMs is ≤ its start. */
 export interface Season { name: string; startMs: number; }

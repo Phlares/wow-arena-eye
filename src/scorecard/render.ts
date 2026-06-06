@@ -1,6 +1,6 @@
 import type { MetricScore, Scorecard, Verdict } from './types.js';
 
-const GLYPH: Record<Verdict, string> = { better: '▲ better', worse: '▼ worse', average: '= average', insufficient: '· n/a' };
+const GLYPH: Record<Verdict, string> = { better: '▲ better', worse: '▼ worse', average: '= average', insufficient: '· n/a', descriptive: '· info' };
 
 function fmt(v: number | null): string {
   if (v === null) return '—';
