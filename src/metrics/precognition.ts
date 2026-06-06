@@ -22,10 +22,13 @@ export function computePrecognition(
   }
   const teamOf = (id: string) => unitTeam((units[id] ?? {}).reaction);
   const isPlayer = (id: string) => unitKind((units[id] ?? {}).type) === 'player';
+  // Per-team player Precognition totals; each unit's "enemy" uptime is the sum of the other teams'.
+  const teamSec = new Map<string, number>();
+  for (const id of ids) if (isPlayer(id)) teamSec.set(teamOf(id), (teamSec.get(teamOf(id)) ?? 0) + (ownSec.get(id) ?? 0));
   const out = new Map<string, PrecognitionUptime>();
   for (const id of ids) {
     let enemySec = 0;
-    for (const v of ids) if (v !== id && isPlayer(v) && teamOf(v) !== teamOf(id)) enemySec += ownSec.get(v) ?? 0;
+    for (const [team, sec] of teamSec) if (team !== teamOf(id)) enemySec += sec;
     out.set(id, { selfSec: ownSec.get(id) ?? 0, enemySec });
   }
   return out;

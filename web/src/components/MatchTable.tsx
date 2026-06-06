@@ -22,10 +22,13 @@ const COLS: { key: string; label: string; sortable?: boolean; num?: (m: MatchSum
   { key: 'interruptsSuffered', label: 'Taken', sortable: true, num: (m) => m.interruptsSuffered },
 ];
 
+/** The numeric accessor for a sortable column, defaulting to chronological (startMs). */
+const colGetter = (col: string): ((m: MatchSummary) => number | null) =>
+  COLS.find((c) => c.key === col)?.num ?? ((m) => m.startMs);
+
 function sortRows(rows: MatchSummary[], sort: Props['sort']): MatchSummary[] {
   if (!sort) return rows;
-  const col = COLS.find((c) => c.key === sort.col);
-  const f = col?.num ?? ((m: MatchSummary) => m.startMs);
+  const f = colGetter(sort.col);
   const out = [...rows].sort((a, b) => ((f(a) ?? -Infinity) - (f(b) ?? -Infinity)));
   return sort.dir === 'desc' ? out.reverse() : out;
 }
@@ -33,8 +36,7 @@ function sortRows(rows: MatchSummary[], sort: Props['sort']): MatchSummary[] {
 /** A session fold's rank value under an active sort: the value of its leading row in the sort
  *  direction (max for desc, min for asc) — so a session sorts by the row that would top it. */
 function sessionRank(rows: MatchSummary[], sort: NonNullable<Props['sort']>): number {
-  const col = COLS.find((c) => c.key === sort.col);
-  const f = col?.num ?? ((m: MatchSummary) => m.startMs);
+  const f = colGetter(sort.col);
   const vals = rows.map((m) => f(m) ?? -Infinity);
   return sort.dir === 'desc' ? Math.max(...vals) : Math.min(...vals);
 }

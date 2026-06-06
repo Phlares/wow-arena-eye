@@ -1,9 +1,14 @@
-import { fmtNum, fmtRatingDelta, fmtDuration, fmtClock } from './format.js';
+import { fmtNum, fmtRatingDelta, fmtDuration, fmtClock, fmtSeconds } from './format.js';
 
 it('abbreviates large numbers', () => {
   expect(fmtNum(4_200_000)).toBe('4.2M');
   expect(fmtNum(26_100)).toBe('26.1k');
   expect(fmtNum(null)).toBe('—');
+});
+it('formats a short seconds value', () => {
+  expect(fmtSeconds(6.2)).toBe('6.2s');
+  expect(fmtSeconds(0)).toBe('0.0s');
+  expect(fmtSeconds(null)).toBe('—');
 });
 it('formats a signed rating delta', () => {
   expect(fmtRatingDelta(16)).toBe('+16');
