@@ -18,4 +18,11 @@ describe('neutral scorecard metric', () => {
     expect(score.winLikeness).toBe('neutral');
     expect(SCORECARD_METRICS.some((d) => d.id === 'enemyPrecognitionUptimeSec' && d.polarity === 'neutral')).toBe(true);
   });
+
+  it('stays descriptive (not insufficient) even with a sub-minimum cohort', () => {
+    const matches = [pm('t', 'win', 6), pm('a', 'loss', 3)]; // n=2 < default minCohort 5
+    const score = buildScorecard(matches, 't', { scope: {}, seasons: [] }).metrics.find((x) => x.id === 'precognitionUptimeSec')!;
+    expect(score.verdict).toBe('descriptive'); // informational metric still reports its value
+    expect(score.value).toBe(6);
+  });
 });

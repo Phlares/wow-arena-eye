@@ -74,10 +74,15 @@ GROUP BY m.match_id;
 /** Create all tables/indices/views if absent. Safe to call repeatedly. Also adds columns
  *  that were introduced after a DB was first created (additive migrations). */
 export function migrate(db: DatabaseSync): void {
-  // `CREATE VIEW IF NOT EXISTS` won't refresh an existing view, so drop it first and let
-  // SCHEMA_SQL recreate it — this is how new dataset_export columns reach already-created DBs.
-  db.exec('DROP VIEW IF EXISTS dataset_export');
-  db.exec(SCHEMA_SQL);
+  db.exec(SCHEMA_SQL); // creates everything on a fresh DB (view included); IF NOT EXISTS = no-op otherwise
+  // `CREATE VIEW IF NOT EXISTS` won't refresh an existing-but-stale view, so on an old DB whose
+  // dataset_export predates a column, drop+recreate it. Guarded so steady-state opens never drop
+  // the view (avoids a needless rebuild and the brief "no such view" window for a concurrent reader).
+  const viewCols = (db.prepare('PRAGMA table_info(dataset_export)').all() as { name: string }[]).map((c) => c.name);
+  if (viewCols.length > 0 && !viewCols.includes('precognitionUptimeSec')) {
+    db.exec('DROP VIEW dataset_export');
+    db.exec(SCHEMA_SQL);
+  }
   const matchCols = (db.prepare('PRAGMA table_info(match)').all() as { name: string }[]).map((c) => c.name);
   if (!matchCols.includes('player_cr')) db.exec('ALTER TABLE match ADD COLUMN player_cr INTEGER');
 }

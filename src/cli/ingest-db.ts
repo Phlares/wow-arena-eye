@@ -49,7 +49,7 @@ export async function ingestLogsIntoDb(
 /** Directories to ingest: explicit CLI args when given, else the configured live logs
  *  (falling back to the sample corpus) — so a bare `npm run ingest-db` re-ingests real games. */
 export function resolveIngestDirs(argv: string[], cfg: { liveLogsDir?: string; sampleLogsDir: string }): string[] {
-  return argv.length ? argv : [cfg.liveLogsDir ?? cfg.sampleLogsDir];
+  return argv.length ? argv : [cfg.liveLogsDir || cfg.sampleLogsDir]; // || so an empty liveLogsDir falls back
 }
 
 async function main(): Promise<void> {

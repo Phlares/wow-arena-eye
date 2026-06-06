@@ -11,4 +11,7 @@ describe('resolveIngestDirs', () => {
   it('falls back to sampleLogsDir when liveLogsDir is absent', () => {
     expect(resolveIngestDirs([], { sampleLogsDir: 'S' })).toEqual(['S']);
   });
+  it('falls back to sampleLogsDir when liveLogsDir is an empty string', () => {
+    expect(resolveIngestDirs([], { liveLogsDir: '', sampleLogsDir: 'S' })).toEqual(['S']);
+  });
 });

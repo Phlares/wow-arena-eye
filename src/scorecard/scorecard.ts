@@ -41,9 +41,11 @@ function collect(matches: PlayerMatch[], id: string): number[] {
 }
 
 function verdictFor(value: number | null, mean: number, stdev: number, n: number, polarity: Polarity, minCohort: number): { verdict: Verdict; z: number | null } {
-  if (value === null || n < minCohort) return { verdict: 'insufficient', z: null };
-  // Neutral metrics report value + z for context but carry no good/bad judgement.
-  if (polarity === 'neutral') return { verdict: 'descriptive', z: stdev === 0 ? 0 : (value - mean) / stdev };
+  if (value === null) return { verdict: 'insufficient', z: null };
+  // Neutral metrics are always descriptive (report value for context) — even with a small cohort,
+  // which only suppresses the comparative z-score, not the value itself.
+  if (polarity === 'neutral') return { verdict: 'descriptive', z: n < minCohort ? null : stdev === 0 ? 0 : (value - mean) / stdev };
+  if (n < minCohort) return { verdict: 'insufficient', z: null };
   if (stdev === 0) {
     if (value === mean) return { verdict: 'average', z: 0 };
     const higher = value > mean;
