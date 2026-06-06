@@ -41,3 +41,17 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .detail-head button { background: none; border: none; color: #9aa2b1; font-size: 18px; cursor: pointer; }
 .detail-empty { padding: 24px; color: #9aa2b1; }
 .detail-body { padding: 16px; }
+
+/* timeline */
+.tl { background: #13161c; border: 1px solid #2a2f3a; border-radius: 8px; padding: 12px; position: relative; }
+.tl-bands { position: absolute; left: 132px; right: 12px; top: 12px; bottom: 12px; pointer-events: none; }
+.go-band { position: absolute; top: 0; bottom: 0; pointer-events: auto; cursor: pointer; background: rgba(70,192,138,.10); border-left: 2px solid rgba(70,192,138,.6); }
+.go-band.lethal { background: rgba(229,115,107,.13); border-left-color: rgba(229,115,107,.6); }
+.go-band .go-lbl { position: absolute; top: -2px; left: 3px; font-size: 10px; color: #9aa2b1; white-space: nowrap; }
+.tl-lane { position: relative; height: 30px; border-bottom: 1px dashed #232833; }
+.tl-name { position: absolute; left: 0; width: 120px; height: 100%; display: flex; align-items: center; font-size: 11px; color: #9aa2b1; }
+.tl-track { position: absolute; left: 132px; right: 12px; top: 0; bottom: 0; }
+.ev { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 11px; height: 11px; border-radius: 50%; }
+.ev.cast { background: #5b8bf0; } .ev.kick { background: #f0c24b; } .ev.kicked { background: #f0c24b; border: 2px solid #e5736b; box-sizing: border-box; }
+.ev.cc { background: #b07cf0; } .ev.ccd { background: #b07cf0; border: 2px solid #e5736b; box-sizing: border-box; }
+.ev.death { width: 0; height: 0; border-radius: 0; background: none; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 11px solid #e5736b; }
