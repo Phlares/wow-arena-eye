@@ -27,6 +27,14 @@ it('shows CR and MMR as separate rows, each with its chronological delta', () =>
   expect(screen.getByText('MMR')).toBeInTheDocument();
   expect(screen.getByText('2008 −12')).toBeInTheDocument(); // U+2212 minus, per fmtRatingDelta
 });
+it('shows kicks taken and both Precognition uptimes', () => {
+  render(<SummaryDrawer match={{ ...m, interruptsSuffered: 2, precognitionUptimeSec: 6.2, enemyPrecognitionUptimeSec: 12.4 }} />);
+  expect(screen.getByText('Kicks taken')).toBeInTheDocument();
+  expect(screen.getByText('Precognition (you)')).toBeInTheDocument();
+  expect(screen.getByText('6.2s')).toBeInTheDocument();
+  expect(screen.getByText('Precognition (enemy)')).toBeInTheDocument();
+  expect(screen.getByText('12.4s')).toBeInTheDocument();
+});
 it('shows the result badge with its color and em-dashes null stats', () => {
   render(<SummaryDrawer match={{ ...m, result: 'win', rating: null, ratingDelta: null, interruptsLanded: null }} />);
   expect(screen.getByText('WIN')).toHaveClass('win');
