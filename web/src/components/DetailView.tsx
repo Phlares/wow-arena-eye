@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import type { MatchDetail } from '../api.js';
 import { Timeline } from './Timeline.js';
+import { WindowPanel } from './WindowPanel.js';
 
 export function DetailView({ detail, error, onClose }: { detail: MatchDetail | null; error: string | null; onClose: () => void }) {
+  const [selectedWindow, setSelectedWindow] = useState<number | null>(null);
+  const win = detail && selectedWindow !== null ? detail.metrics.offensiveWindows[selectedWindow] : undefined;
   return (
     <div className="detail-overlay">
       <div className="detail-head">
@@ -15,7 +19,8 @@ export function DetailView({ detail, error, onClose }: { detail: MatchDetail | n
       {!error && !detail && <div className="detail-empty">Loading…</div>}
       {detail && (
         <div className="detail-body">
-          <Timeline detail={detail} onSelectWindow={() => { /* window panel wired in Task 10 */ }} />
+          <Timeline detail={detail} onSelectWindow={setSelectedWindow} />
+          {win && selectedWindow !== null && <WindowPanel window={win} index={selectedWindow} />}
         </div>
       )}
     </div>
