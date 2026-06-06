@@ -19,6 +19,7 @@ const COLS: { key: string; label: string; sortable?: boolean; num?: (m: MatchSum
   { key: 'damageDone', label: 'Dmg', sortable: true, num: (m) => m.damageDone },
   { key: 'dps', label: 'DPS', sortable: true, num: (m) => m.dps },
   { key: 'interruptsLanded', label: 'Kicks', sortable: true, num: (m) => m.interruptsLanded },
+  { key: 'interruptsSuffered', label: 'Taken', sortable: true, num: (m) => m.interruptsSuffered },
 ];
 
 function sortRows(rows: MatchSummary[], sort: Props['sort']): MatchSummary[] {
@@ -45,7 +46,7 @@ function Row({ m, selectedId, onSelect }: { m: MatchSummary; selectedId: string 
       <td className={m.result === 'win' ? 'win' : 'loss'}>{m.result === 'win' ? 'W' : 'L'}</td>
       <td>{m.allyCompLabel}</td><td>{m.enemyCompLabel}</td><td>{m.mapName}</td>
       <td>{fmtRating(m.cr, m.crDelta)}</td><td>{fmtRating(m.rating, m.ratingDelta)}</td>
-      <td>{fmtNum(m.damageDone)}</td><td>{fmtNum(m.dps)}</td><td>{fmtNum(m.interruptsLanded)}</td>
+      <td>{fmtNum(m.damageDone)}</td><td>{fmtNum(m.dps)}</td><td>{fmtNum(m.interruptsLanded)}</td><td>{fmtNum(m.interruptsSuffered)}</td>
     </tr>
   );
 }
@@ -102,8 +103,8 @@ export function MatchTable({ matches, sessions, selectedId, onSelect, sort, onSo
         })}
       </tbody>
       <tfoot>
-        <tr className="totals"><td>Σ</td><td>{wins}W–{n - wins}L</td><td colSpan={3} /><td></td><td></td><td>{fmtNum(sum((m) => m.damageDone))}</td><td>{fmtNum(sum((m) => m.dps))}</td><td>{fmtNum(sum((m) => m.interruptsLanded))}</td></tr>
-        <tr className="totals"><td>avg</td><td colSpan={4} /><td>{fmtRating(avgRating((m) => m.cr), null)}</td><td>{fmtRating(avgRating((m) => m.rating), null)}</td><td>{fmtNum(avg((m) => m.damageDone))}</td><td>{fmtNum(avg((m) => m.dps))}</td><td>{fmtNum(avg((m) => m.interruptsLanded))}</td></tr>
+        <tr className="totals"><td>Σ</td><td>{wins}W–{n - wins}L</td><td colSpan={3} /><td></td><td></td><td>{fmtNum(sum((m) => m.damageDone))}</td><td>{fmtNum(sum((m) => m.dps))}</td><td>{fmtNum(sum((m) => m.interruptsLanded))}</td><td>{fmtNum(sum((m) => m.interruptsSuffered))}</td></tr>
+        <tr className="totals"><td>avg</td><td colSpan={4} /><td>{fmtRating(avgRating((m) => m.cr), null)}</td><td>{fmtRating(avgRating((m) => m.rating), null)}</td><td>{fmtNum(avg((m) => m.damageDone))}</td><td>{fmtNum(avg((m) => m.dps))}</td><td>{fmtNum(avg((m) => m.interruptsLanded))}</td><td>{fmtNum(avg((m) => m.interruptsSuffered))}</td></tr>
       </tfoot>
     </table>
   );

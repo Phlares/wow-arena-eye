@@ -73,6 +73,14 @@ it('shows the sort indicator on the active column header', () => {
     sort={{ col: 'damageDone', dir: 'desc' }} onSort={() => {}} />);
   expect(screen.getByText(/Dmg ▼/)).toBeInTheDocument();
 });
+it('shows a sortable Taken column with a footer total', () => {
+  render(<MatchTable matches={[m({ matchId: 'A', interruptsLanded: 3, interruptsSuffered: 2 }),
+                               m({ matchId: 'B', interruptsLanded: 0, interruptsSuffered: 7 })]}
+    sessions={sessions} selectedId={null} onSelect={() => {}} sort={null} onSort={() => {}} />);
+  expect(screen.getByText('Taken')).toBeInTheDocument();
+  const totals = screen.getByText('Σ').closest('tr')!;
+  expect(totals.textContent).toContain('9'); // kicks-taken sum 2+7 (distinct from kicks sum 3)
+});
 it('renders a separate version fold per build_version', () => {
   render(<MatchTable matches={[m({ matchId: 'A', buildVersion: '12.0.5' }), m({ matchId: 'B', buildVersion: '12.1.0', sessionId: null })]}
     sessions={sessions} selectedId={null} onSelect={() => {}} sort={null} onSort={() => {}} />);
