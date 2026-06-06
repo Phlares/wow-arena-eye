@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { DatabaseSync } from '../store/sqlite.js';
 import { openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
-import { attachSessions, enrichRatingDeltas, loadFilterOptions, loadMatchScalars, loadViewerMatches } from './queries.js';
+import { attachSessions, buildRangeSeries, enrichRatingDeltas, loadFilterOptions, loadMatchDetail, loadMatchScalars, loadViewerMatches } from './queries.js';
 import type { MatchQuery } from './types.js';
 
 export interface ApiResult { status: number; body: string; }
@@ -45,6 +45,11 @@ export function handleApi(db: DatabaseSync, method: string, path: string, params
       ? matches.length
       : loadViewerMatches(db, { ...query, limit: undefined, offset: undefined }).length;
     return json(200, { matches, sessions, total });
+  }
+  const detail = path.match(/^\/api\/matches\/(.+)\/detail$/);
+  if (detail) {
+    const metrics = loadMatchDetail(db, decodeURIComponent(detail[1]));
+    return metrics ? json(200, { metrics, rangeSeries: buildRangeSeries(metrics) }) : json(404, { error: 'no detail for match (re-ingest to populate)' });
   }
   const single = path.match(/^\/api\/matches\/(.+)$/);
   if (single) {

@@ -5,7 +5,7 @@ function Row({ k, v }: { k: string; v: string }) {
   return <div className="drow"><span className="dk">{k}</span><span>{v}</span></div>;
 }
 
-export function SummaryDrawer({ match: m }: { match: MatchSummary | null }) {
+export function SummaryDrawer({ match: m, onOpenDetail }: { match: MatchSummary | null; onOpenDetail: (id: string) => void }) {
   if (!m) return null;
   return (
     <aside className="drawer">
@@ -21,7 +21,8 @@ export function SummaryDrawer({ match: m }: { match: MatchSummary | null }) {
       <Row k="Kicks taken" v={fmtNum(m.interruptsSuffered)} />
       <Row k="Precognition (you)" v={fmtSeconds(m.precognitionUptimeSec)} />
       <Row k="Precognition (enemy)" v={fmtSeconds(m.enemyPrecognitionUptimeSec)} />
-      <div className="soon">Open full detail → (coming in B)<br />Compare to history → (coming in C)</div>
+      <button className="open-detail" onClick={() => onOpenDetail(m.matchId)}>Open full detail →</button>
+      <div className="soon">Compare to history → (coming in C)</div>
     </aside>
   );
 }

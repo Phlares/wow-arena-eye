@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { FilterRail } from './components/FilterRail.js';
 import { MatchTable } from './components/MatchTable.js';
 import { SummaryDrawer } from './components/SummaryDrawer.js';
-import { fetchFilters, fetchMatches, toParams, type FilterOptions, type Filters, type MatchesResponse, type MatchSummary } from './api.js';
+import { DetailView } from './components/DetailView.js';
+import { fetchFilters, fetchMatches, fetchMatchDetail, toParams, type FilterOptions, type Filters, type MatchDetail, type MatchesResponse, type MatchSummary } from './api.js';
 
 function readUrlFilters(): Filters {
   const out: Filters = {};
@@ -25,6 +26,21 @@ export function App() {
   const onSort = (col: string) => setSort((s) =>
     s?.col !== col ? { col, dir: 'desc' } : s.dir === 'desc' ? { col, dir: 'asc' } : null);
 
+  // per-match detail overlay (sub-project B)
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<MatchDetail | null>(null);
+  const [detailErr, setDetailErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (detailId === null) return;
+    let ignore = false; // drop a stale response if the overlay closed/changed before it resolved
+    setDetail(null); setDetailErr(null);
+    void fetchMatchDetail(detailId)
+      .then((d) => { if (!ignore) setDetail(d); })
+      .catch((e: unknown) => { if (!ignore) setDetailErr(e instanceof Error ? e.message : String(e)); });
+    return () => { ignore = true; };
+  }, [detailId]);
+  const closeDetail = () => { setDetailId(null); setDetail(null); setDetailErr(null); };
+
   useEffect(() => { void fetchFilters().then(setOptions).catch((e: unknown) => setError(String(e))); }, []);
   useEffect(() => {
     setError(null);
@@ -45,8 +61,9 @@ export function App() {
             onSelect={(id) => setSelected(data.matches.find((m) => m.matchId === id) ?? null)}
             sort={sort} onSort={onSort} />
         </div>
-        <SummaryDrawer match={selected} />
+        <SummaryDrawer match={selected} onOpenDetail={setDetailId} />
       </div>
+      {detailId !== null && <DetailView detail={detail} error={detailErr} onClose={closeDetail} />}
     </div>
   );
 }

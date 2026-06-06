@@ -9,11 +9,11 @@ const m: MatchSummary = { matchId: 'A', startMs: 1000, durationSec: 161, bracket
   interruptsSuffered: 1, precognitionUptimeSec: null, enemyPrecognitionUptimeSec: null };
 
 it('renders nothing when no match is selected', () => {
-  const { container } = render(<SummaryDrawer match={null} />);
+  const { container } = render(<SummaryDrawer match={null} onOpenDetail={() => {}} />);
   expect(container).toBeEmptyDOMElement();
 });
 it('shows matchup, map, rating, duration and stats for the selected match', () => {
-  render(<SummaryDrawer match={m} />);
+  render(<SummaryDrawer match={m} onOpenDetail={() => {}} />);
   expect(screen.getByText(/WLS vs RMP/)).toBeInTheDocument();
   expect(screen.getByText('Enigma Crucible')).toBeInTheDocument();
   expect(screen.getByText('2:41')).toBeInTheDocument();
@@ -21,14 +21,14 @@ it('shows matchup, map, rating, duration and stats for the selected match', () =
   expect(screen.getByText(/full detail/i)).toBeInTheDocument(); // inert affordance for sub-project B
 });
 it('shows CR and MMR as separate rows, each with its chronological delta', () => {
-  render(<SummaryDrawer match={{ ...m, cr: 1834, crDelta: 8 }} />);
+  render(<SummaryDrawer match={{ ...m, cr: 1834, crDelta: 8 }} onOpenDetail={() => {}} />);
   expect(screen.getByText('CR')).toBeInTheDocument();
   expect(screen.getByText('1834 +8')).toBeInTheDocument();
   expect(screen.getByText('MMR')).toBeInTheDocument();
   expect(screen.getByText('2008 −12')).toBeInTheDocument(); // U+2212 minus, per fmtRatingDelta
 });
 it('shows kicks taken and both Precognition uptimes', () => {
-  render(<SummaryDrawer match={{ ...m, interruptsSuffered: 2, precognitionUptimeSec: 6.2, enemyPrecognitionUptimeSec: 12.4 }} />);
+  render(<SummaryDrawer match={{ ...m, interruptsSuffered: 2, precognitionUptimeSec: 6.2, enemyPrecognitionUptimeSec: 12.4 }} onOpenDetail={() => {}} />);
   expect(screen.getByText('Kicks taken')).toBeInTheDocument();
   expect(screen.getByText('Precognition (you)')).toBeInTheDocument();
   expect(screen.getByText('6.2s')).toBeInTheDocument();
@@ -36,7 +36,7 @@ it('shows kicks taken and both Precognition uptimes', () => {
   expect(screen.getByText('12.4s')).toBeInTheDocument();
 });
 it('shows the result badge with its color and em-dashes null stats', () => {
-  render(<SummaryDrawer match={{ ...m, result: 'win', rating: null, ratingDelta: null, interruptsLanded: null }} />);
+  render(<SummaryDrawer match={{ ...m, result: 'win', rating: null, ratingDelta: null, interruptsLanded: null }} onOpenDetail={() => {}} />);
   expect(screen.getByText('WIN')).toHaveClass('win');
   expect(screen.getAllByText('—').length).toBeGreaterThan(0);
 });

@@ -1,5 +1,6 @@
-import { eventType, srcId, destId, spellName, extraSpellName, eventTimeMs, matchStartMs } from './eventAccess.js';
-import type { TimelineEvent, TimelineKind } from './types.js';
+import { eventType, srcId, destId, spellName, extraSpellName, spellId, eventTimeMs, matchStartMs } from './eventAccess.js';
+import { ccInfo } from '../metadata/spells.js';
+import { resolvePlayer, type TimelineEvent, type TimelineKind } from './types.js';
 
 const KIND: Record<string, TimelineKind> = {
   SPELL_CAST_SUCCESS: 'cast',
@@ -10,7 +11,7 @@ const KIND: Record<string, TimelineKind> = {
 };
 
 export function buildTimeline(match: unknown): TimelineEvent[] {
-  const m = match as { events?: unknown[]; units?: Record<string, { name?: unknown }> };
+  const m = match as { events?: unknown[]; units?: Record<string, { name?: unknown; type?: unknown; ownerId?: unknown }> };
   const events = Array.isArray(m.events) ? m.events : [];
   const units = m.units ?? {};
   const startMs = matchStartMs(events);
@@ -21,11 +22,25 @@ export function buildTimeline(match: unknown): TimelineEvent[] {
 
   const out: TimelineEvent[] = [];
   for (const ev of events) {
+    // CC: a player-on-player CC aura application (detected by ccInfo, like ccSides). Pet → owner;
+    // a non-player target is dropped. Emitted here because it is not one of the KIND events below.
+    if (eventType(ev) === 'SPELL_AURA_APPLIED') {
+      const info = ccInfo(spellId(ev));
+      const src = info ? resolvePlayer(units, srcId(ev)) : undefined;
+      const dst = info ? resolvePlayer(units, destId(ev)) : undefined;
+      const ms = eventTimeMs(ev);
+      if (info && src && dst && ms !== undefined && startMs !== undefined) {
+        out.push({ tSec: Math.round((ms - startMs) / 1000), unitId: src, unitName: nameOf(src),
+          kind: 'cc', spell: spellName(ev), extra: info.category, targetId: dst, targetName: nameOf(dst) });
+      }
+      continue;
+    }
     const kind = KIND[eventType(ev)];
     if (!kind) continue;
     const ms = eventTimeMs(ev);
     if (ms === undefined || startMs === undefined) continue;
     const actorId = kind === 'death' ? destId(ev) : srcId(ev);
+    const targetId = kind === 'interrupt' ? destId(ev) : undefined;
     out.push({
       tSec: Math.round((ms - startMs) / 1000),
       unitId: actorId ?? '?',
@@ -33,6 +48,8 @@ export function buildTimeline(match: unknown): TimelineEvent[] {
       kind,
       spell: kind === 'death' ? undefined : spellName(ev),
       extra: kind === 'interrupt' || kind === 'dispel' || kind === 'steal' ? extraSpellName(ev) : undefined,
+      targetId,
+      targetName: targetId ? nameOf(targetId) : undefined,
     });
   }
   // defensive: events are normally chronological, but sort guards against any out-of-order input

@@ -29,6 +29,8 @@ export interface MatchSummary {
 
 export type SessionSummary = Session;
 
+export interface RangePoint { tSec: number; dist: number | null; }
+
 export interface FilterOptions {
   characters: string[];
   brackets: string[];

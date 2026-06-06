@@ -67,6 +67,7 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
   // there is nothing to ROLLBACK and the error simply propagates.
   db.exec('BEGIN');
   try {
+    db.prepare('DELETE FROM match_detail WHERE match_id=?').run(matchId);
     db.prepare('DELETE FROM metric WHERE match_id=?').run(matchId);
     db.prepare('DELETE FROM combatant WHERE match_id=?').run(matchId);
     db.prepare('DELETE FROM match WHERE match_id=?').run(matchId);
@@ -92,6 +93,8 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
     }
     const mi = db.prepare('INSERT INTO metric (match_id,scope,metric_id,value) VALUES (?,?,?,?)');
     for (const r of rows) mi.run(matchId, r.scope, r.metricId, r.value);
+
+    db.prepare('INSERT INTO match_detail (match_id,metrics_json) VALUES (?,?)').run(matchId, JSON.stringify(metrics));
 
     db.exec('COMMIT');
   } catch (e) {

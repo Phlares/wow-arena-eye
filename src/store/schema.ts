@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS metric (
   value     REAL,
   PRIMARY KEY (match_id, scope, metric_id)
 );
+-- Full MatchMetrics JSON per match (lazy-loaded only by the detail endpoint; keeps match lean).
+CREATE TABLE IF NOT EXISTS match_detail (
+  match_id     TEXT PRIMARY KEY REFERENCES match(match_id),
+  metrics_json TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS ix_match_start     ON match(start_ms);
 CREATE INDEX IF NOT EXISTS ix_match_enemycomp ON match(enemy_comp_sig);
 CREATE INDEX IF NOT EXISTS ix_match_zone      ON match(zone_id);
