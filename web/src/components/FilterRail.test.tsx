@@ -4,8 +4,7 @@ import type { FilterOptions } from '../api.js';
 
 const opts: FilterOptions = {
   characters: ['Me-R', 'Alt-R'], brackets: ['3v3', '2v2'],
-  myComps: [{ value: '105_265', label: 'Resto·Affli' }],
-  enemyComps: [{ value: '62_64', label: 'Arcane·Frost' }],
+  classSpecTree: [{ className: 'Warlock', specs: [{ id: '265', specName: 'Affliction' }] }],
   maps: [{ value: '2547', label: 'Enigma Crucible' }],
   ratingRange: { min: 1900, max: 2100 }, dateRange: null,
 };
@@ -44,4 +43,22 @@ it('a non-character dropdown (Map) reports its key', () => {
   render(<FilterRail options={opts} filters={{}} onChange={onChange} />);
   fireEvent.change(screen.getByLabelText('Map'), { target: { value: '2547' } });
   expect(onChange).toHaveBeenCalledWith({ map: '2547' });
+});
+
+it('renders the My team and Enemy comp trees and forwards their params', () => {
+  const onChange = vi.fn();
+  render(<FilterRail options={opts} filters={{}} onChange={onChange} />);
+  expect(screen.getByText(/My team:/)).toBeInTheDocument();
+  expect(screen.getByText(/Enemy:/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Enemy/ }));
+  fireEvent.click(screen.getByLabelText('Warlock'));
+  expect(onChange).toHaveBeenCalledWith({ enemyClasses: 'Warlock', enemySpecs: '' });
+});
+
+it('the My team tree forwards ally params (not enemy)', () => {
+  const onChange = vi.fn();
+  render(<FilterRail options={opts} filters={{}} onChange={onChange} />);
+  fireEvent.click(screen.getByRole('button', { name: /My team/ }));
+  fireEvent.click(screen.getByLabelText('Warlock'));
+  expect(onChange).toHaveBeenCalledWith({ allyClasses: 'Warlock', allySpecs: '' });
 });

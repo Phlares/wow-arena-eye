@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DatabaseSync } from '../src/store/sqlite.js';
 import { migrate } from '../src/store/schema.js';
-import { loadFilterOptions, loadMatchScalars, loadViewerMatches } from '../src/viewer/queries.js';
+import { loadFilterOptions, loadMatchScalars, loadViewerMatches, enrichRatingDeltas } from '../src/viewer/queries.js';
 
 function seedMatch(db: InstanceType<typeof DatabaseSync>, o: {
   id: string; startMs: number; dur: number; bracket: string; zone: string;
@@ -41,13 +41,12 @@ describe('loadViewerMatches', () => {
   it('filters by result and rating band', () => {
     expect(loadViewerMatches(db(), { result: 'win', minRating: 1950 }).map((m) => m.matchId)).toEqual(['A']);
   });
-  it('computes ratingDelta vs the previous match for the character within the result set', () => {
-    const ms = loadViewerMatches(db(), { character: 'Me-R', sort: 'startMs', order: 'asc' });
+  it('computes ratingDelta vs the previous match for the character (via enrichRatingDeltas, full history)', () => {
+    const d = db();
+    const ms = loadViewerMatches(d, { character: 'Me-R', sort: 'startMs', order: 'asc' });
+    enrichRatingDeltas(d, ms);
     expect(ms.find((m) => m.matchId === 'B')!.ratingDelta).toBe(16); // 2016 - 2000
     expect(ms.find((m) => m.matchId === 'A')!.ratingDelta).toBeNull(); // first
-  });
-  it('filters by myComp (ally_comp_sig)', () => {
-    expect(loadViewerMatches(db(), { myComp: '105_265' }).map((m) => m.matchId).sort()).toEqual(['A', 'B']);
   });
   it('applies the free-text q filter over resolved labels', () => {
     expect(loadViewerMatches(db(), { q: 'Enigma' }).map((m) => m.matchId).sort()).toEqual(['A', 'C']); // both on zone 2547

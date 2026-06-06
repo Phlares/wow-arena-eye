@@ -2,7 +2,8 @@
 export interface MatchSummary {
   matchId: string; startMs: number | null; durationSec: number | null; bracket: string; character: string;
   mapId: string; mapName: string; allyComp: string; allyCompLabel: string; enemyComp: string; enemyCompLabel: string;
-  rating: number | null; ratingDelta: number | null; result: string; sessionId: string | null;
+  rating: number | null; ratingDelta: number | null; cr: number | null; crDelta: number | null; buildVersion: string;
+  result: string; sessionId: string | null;
   damageDone: number | null; dps: number | null; interruptsLanded: number | null;
 }
 export interface SessionSummary {
@@ -11,7 +12,7 @@ export interface SessionSummary {
 }
 export interface FilterOptions {
   characters: string[]; brackets: string[];
-  myComps: { value: string; label: string }[]; enemyComps: { value: string; label: string }[];
+  classSpecTree: { className: string; specs: { id: string; specName: string }[] }[];
   maps: { value: string; label: string }[];
   ratingRange: { min: number; max: number } | null; dateRange: { minMs: number; maxMs: number } | null;
 }

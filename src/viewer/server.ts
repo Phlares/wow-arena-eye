@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { DatabaseSync } from '../store/sqlite.js';
 import { openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
-import { attachSessions, loadFilterOptions, loadMatchScalars, loadViewerMatches } from './queries.js';
+import { attachSessions, enrichRatingDeltas, loadFilterOptions, loadMatchScalars, loadViewerMatches } from './queries.js';
 import type { MatchQuery } from './types.js';
 
 export interface ApiResult { status: number; body: string; }
@@ -20,7 +20,9 @@ function parseQuery(p: URLSearchParams): MatchQuery {
   const sort = p.get('sort');
   const order = p.get('order');
   return {
-    character: str('character'), bracket: str('bracket'), myComp: str('myComp'), enemyComp: str('enemyComp'),
+    character: str('character'), bracket: str('bracket'),
+    allySpecs: str('allySpecs'), allyClasses: str('allyClasses'),
+    enemySpecs: str('enemySpecs'), enemyClasses: str('enemyClasses'),
     map: str('map'), result: str('result'), minRating: num('minRating'), maxRating: num('maxRating'),
     from: num('from'), to: num('to'), q: str('q'),
     sort: (['startMs', 'rating', 'damageDone', 'dps'] as const).find((s) => s === sort),
@@ -36,6 +38,7 @@ export function handleApi(db: DatabaseSync, method: string, path: string, params
   if (path === '/api/matches') {
     const query = parseQuery(params);
     const matches = loadViewerMatches(db, query);
+    enrichRatingDeltas(db, matches);
     const sessions = attachSessions(db, query, matches, gapMs);
     // true filtered count (ignores pagination) so `total` is honest for any future paging UI
     const total = query.limit === undefined && query.offset === undefined

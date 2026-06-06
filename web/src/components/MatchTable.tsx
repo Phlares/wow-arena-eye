@@ -1,56 +1,93 @@
 import type { MatchSummary, SessionSummary } from '../api.js';
-import { fmtNum, fmtRatingDelta, fmtRating, fmtClock } from '../format.js';
+import { fmtNum, fmtRating, fmtClock } from '../format.js';
 
 interface Props {
   matches: MatchSummary[]; sessions: SessionSummary[];
   selectedId: string | null; onSelect: (id: string) => void;
+  sort: { col: string; dir: 'asc' | 'desc' } | null;
+  onSort: (col: string) => void;
 }
 
-function SessionHeader({ s }: { s: SessionSummary }) {
-  const delta = s.ratingStart !== null && s.ratingEnd !== null ? s.ratingEnd - s.ratingStart : null;
+const COLS: { key: string; label: string; sortable?: boolean; num?: (m: MatchSummary) => number | null }[] = [
+  { key: 'startMs', label: 'When', sortable: true },
+  { key: 'result', label: 'R' },
+  { key: 'ally', label: 'My comp' },
+  { key: 'enemy', label: 'Enemy' },
+  { key: 'map', label: 'Map' },
+  { key: 'cr', label: 'CR', sortable: true, num: (m) => m.cr },
+  { key: 'mmr', label: 'MMR', sortable: true, num: (m) => m.rating }, // `rating` field holds MMR
+  { key: 'damageDone', label: 'Dmg', sortable: true, num: (m) => m.damageDone },
+  { key: 'dps', label: 'DPS', sortable: true, num: (m) => m.dps },
+  { key: 'interruptsLanded', label: 'Kicks', sortable: true, num: (m) => m.interruptsLanded },
+];
+
+function sortRows(rows: MatchSummary[], sort: Props['sort']): MatchSummary[] {
+  if (!sort) return rows;
+  const col = COLS.find((c) => c.key === sort.col);
+  const f = col?.num ?? ((m: MatchSummary) => m.startMs);
+  const out = [...rows].sort((a, b) => ((f(a) ?? -Infinity) - (f(b) ?? -Infinity)));
+  return sort.dir === 'desc' ? out.reverse() : out;
+}
+
+function Row({ m, selectedId, onSelect }: { m: MatchSummary; selectedId: string | null; onSelect: (id: string) => void }) {
   return (
-    <tr className="sep"><td colSpan={8}>
-      ▸ session · {fmtClock(s.startMs)} · {s.count} games · {s.wins}W–{s.losses}L
-      {delta !== null ? ` · ${fmtRatingDelta(delta)}` : ''} · {s.comps.join(', ')}
-    </td></tr>
+    <tr className={m.matchId === selectedId ? 'sel' : ''} onClick={() => onSelect(m.matchId)}>
+      <td>{fmtClock(m.startMs)}</td>
+      <td className={m.result === 'win' ? 'win' : 'loss'}>{m.result === 'win' ? 'W' : 'L'}</td>
+      <td>{m.allyCompLabel}</td><td>{m.enemyCompLabel}</td><td>{m.mapName}</td>
+      <td>{fmtRating(m.cr, m.crDelta)}</td><td>{fmtRating(m.rating, m.ratingDelta)}</td>
+      <td>{fmtNum(m.damageDone)}</td><td>{fmtNum(m.dps)}</td><td>{fmtNum(m.interruptsLanded)}</td>
+    </tr>
   );
 }
 
-export function MatchTable({ matches, sessions, selectedId, onSelect }: Props) {
+export function MatchTable({ matches, sessions, selectedId, onSelect, sort, onSort }: Props) {
   if (matches.length === 0) return <div className="empty">No matches yet — run <code>npm run ingest-db</code>.</div>;
-  const order = new Map(sessions.map((s, i) => [s.id, i]));
-  const bySession = new Map<string, MatchSummary[]>();
-  for (const m of matches) {
-    const key = m.sessionId ?? '∅';
-    if (!bySession.has(key)) bySession.set(key, []);
-    bySession.get(key)!.push(m);
-  }
-  // unknown keys (the '∅' unsessioned bucket) sort last
-  const rank = (k: string) => order.get(k) ?? sessions.length;
-  const groups = [...bySession.keys()].sort((a, b) => rank(a) - rank(b));
+
+  const sessionOrder = new Map(sessions.map((s, i) => [s.id, i]));
+  const sessRank = (k: string) => sessionOrder.get(k) ?? sessions.length;
+  const byVersion = new Map<string, MatchSummary[]>();
+  for (const m of matches) { const v = m.buildVersion || '—'; if (!byVersion.has(v)) byVersion.set(v, []); byVersion.get(v)!.push(m); }
+
+  const sum = (f: (m: MatchSummary) => number | null) => matches.reduce((a, m) => a + (f(m) ?? 0), 0);
+  const n = matches.length;
+  const wins = matches.filter((m) => m.result === 'win').length;
+  const avg = (f: (m: MatchSummary) => number | null) => {
+    const vals = matches.map(f).filter((v): v is number => v !== null);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+  const avgRating = (f: (m: MatchSummary) => number | null) => { const a = avg(f); return a === null ? null : Math.round(a); };
+
   return (
     <table className="matches">
       <thead><tr>
-        <th>When</th><th>R</th><th>My comp</th><th>Enemy</th><th>Map</th><th>Rating</th><th>Dmg</th><th>Kicks</th>
+        {COLS.map((c) => (
+          <th key={c.key} className={c.sortable ? 'sortable' : ''} onClick={c.sortable ? () => onSort(c.key) : undefined}>
+            {c.label}{sort?.col === c.key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+          </th>
+        ))}
       </tr></thead>
       <tbody>
-        {groups.flatMap((key) => {
-          const s = sessions.find((s) => s.id === key);
-          const rows = bySession.get(key)!;
+        {[...byVersion.entries()].flatMap(([version, vMatches]) => {
+          const bySession = new Map<string, MatchSummary[]>();
+          for (const m of vMatches) { const k = m.sessionId ?? '∅'; if (!bySession.has(k)) bySession.set(k, []); bySession.get(k)!.push(m); }
+          const groups = [...bySession.keys()].sort((a, b) => sessRank(a) - sessRank(b));
           return [
-            s ? <SessionHeader key={`s-${key}`} s={s} /> : null,
-            ...rows.map((m) => (
-              <tr key={m.matchId} className={m.matchId === selectedId ? 'sel' : ''} onClick={() => onSelect(m.matchId)}>
-                <td>{fmtClock(m.startMs)}</td>
-                <td className={m.result === 'win' ? 'win' : 'loss'}>{m.result === 'win' ? 'W' : 'L'}</td>
-                <td>{m.allyCompLabel}</td><td>{m.enemyCompLabel}</td><td>{m.mapName}</td>
-                <td>{fmtRating(m.rating, m.ratingDelta)}</td>
-                <td>{fmtNum(m.damageDone)}</td><td>{fmtNum(m.interruptsLanded)}</td>
-              </tr>
-            )),
+            <tr key={`v-${version}`} className="vsep"><td colSpan={COLS.length}>▾ {version} · {vMatches.length} games</td></tr>,
+            ...groups.flatMap((key) => {
+              const s = sessions.find((s) => s.id === key);
+              return [
+                s ? <tr key={`s-${key}`} className="sep"><td colSpan={COLS.length}>▸ session · {fmtClock(s.startMs)} · {s.count} games · {s.wins}W–{s.losses}L</td></tr> : null,
+                ...sortRows(bySession.get(key)!, sort).map((m) => <Row key={m.matchId} m={m} selectedId={selectedId} onSelect={onSelect} />),
+              ];
+            }),
           ];
         })}
       </tbody>
+      <tfoot>
+        <tr className="totals"><td>Σ</td><td>{wins}W–{n - wins}L</td><td colSpan={3} /><td></td><td></td><td>{fmtNum(sum((m) => m.damageDone))}</td><td>{fmtNum(sum((m) => m.dps))}</td><td>{fmtNum(sum((m) => m.interruptsLanded))}</td></tr>
+        <tr className="totals"><td>avg</td><td colSpan={4} /><td>{fmtRating(avgRating((m) => m.cr), null)}</td><td>{fmtRating(avgRating((m) => m.rating), null)}</td><td>{fmtNum(avg((m) => m.damageDone))}</td><td>{fmtNum(avg((m) => m.dps))}</td><td>{fmtNum(avg((m) => m.interruptsLanded))}</td></tr>
+      </tfoot>
     </table>
   );
 }

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS match (
   ally_comp_sig   TEXT,
   enemy_comp_sig  TEXT,
   player_rating   INTEGER,
+  player_cr       INTEGER,
   enemy_mmr       INTEGER,
   is_ranked       INTEGER,
   build_version   TEXT,
@@ -67,7 +68,10 @@ JOIN metric x    ON x.match_id = m.match_id AND x.scope = c.unit_id
 GROUP BY m.match_id;
 `;
 
-/** Create all tables/indices/views if absent. Safe to call repeatedly. */
+/** Create all tables/indices/views if absent. Safe to call repeatedly. Also adds columns
+ *  that were introduced after a DB was first created (additive migrations). */
 export function migrate(db: DatabaseSync): void {
   db.exec(SCHEMA_SQL);
+  const matchCols = (db.prepare('PRAGMA table_info(match)').all() as { name: string }[]).map((c) => c.name);
+  if (!matchCols.includes('player_cr')) db.exec('ALTER TABLE match ADD COLUMN player_cr INTEGER');
 }

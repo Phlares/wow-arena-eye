@@ -3,12 +3,14 @@ import { vi } from 'vitest';
 import { App } from './App.js';
 import type { FilterOptions, MatchesResponse } from './api.js';
 
-const filters: FilterOptions = { characters: ['Me-R'], brackets: ['3v3'], myComps: [], enemyComps: [],
+const filters: FilterOptions = { characters: ['Me-R'], brackets: ['3v3'],
+  classSpecTree: [],
   maps: [{ value: '1825', label: 'Hook Point' }], ratingRange: { min: 1900, max: 2100 }, dateRange: null };
 const matches: MatchesResponse = {
   matches: [{ matchId: 'A', startMs: 1000, durationSec: 161, bracket: '3v3', character: 'Me-R', mapId: '2547',
     mapName: 'Enigma Crucible', allyComp: 'x', allyCompLabel: 'WLS', enemyComp: 'y', enemyCompLabel: 'RMP',
-    rating: 2008, ratingDelta: -12, result: 'loss', sessionId: 'A', damageDone: 4_200_000, dps: 26_100, interruptsLanded: 3 }],
+    rating: 2008, ratingDelta: -12, cr: null, crDelta: null, buildVersion: '12.0.5',
+    result: 'loss', sessionId: 'A', damageDone: 4_200_000, dps: 26_100, interruptsLanded: 3 }],
   sessions: [{ id: 'A', startMs: 1000, endMs: 2000, count: 1, wins: 0, losses: 1, ratingStart: 2008, ratingEnd: 2008, comps: ['WLS'] }],
   total: 1,
 };
@@ -41,4 +43,22 @@ it('shows an error banner when the API fails', async () => {
   vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('boom'));
   render(<App />);
   await waitFor(() => expect(screen.getByText(/viewer server running/i)).toBeInTheDocument());
+});
+
+it('sorts within folds when a column header is clicked', async () => {
+  render(<App />);
+  await waitFor(() => expect(screen.getByText('Enigma Crucible')).toBeInTheDocument());
+  fireEvent.click(screen.getByText('Dmg'));
+  await waitFor(() => expect(screen.getByText(/Dmg ▲|Dmg ▼/)).toBeInTheDocument());
+});
+
+it('cycles the Dmg sort desc → asc → cleared on repeated clicks', async () => {
+  render(<App />);
+  await waitFor(() => expect(screen.getByText('Enigma Crucible')).toBeInTheDocument());
+  fireEvent.click(screen.getByText('Dmg'));
+  await waitFor(() => expect(screen.getByText(/Dmg ▼/)).toBeInTheDocument());   // 1st click → desc
+  fireEvent.click(screen.getByText(/Dmg ▼/));
+  await waitFor(() => expect(screen.getByText(/Dmg ▲/)).toBeInTheDocument());   // 2nd → asc
+  fireEvent.click(screen.getByText(/Dmg ▲/));
+  await waitFor(() => expect(screen.getByText('Dmg')).toBeInTheDocument());     // 3rd → cleared (no arrow)
 });

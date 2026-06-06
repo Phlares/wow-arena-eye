@@ -1,4 +1,5 @@
 import type { FilterOptions, Filters } from '../api.js';
+import { CompFilterTree } from './CompFilterTree.js';
 
 interface Props { options: FilterOptions; filters: Filters; onChange: (patch: Filters) => void; }
 
@@ -29,8 +30,12 @@ export function FilterRail({ options, filters, onChange }: Props) {
         <label><input type="checkbox" aria-label="Win" checked={winOn} onChange={() => toggleResult('win')} /> Win</label>
         <label><input type="checkbox" aria-label="Loss" checked={lossOn} onChange={() => toggleResult('loss')} /> Loss</label>
       </div>
-      {sel('My comp', 'myComp', options.myComps)}
-      {sel('Enemy comp', 'enemyComp', options.enemyComps)}
+      <CompFilterTree label="My team" tree={options.classSpecTree}
+        specs={filters.allySpecs ?? ''} classes={filters.allyClasses ?? ''}
+        onChange={(p) => onChange({ allySpecs: p.specs, allyClasses: p.classes })} />
+      <CompFilterTree label="Enemy" tree={options.classSpecTree}
+        specs={filters.enemySpecs ?? ''} classes={filters.enemyClasses ?? ''}
+        onChange={(p) => onChange({ enemySpecs: p.specs, enemyClasses: p.classes })} />
       {sel('Map', 'map', options.maps)}
       <div className="grp">
         <label className="label" htmlFor="q">Search</label>

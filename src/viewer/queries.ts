@@ -1,5 +1,5 @@
 import type { DatabaseSync } from '../store/sqlite.js';
-import { compLabel } from '../metadata/specs.js';
+import { compLabel, specLabel, className, specsOfClass } from '../metadata/specs.js';
 import { mapName } from '../metadata/arenas.js';
 import { sessionize, type Session, type SessionInput } from '../store/sessions.js';
 import type { FilterOptions, MatchQuery, MatchSummary } from './types.js';
@@ -7,7 +7,8 @@ import type { FilterOptions, MatchQuery, MatchSummary } from './types.js';
 interface Row {
   match_id: string; start_ms: number | null; duration_sec: number | null; bracket: string | null;
   zone_id: string | null; ally_comp_sig: string | null; enemy_comp_sig: string | null;
-  player_rating: number | null; result: string | null; player_name: string | null;
+  player_rating: number | null; player_cr: number | null; build_version: string | null;
+  result: string | null; player_name: string | null;
   damageDone: number | null; dps: number | null; interruptsLanded: number | null;
 }
 
@@ -15,7 +16,7 @@ const SORT_COLS: Record<NonNullable<MatchQuery['sort']>, string> = {
   startMs: 'm.start_ms', rating: 'm.player_rating', damageDone: 'd.damageDone', dps: 'd.dps',
 };
 
-/** Filtered, label-resolved matches. ratingDelta is computed per character over the returned set. */
+/** Filtered, label-resolved matches. CR/MMR deltas are filled separately by enrichRatingDeltas. */
 export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary[] {
   const where: string[] = [];
   const args: (string | number)[] = [];
@@ -24,14 +25,25 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
   eq('m.match_id', q.id);
   eq('m.player_name', q.character);
   eq('m.bracket', q.bracket);
-  eq('m.ally_comp_sig', q.myComp);
-  eq('m.enemy_comp_sig', q.enemyComp);
   eq('m.zone_id', q.map);
   eq('m.result', q.result);
   if (q.minRating !== undefined) { where.push('m.player_rating >= ?'); args.push(q.minRating); }
   if (q.maxRating !== undefined) { where.push('m.player_rating <= ?'); args.push(q.maxRating); }
   if (q.from !== undefined) { where.push('m.start_ms >= ?'); args.push(q.from); }
   if (q.to !== undefined) { where.push('m.start_ms <= ?'); args.push(q.to); }
+
+  const compExists = (team: 'friendly' | 'enemy', specsCsv?: string, classesCsv?: string) => {
+    const parseCsv = (s?: string) => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    const specs = new Set<string>();
+    for (const s of parseCsv(specsCsv)) specs.add(s);
+    for (const c of parseCsv(classesCsv)) for (const s of specsOfClass(c)) specs.add(s);
+    if (specs.size === 0) return;
+    const ids = [...specs];
+    where.push(`EXISTS (SELECT 1 FROM combatant c2 WHERE c2.match_id = m.match_id AND c2.team = ? AND c2.spec IN (${ids.map(() => '?').join(',')}))`);
+    args.push(team, ...ids);
+  };
+  compExists('friendly', q.allySpecs, q.allyClasses);
+  compExists('enemy', q.enemySpecs, q.enemyClasses);
 
   const sortCol = SORT_COLS[q.sort ?? 'startMs'];
   const order = q.order === 'asc' ? 'ASC' : 'DESC';
@@ -43,7 +55,7 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
   }
   const sql =
     `SELECT m.match_id, m.start_ms, m.duration_sec, m.bracket, m.zone_id, m.ally_comp_sig,
-            m.enemy_comp_sig, m.player_rating, m.result, m.player_name,
+            m.enemy_comp_sig, m.player_rating, m.player_cr, m.build_version, m.result, m.player_name,
             d.damageDone, d.dps, d.interruptsLanded
      FROM match m
      LEFT JOIN dataset_export d ON d.match_id = m.match_id
@@ -56,7 +68,9 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
     character: r.player_name ?? '', mapId: r.zone_id ?? '', mapName: mapName(r.zone_id ?? ''),
     allyComp: r.ally_comp_sig ?? '', allyCompLabel: compLabel(r.ally_comp_sig ?? ''),
     enemyComp: r.enemy_comp_sig ?? '', enemyCompLabel: compLabel(r.enemy_comp_sig ?? ''),
-    rating: r.player_rating, ratingDelta: null, result: r.result ?? 'unknown', sessionId: null,
+    rating: r.player_rating, ratingDelta: null,   // MMR + delta (filled by enrichRatingDeltas)
+    cr: r.player_cr, crDelta: null, buildVersion: r.build_version ?? '',
+    result: r.result ?? 'unknown', sessionId: null,
     damageDone: r.damageDone, dps: r.dps, interruptsLanded: r.interruptsLanded,
   }));
 
@@ -68,19 +82,38 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
     mapped = mapped.filter((m) => `${m.allyCompLabel} ${m.enemyCompLabel} ${m.mapName}`.toLowerCase().includes(needle));
   }
 
-  const byChar = new Map<string, MatchSummary[]>();
-  for (const m of [...mapped].sort((a, b) => (a.startMs ?? 0) - (b.startMs ?? 0))) {
-    const arr = byChar.get(m.character) ?? [];
-    const prev = arr.length ? arr[arr.length - 1] : undefined;
-    if (m.rating !== null && prev && prev.rating !== null) m.ratingDelta = m.rating - prev.rating;
-    arr.push(m); byChar.set(m.character, arr);
-  }
   return mapped;
 }
 
-/** Single match's scalar row for the summary drawer; null if absent. */
+/** Single match's scalar row for the summary drawer; null if absent.
+ *  crDelta/ratingDelta are null here (enrichRatingDeltas runs only on the list path). */
 export function loadMatchScalars(db: DatabaseSync, matchId: string): MatchSummary | null {
   return loadViewerMatches(db, { id: matchId })[0] ?? null;
+}
+
+/** Attach CR/MMR deltas to each match vs the chronologically-previous game by the same
+ *  (character, bracket), over FULL history (filter-independent). null when no prior game. */
+export function enrichRatingDeltas(db: DatabaseSync, matches: MatchSummary[]): void {
+  const keyOf = (character: string, bracket: string) => `${character}\0${bracket}`;
+  const need = [...new Set(matches.map((m) => keyOf(m.character, m.bracket)))];
+  type Hist = { startMs: number | null; cr: number | null; mmr: number | null; matchId: string };
+  const hist = new Map<string, Hist[]>();
+  const stmt = db.prepare('SELECT match_id, start_ms, player_cr, player_rating FROM match WHERE player_name = ? AND bracket = ? ORDER BY start_ms');
+  for (const key of need) {
+    const [character, bracket] = key.split('\0');
+    const rows = stmt.all(character, bracket) as { match_id: string; start_ms: number | null; player_cr: number | null; player_rating: number | null }[];
+    hist.set(key, rows.map((r) => ({ startMs: r.start_ms, cr: r.player_cr, mmr: r.player_rating, matchId: r.match_id })));
+  }
+  for (const m of matches) {
+    const arr = hist.get(keyOf(m.character, m.bracket));
+    if (!arr) continue;
+    const i = arr.findIndex((h) => h.matchId === m.matchId);
+    const prev = i > 0 ? arr[i - 1] : undefined;
+    if (prev) {
+      if (m.cr !== null && prev.cr !== null) m.crDelta = m.cr - prev.cr;
+      if (m.rating !== null && prev.mmr !== null) m.ratingDelta = m.rating - prev.mmr; // MMR delta
+    }
+  }
 }
 
 /** Compute per-character queue-sessions over each character's FULL history and tag every
@@ -111,19 +144,22 @@ export function attachSessions(db: DatabaseSync, query: MatchQuery, matches: Mat
 export function loadFilterOptions(db: DatabaseSync, character?: string): FilterOptions {
   const all = loadViewerMatches(db, character ? { character } : {});
   const uniq = (xs: string[]) => [...new Set(xs.filter((x) => x !== ''))];
-  const comps = (pick: (m: MatchSummary) => [string, string]) => {
-    const seen = new Map<string, string>();
-    for (const m of all) { const [v, l] = pick(m); if (v !== '' && !seen.has(v)) seen.set(v, l); }
-    return [...seen].map(([value, label]) => ({ value, label }));
-  };
   const ratings = all.map((m) => m.rating).filter((r): r is number => r !== null);
   const dates = all.map((m) => m.startMs).filter((s): s is number => s !== null);
+  const specRows = db.prepare("SELECT DISTINCT spec FROM combatant WHERE spec IS NOT NULL AND spec != ''").all() as { spec: string }[];
+  const byClass = new Map<string, { id: string; specName: string }[]>();
+  for (const { spec } of specRows) {
+    const cls = className(spec) || 'Unknown';
+    if (!byClass.has(cls)) byClass.set(cls, []);
+    byClass.get(cls)!.push({ id: spec, specName: specLabel(spec) });
+  }
+  const classSpecTree = [...byClass.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([cls, specs]) => ({ className: cls, specs: specs.sort((a, b) => a.specName.localeCompare(b.specName)) }));
   return {
     characters: uniq(all.map((m) => m.character)),
     brackets: uniq(all.map((m) => m.bracket)),
-    myComps: comps((m) => [m.allyComp, m.allyCompLabel]),
-    enemyComps: comps((m) => [m.enemyComp, m.enemyCompLabel]),
-    maps: comps((m) => [m.mapId, m.mapName]),
+    classSpecTree,
+    maps: (() => { const seen = new Map<string, string>(); for (const m of all) if (m.mapId !== '' && !seen.has(m.mapId)) seen.set(m.mapId, m.mapName); return [...seen].map(([value, label]) => ({ value, label })); })(),
     ratingRange: ratings.length ? { min: Math.min(...ratings), max: Math.max(...ratings) } : null,
     dateRange: dates.length ? { minMs: Math.min(...dates), maxMs: Math.max(...dates) } : null,
   };

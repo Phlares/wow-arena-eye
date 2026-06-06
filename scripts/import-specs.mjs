@@ -16,7 +16,7 @@ for (const m of block.matchAll(/(\w+)\s*=\s*'(\d+)'/g)) {
   const [, key, id] = m;
   if (id === '0') continue; // None
   const us = key.indexOf('_');
-  const className = us === -1 ? key : key.slice(0, us);
+  const className = (us === -1 ? key : key.slice(0, us)).replace(/([a-z])([A-Z])/g, '$1 $2');
   const specName = us === -1 ? '' : key.slice(us + 1);
   out[id] = { className, specName };
 }

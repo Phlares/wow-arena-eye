@@ -20,6 +20,10 @@ export function App() {
   const [data, setData] = useState<MatchesResponse>({ matches: [], sessions: [], total: 0 });
   const [selected, setSelected] = useState<MatchSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<{ col: string; dir: 'asc' | 'desc' } | null>(null);
+  // click a sortable header: new col → desc, same col desc → asc, same col asc → cleared
+  const onSort = (col: string) => setSort((s) =>
+    s?.col !== col ? { col, dir: 'desc' } : s.dir === 'desc' ? { col, dir: 'asc' } : null);
 
   useEffect(() => { void fetchFilters().then(setOptions).catch((e: unknown) => setError(String(e))); }, []);
   useEffect(() => {
@@ -38,7 +42,8 @@ export function App() {
         {options && <FilterRail options={options} filters={filters} onChange={onChange} />}
         <div className="main">
           <MatchTable matches={data.matches} sessions={data.sessions} selectedId={selected?.matchId ?? null}
-            onSelect={(id) => setSelected(data.matches.find((m) => m.matchId === id) ?? null)} />
+            onSelect={(id) => setSelected(data.matches.find((m) => m.matchId === id) ?? null)}
+            sort={sort} onSort={onSort} />
         </div>
         <SummaryDrawer match={selected} />
       </div>

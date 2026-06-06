@@ -7,14 +7,14 @@ export interface Extracted { combatants: CombatantRow[]; metrics: MetricRow[]; }
 /** Declarative per-unit scalar metric extractors. Add a metric = add one entry.
  *  NOTE: ids consumed by the dataset_export view in schema.ts (its CASE columns) must
  *  stay in sync with the ids here. */
-const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number }[] = [
+const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number; combine?: true }[] = [
   { id: 'casts', get: (u) => u.casts },
-  { id: 'interruptsLanded', get: (u) => u.interruptsLanded },
+  { id: 'interruptsLanded', get: (u) => u.interruptsLanded, combine: true },
   { id: 'interruptsSuffered', get: (u) => u.interruptsSuffered },
-  { id: 'dispels', get: (u) => u.dispels },
-  { id: 'purges', get: (u) => u.purges },
-  { id: 'cleanses', get: (u) => u.cleanses },
-  { id: 'spellsteals', get: (u) => u.spellsteals },
+  { id: 'dispels', get: (u) => u.dispels, combine: true },
+  { id: 'purges', get: (u) => u.purges, combine: true },
+  { id: 'cleanses', get: (u) => u.cleanses, combine: true },
+  { id: 'spellsteals', get: (u) => u.spellsteals, combine: true },
   { id: 'deaths', get: (u) => u.deaths },
   { id: 'deathsWhileCcd', get: (u) => u.deathsWhileCcd },
   { id: 'distanceMoved', get: (u) => u.distanceMoved },
@@ -22,6 +22,8 @@ const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number }[] = [
   { id: 'timeStationarySec', get: (u) => u.timeStationarySec },
   { id: 'defensivesUsed', get: (u) => u.defensivesUsed },
   { id: 'defensivesIntoBurst', get: (u) => u.defensivesIntoBurst },
+  // Throughput stays player-only: combining pet damage/healing here would change long-standing
+  // numbers and risk double-counting — only pet-performed ACTIONS (above) roll up to the owner.
   { id: 'damageDone', get: (u) => u.damageDone },
   { id: 'healingDone', get: (u) => u.healingDone },
   { id: 'absorbDone', get: (u) => u.absorbDone },
@@ -52,7 +54,10 @@ export function extractMetricRows(metrics: MatchMetrics, playerUnitId: string | 
       const u = pg.player;
       combatants.push({ unitId: u.unitId, name: u.name, spec: u.spec ?? '', team: tg.team, isPlayer: u.unitId === playerUnitId });
       for (const ex of UNIT_METRICS) {
-        const v = ex.get(u);
+        const petSum = ex.combine
+          ? pg.pets.reduce((acc, p) => { const pv = ex.get(p); return acc + (Number.isFinite(pv) ? pv : 0); }, 0)
+          : 0;
+        const v = ex.get(u) + petSum;
         if (typeof v === 'number' && Number.isFinite(v)) rows.push({ scope: u.unitId, metricId: ex.id, value: v });
       }
     }
