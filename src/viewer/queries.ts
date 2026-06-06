@@ -185,7 +185,7 @@ export function buildRangeSeries(m: MatchMetrics): RangePoint[] {
   const threat = enemies.slice().sort((a, b) => (b.player.damageDone ?? 0) - (a.player.damageDone ?? 0))[0]?.player.unitId;
   const trackOf = (id?: string): PositionTrack | undefined => m.positionTracks.find((t) => t.unitId === id);
   const pt = trackOf(m.playerUnitId), tt = trackOf(threat);
-  if (!pt || !tt) return [];
+  if (!pt?.samples.length || !tt?.samples.length) return [];
   const lastSec = Math.max(pt.samples.at(-1)?.tSec ?? 0, tt.samples.at(-1)?.tSec ?? 0);
   const out: RangePoint[] = [];
   for (let t = 0; t <= lastSec; t += STEP_SEC) {

@@ -6,7 +6,7 @@ const detail: MatchDetail = {
   rangeSeries: [],
   metrics: {
     playerUnitId: 'P',
-    losDisruptors: [],
+    losDisruptors: [{ kind: 'smoke-bomb', startSec: 40 }],
     timeline: [
       { tSec: 5, unitId: 'P', unitName: 'Me', kind: 'cast', spell: 'Shadow Bolt' },
       { tSec: 12, unitId: 'P', unitName: 'Me', kind: 'interrupt', spell: 'Spell Lock', targetId: 'E', targetName: 'Foe' },
@@ -25,6 +25,7 @@ it('renders lane labels and marks lethal vs handled windows', () => {
   const { container } = render(<Timeline detail={detail} onSelectWindow={() => {}} />);
   expect(screen.getByText('Kicks')).toBeInTheDocument();
   expect(screen.getByText('CC')).toBeInTheDocument();
+  expect(screen.getByText('LoS / smoke')).toBeInTheDocument();
   expect(container.querySelectorAll('.go-band').length).toBe(2);
   expect(screen.getByTestId('go-band-1')).toHaveClass('lethal');   // window 2 contains the death at 95
   expect(screen.getByTestId('go-band-0')).toHaveClass('handled');  // window 1 has no death

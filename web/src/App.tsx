@@ -32,8 +32,12 @@ export function App() {
   const [detailErr, setDetailErr] = useState<string | null>(null);
   useEffect(() => {
     if (detailId === null) return;
+    let ignore = false; // drop a stale response if the overlay closed/changed before it resolved
     setDetail(null); setDetailErr(null);
-    void fetchMatchDetail(detailId).then(setDetail).catch((e: unknown) => setDetailErr(e instanceof Error ? e.message : String(e)));
+    void fetchMatchDetail(detailId)
+      .then((d) => { if (!ignore) setDetail(d); })
+      .catch((e: unknown) => { if (!ignore) setDetailErr(e instanceof Error ? e.message : String(e)); });
+    return () => { ignore = true; };
   }, [detailId]);
   const closeDetail = () => { setDetailId(null); setDetail(null); setDetailErr(null); };
 

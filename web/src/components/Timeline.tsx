@@ -36,6 +36,14 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
           </div>
         </div>
       ))}
+      <div className="tl-lane">
+        <div className="tl-name">LoS / smoke</div>
+        <div className="tl-track">
+          {detail.metrics.losDisruptors.map((d, k) => (
+            <span key={k} className="ev los" style={{ left: pct(d.startSec ?? 0) }} title={`${d.kind ?? 'LoS'} · ${d.startSec ?? 0}s`} />
+          ))}
+        </div>
+      </div>
       <RangeLane series={detail.rangeSeries} matchEnd={matchEnd} />
     </div>
   );

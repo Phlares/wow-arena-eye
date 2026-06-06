@@ -64,3 +64,5 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .win-head { color: #fff; font-weight: 600; margin-bottom: 6px; }
 .win-row { display: flex; gap: 10px; padding: 2px 0; }
 .win-k { color: #7d8597; min-width: 110px; }
+
+.ev.los { width: 12px; height: 12px; border-radius: 3px; background: #7d8597; }
