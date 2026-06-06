@@ -22,6 +22,9 @@ export interface MatchSummary {
   damageDone: number | null;
   dps: number | null;
   interruptsLanded: number | null;
+  interruptsSuffered: number | null;
+  precognitionUptimeSec: number | null;
+  enemyPrecognitionUptimeSec: number | null;
 }
 
 export type SessionSummary = Session;

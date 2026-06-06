@@ -46,10 +46,17 @@ export async function ingestLogsIntoDb(
   return summary;
 }
 
+/** Directories to ingest: explicit CLI args when given, else the configured live logs
+ *  (falling back to the sample corpus) — so a bare `npm run ingest-db` re-ingests real games. */
+export function resolveIngestDirs(argv: string[], cfg: { liveLogsDir?: string; sampleLogsDir: string }): string[] {
+  return argv.length ? argv : [cfg.liveLogsDir || cfg.sampleLogsDir]; // || so an empty liveLogsDir falls back
+}
+
 async function main(): Promise<void> {
   const cfg = loadConfig();
-  const dirs = process.argv.slice(2);
-  if (!dirs.length) { console.error('usage: npm run ingest-db -- <logsDir...>'); process.exit(1); }
+  const args = process.argv.slice(2);
+  const dirs = resolveIngestDirs(args, cfg);
+  if (!args.length) console.log('ingest-db: no dirs given, defaulting to', dirs[0]);
   const files = dirs.flatMap((d) => allLogs(d));
   const db = openDb(cfg.dbPath ?? './wow-arena-eye.local.db');
   const sidecar = cfg.videoDirs?.length ? loadSidecarIndex(cfg.videoDirs) : undefined;

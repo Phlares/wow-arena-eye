@@ -6,6 +6,7 @@ import { sampleAt } from './sampleAt.js';
 import { ccReceivedSide, ccDoneSide, type LandedInterrupt } from './ccSides.js';
 import { collectCasts, readyIntervals, type CastEvent } from './cooldownTimeline.js';
 import { cdsForSpec } from '../metadata/cooldowns.js';
+import { computePrecognition } from './precognition.js';
 
 interface Acc {
   casts: string[];
@@ -52,6 +53,7 @@ export function computeUnitMetrics(match: unknown, auras: AuraState, casts: Map<
   const units = m.units ?? {};
   const startMs = matchStartMs(events);
   const endMs = matchEndMs(events) ?? startMs ?? 0;
+  const precog = computePrecognition(units, auras, endMs);
 
   const teamOf = (id: string | undefined): string => unitTeam((units[id ?? ''] ?? {}).reaction);
 
@@ -213,6 +215,8 @@ export function computeUnitMetrics(match: unknown, auras: AuraState, casts: Map<
 
       interruptsSuffered: a.interruptsSuffered.length,
       interruptsSufferedBySpell: tally(a.interruptsSuffered.map((x) => x.name)),
+      precognitionUptimeSec: precog.get(id)?.selfSec ?? 0,        // unionSeconds already rounds to 0.1s
+      enemyPrecognitionUptimeSec: precog.get(id)?.enemySec ?? 0,
       deathsWhileCcd: a.deathsWhileCcd.length,
       deathsWhileCcdBySpell: tally(a.deathsWhileCcd),
       defensivesUsed: a.defensives.length,

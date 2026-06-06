@@ -23,6 +23,9 @@ export const SCORECARD_METRICS: { id: string; label: string; polarity: Polarity 
   { id: 'defensivesIntoBurst', label: 'Defensives into burst', polarity: 'higher-better' },
   { id: 'spacing.isolatedSec', label: 'Time isolated (s)', polarity: 'lower-better' },
   { id: 'spacing.meleeRangeSec', label: 'Time in melee (s)', polarity: 'lower-better' },
+  // Reactive PvP-talent uptime — reported for context, not graded (see 'neutral' polarity).
+  { id: 'precognitionUptimeSec', label: 'Precognition uptime (s)', polarity: 'neutral' },
+  { id: 'enemyPrecognitionUptimeSec', label: 'Enemy Precognition (s)', polarity: 'neutral' },
 ];
 
 export interface BuildOpts { scope: Scope; seasons: Season[]; minCohort?: number; }
@@ -38,7 +41,11 @@ function collect(matches: PlayerMatch[], id: string): number[] {
 }
 
 function verdictFor(value: number | null, mean: number, stdev: number, n: number, polarity: Polarity, minCohort: number): { verdict: Verdict; z: number | null } {
-  if (value === null || n < minCohort) return { verdict: 'insufficient', z: null };
+  if (value === null) return { verdict: 'insufficient', z: null };
+  // Neutral metrics are always descriptive (report value for context) — even with a small cohort,
+  // which only suppresses the comparative z-score, not the value itself.
+  if (polarity === 'neutral') return { verdict: 'descriptive', z: n < minCohort ? null : stdev === 0 ? 0 : (value - mean) / stdev };
+  if (n < minCohort) return { verdict: 'insufficient', z: null };
   if (stdev === 0) {
     if (value === mean) return { verdict: 'average', z: 0 };
     const higher = value > mean;
@@ -77,13 +84,15 @@ export function buildScorecard(matches: PlayerMatch[], targetMatchId: string, op
     const value = num(target, def.id) ?? null;
     const st = stats(collect(cohort, def.id));
     const { verdict, z } = verdictFor(value, st.mean, st.stdev, st.n, def.polarity, minCohort);
+    // Neutral metrics have no "best" direction and don't predict the outcome — descriptive only.
+    const neutral = def.polarity === 'neutral';
     const seasonVals = collect(seasonCohort, def.id);
-    const seasonBest = seasonVals.length
-      ? (def.polarity === 'higher-better' ? Math.max(...seasonVals) : Math.min(...seasonVals))
-      : null;
-    const isNewBest = value !== null && (seasonBest === null
+    const seasonBest = neutral || !seasonVals.length
+      ? null
+      : (def.polarity === 'higher-better' ? Math.max(...seasonVals) : Math.min(...seasonVals));
+    const isNewBest = !neutral && value !== null && (seasonBest === null
       || (def.polarity === 'higher-better' ? value > seasonBest : value < seasonBest));
-    const winLikeness = winLikenessFor(value, collect(wins, def.id), collect(losses, def.id));
+    const winLikeness = neutral ? 'neutral' : winLikenessFor(value, collect(wins, def.id), collect(losses, def.id));
     return { id: def.id, label: def.label, polarity: def.polarity, value, mean: st.mean, stdev: st.stdev, n: st.n, z, verdict, seasonBest, isNewBest, winLikeness };
   });
 

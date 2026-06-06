@@ -10,6 +10,7 @@ interface Row {
   player_rating: number | null; player_cr: number | null; build_version: string | null;
   result: string | null; player_name: string | null;
   damageDone: number | null; dps: number | null; interruptsLanded: number | null;
+  interruptsSuffered: number | null; precognitionUptimeSec: number | null; enemyPrecognitionUptimeSec: number | null;
 }
 
 const SORT_COLS: Record<NonNullable<MatchQuery['sort']>, string> = {
@@ -56,7 +57,8 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
   const sql =
     `SELECT m.match_id, m.start_ms, m.duration_sec, m.bracket, m.zone_id, m.ally_comp_sig,
             m.enemy_comp_sig, m.player_rating, m.player_cr, m.build_version, m.result, m.player_name,
-            d.damageDone, d.dps, d.interruptsLanded
+            d.damageDone, d.dps, d.interruptsLanded, d.interruptsSuffered,
+            d.precognitionUptimeSec, d.enemyPrecognitionUptimeSec
      FROM match m
      LEFT JOIN dataset_export d ON d.match_id = m.match_id
      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
@@ -72,6 +74,8 @@ export function loadViewerMatches(db: DatabaseSync, q: MatchQuery): MatchSummary
     cr: r.player_cr, crDelta: null, buildVersion: r.build_version ?? '',
     result: r.result ?? 'unknown', sessionId: null,
     damageDone: r.damageDone, dps: r.dps, interruptsLanded: r.interruptsLanded,
+    interruptsSuffered: r.interruptsSuffered,
+    precognitionUptimeSec: r.precognitionUptimeSec, enemyPrecognitionUptimeSec: r.enemyPrecognitionUptimeSec,
   }));
 
   // free-text search runs in JS over RESOLVED labels (which aren't stored columns), so it

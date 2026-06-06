@@ -7,7 +7,7 @@ function m(over: Partial<MatchSummary>): MatchSummary {
     mapName: 'Enigma Crucible', allyComp: 'x', allyCompLabel: 'WLS', enemyComp: 'y', enemyCompLabel: 'RMP',
     rating: 2000, ratingDelta: 10, cr: 1800, crDelta: 14, buildVersion: '12.0.5',
     result: 'win', sessionId: 'A', damageDone: 4_200_000, dps: 26_000,
-    interruptsLanded: 3, ...over };
+    interruptsLanded: 3, interruptsSuffered: 1, precognitionUptimeSec: null, enemyPrecognitionUptimeSec: null, ...over };
 }
 const sessions: SessionSummary[] = [{ id: 'A', startMs: 1000, endMs: 2000, count: 2, wins: 1, losses: 1, ratingStart: 2000, ratingEnd: 2016, comps: ['WLS'] }];
 
@@ -73,9 +73,45 @@ it('shows the sort indicator on the active column header', () => {
     sort={{ col: 'damageDone', dir: 'desc' }} onSort={() => {}} />);
   expect(screen.getByText(/Dmg ▼/)).toBeInTheDocument();
 });
+it('shows a sortable Taken column with a footer total', () => {
+  render(<MatchTable matches={[m({ matchId: 'A', interruptsLanded: 3, interruptsSuffered: 2 }),
+                               m({ matchId: 'B', interruptsLanded: 0, interruptsSuffered: 7 })]}
+    sessions={sessions} selectedId={null} onSelect={() => {}} sort={null} onSort={() => {}} />);
+  expect(screen.getByText('Taken')).toBeInTheDocument();
+  const totals = screen.getByText('Σ').closest('tr')!;
+  expect(totals.textContent).toContain('9'); // kicks-taken sum 2+7 (distinct from kicks sum 3)
+});
 it('renders a separate version fold per build_version', () => {
   render(<MatchTable matches={[m({ matchId: 'A', buildVersion: '12.0.5' }), m({ matchId: 'B', buildVersion: '12.1.0', sessionId: null })]}
     sessions={sessions} selectedId={null} onSelect={() => {}} sort={null} onSort={() => {}} />);
   expect(screen.getByText(/12\.0\.5/)).toBeInTheDocument();
   expect(screen.getByText(/12\.1\.0/)).toBeInTheDocument();
+});
+
+// Two sessions, neutral order = [B, A] (B uppermost). A is the chronologically older session.
+const twoSessions: SessionSummary[] = [
+  { id: 'B', startMs: 3000, endMs: 4000, count: 1, wins: 1, losses: 0, ratingStart: null, ratingEnd: null, comps: [] },
+  { id: 'A', startMs: 1000, endMs: 2000, count: 1, wins: 1, losses: 0, ratingStart: null, ratingEnd: null, comps: [] },
+];
+it('reorders sessions chronologically under a When-ascending sort', () => {
+  const matches = [
+    m({ matchId: 'b1', sessionId: 'B', startMs: 3000, mapName: 'Black Rook Hold' }),
+    m({ matchId: 'a1', sessionId: 'A', startMs: 1000, mapName: 'Enigma Crucible' }),
+  ];
+  render(<MatchTable matches={matches} sessions={twoSessions} selectedId={null} onSelect={() => {}}
+    sort={{ col: 'startMs', dir: 'asc' }} onSort={() => {}} />);
+  const rows = screen.getAllByRole('row').map((r) => r.textContent ?? '');
+  // older session A (Enigma) must rise above newer session B (Black Rook), not stay in neutral [B,A] order
+  expect(rows.findIndex((t) => t.includes('Enigma Crucible'))).toBeLessThan(rows.findIndex((t) => t.includes('Black Rook Hold')));
+});
+it('reorders sessions by a metric sort, highest-leading session first', () => {
+  // neutral order is [B, A] (Black Rook first); the higher-damage session A must override that under Dmg↓
+  const matches = [
+    m({ matchId: 'a1', sessionId: 'A', mapName: 'Enigma Crucible', damageDone: 5_000_000 }),
+    m({ matchId: 'b1', sessionId: 'B', mapName: 'Black Rook Hold', damageDone: 2_000_000 }),
+  ];
+  render(<MatchTable matches={matches} sessions={twoSessions} selectedId={null} onSelect={() => {}}
+    sort={{ col: 'damageDone', dir: 'desc' }} onSort={() => {}} />);
+  const rows = screen.getAllByRole('row').map((r) => r.textContent ?? '');
+  expect(rows.findIndex((t) => t.includes('Enigma Crucible'))).toBeLessThan(rows.findIndex((t) => t.includes('Black Rook Hold')));
 });

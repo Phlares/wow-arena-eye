@@ -200,6 +200,8 @@ export interface UnitMetrics {
   spacing: SpacingSummary;
   interruptsSuffered: number;
   interruptsSufferedBySpell: SpellTally[];
+  precognitionUptimeSec: number;        // union of this unit's own Precognition (377362) buff, seconds
+  enemyPrecognitionUptimeSec: number;   // sum of Precognition uptime over opposite-team player units
   deathsWhileCcd: number;
   deathsWhileCcdBySpell: SpellTally[];
   defensivesUsed: number;

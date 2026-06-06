@@ -13,6 +13,10 @@ export function fmtRatingDelta(v: number | null): string {
 export function fmtRating(rating: number | null, delta: number | null): string {
   return `${rating ?? '—'} ${fmtRatingDelta(delta)}`.trim();
 }
+/** A short seconds value, e.g. "6.2s"; "—" when absent. For aura-uptime metrics. */
+export function fmtSeconds(v: number | null): string {
+  return v === null ? '—' : `${v.toFixed(1)}s`;
+}
 export function fmtDuration(sec: number | null): string {
   if (sec === null) return '—';
   const total = Math.round(sec);

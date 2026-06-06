@@ -1,5 +1,5 @@
 import type { MatchSummary } from '../api.js';
-import { fmtNum, fmtDuration, fmtRating } from '../format.js';
+import { fmtNum, fmtDuration, fmtRating, fmtSeconds } from '../format.js';
 
 function Row({ k, v }: { k: string; v: string }) {
   return <div className="drow"><span className="dk">{k}</span><span>{v}</span></div>;
@@ -18,6 +18,9 @@ export function SummaryDrawer({ match: m }: { match: MatchSummary | null }) {
       <Row k="Damage" v={fmtNum(m.damageDone)} />
       <Row k="DPS" v={fmtNum(m.dps)} />
       <Row k="Kicks" v={fmtNum(m.interruptsLanded)} />
+      <Row k="Kicks taken" v={fmtNum(m.interruptsSuffered)} />
+      <Row k="Precognition (you)" v={fmtSeconds(m.precognitionUptimeSec)} />
+      <Row k="Precognition (enemy)" v={fmtSeconds(m.enemyPrecognitionUptimeSec)} />
       <div className="soon">Open full detail → (coming in B)<br />Compare to history → (coming in C)</div>
     </aside>
   );
