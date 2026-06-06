@@ -237,7 +237,7 @@ export interface CombinedTotals {
 export interface PlayerGroup { player: UnitMetrics; pets: UnitMetrics[]; combined: CombinedTotals; }
 export interface TeamGroup { team: Team; players: PlayerGroup[]; unownedPets: UnitMetrics[]; }
 
-export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death';
+export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death' | 'cc';
 export interface TimelineEvent { tSec: number; unitId: string; unitName: string; kind: TimelineKind; spell?: string; extra?: string; targetId?: string; targetName?: string; }
 
 export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; positionTracks: PositionTrack[]; distanceBands: DistanceBandRow[]; lineOfSight: MatchLineOfSight; losDisruptors: LosDisruptor[]; }
