@@ -24,7 +24,7 @@ export interface MatchesResponse { matches: MatchSummary[]; sessions: SessionSum
 export interface RangePoint { tSec: number; dist: number | null }
 export interface DetailTimelineEvent { tSec: number; unitId: string; unitName: string; kind: string; spell?: string; extra?: string; targetId?: string; targetName?: string }
 export interface OffensiveWindow {
-  startSec: number; endSec: number; defendingTeam: string; teamDamageTaken: number;
+  startSec: number; endSec: number; attackingTeam: string; defendingTeam: string; teamDamageTaken: number;
   damageByTarget: { unitId: string; name: string; damage: number }[];
   mitigation: { available: { name: string }[]; used: { name: string }[] };
   counterPlay?: unknown; positioning?: unknown; lineOfSight?: unknown;

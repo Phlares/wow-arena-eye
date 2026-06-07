@@ -16,19 +16,19 @@ const detail: MatchDetail = {
       { tSec: 95, unitId: 'P', unitName: 'Me', kind: 'death' },
     ],
     offensiveWindows: [
-      { startSec: 10, endSec: 18, defendingTeam: 'friendly', teamDamageTaken: 50000, damageByTarget: [], mitigation: { available: [], used: [] } },
-      { startSec: 90, endSec: 98, defendingTeam: 'friendly', teamDamageTaken: 120000, damageByTarget: [], mitigation: { available: [], used: [] } },
+      { startSec: 10, endSec: 18, attackingTeam: 'enemy', defendingTeam: 'friendly', teamDamageTaken: 50000, damageByTarget: [], mitigation: { available: [], used: [] } },
+      { startSec: 90, endSec: 98, attackingTeam: 'friendly', defendingTeam: 'enemy', teamDamageTaken: 120000, damageByTarget: [], mitigation: { available: [], used: [] } },
     ],
   },
 };
 
-it('renders lane labels and marks lethal vs handled windows', () => {
+it('renders lane labels and colors GO bands by attacking team', () => {
   const { container } = render(<Timeline detail={detail} onSelectWindow={() => {}} />);
   expect(screen.getByText('Kicks landed')).toBeInTheDocument();
   expect(screen.getByText('Kicks taken')).toBeInTheDocument();
   expect(screen.getByText('CC')).toBeInTheDocument();
   expect(screen.getByText('LoS / smoke')).toBeInTheDocument();
   expect(container.querySelectorAll('.go-band').length).toBe(2);
-  expect(screen.getByTestId('go-band-1')).toHaveClass('lethal');   // window 2 contains the death at 95
-  expect(screen.getByTestId('go-band-0')).toHaveClass('handled');  // window 1 has no death
+  expect(screen.getByTestId('go-band-0')).toHaveClass('enemy-go');     // attackingTeam: enemy
+  expect(screen.getByTestId('go-band-1')).toHaveClass('friendly-go');  // attackingTeam: friendly
 });

@@ -45,8 +45,9 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 /* timeline */
 .tl { background: #13161c; border: 1px solid #2a2f3a; border-radius: 8px; padding: 12px; position: relative; }
 .tl-bands { position: absolute; left: 132px; right: 12px; top: 12px; bottom: 12px; pointer-events: none; }
-.go-band { position: absolute; top: 0; bottom: 0; pointer-events: auto; cursor: pointer; background: rgba(70,192,138,.10); border-left: 2px solid rgba(70,192,138,.6); }
-.go-band.lethal { background: rgba(229,115,107,.13); border-left-color: rgba(229,115,107,.6); }
+.go-band { position: absolute; top: 0; bottom: 0; pointer-events: auto; cursor: pointer; }
+.go-band.friendly-go { background: rgba(70,192,138,.10); border-left: 2px solid rgba(70,192,138,.6); }
+.go-band.enemy-go { background: rgba(229,115,107,.13); border-left: 2px solid rgba(229,115,107,.6); }
 .go-band .go-lbl { position: absolute; top: -2px; left: 3px; font-size: 10px; color: #9aa2b1; white-space: nowrap; }
 .tl-lane { position: relative; height: 30px; border-bottom: 1px dashed #232833; }
 .tl-name { position: absolute; left: 0; width: 120px; height: 100%; display: flex; align-items: center; font-size: 11px; color: #9aa2b1; }

@@ -14,14 +14,13 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
   const { timeline, offensiveWindows: wins, playerUnitId: p } = detail.metrics;
   const matchEnd = Math.max(1, ...timeline.map((e) => e.tSec), ...wins.map((w) => w.endSec), ...detail.rangeSeries.map((r) => r.tSec));
   const pct = (t: number) => `${(t / matchEnd) * 100}%`;
-  const lethal = (w: { startSec: number; endSec: number }) => timeline.some((e) => e.kind === 'death' && e.tSec >= w.startSec && e.tSec <= w.endSec);
   return (
     <div className="tl">
       <div className="tl-bands">
         {wins.map((w, i) => (
-          <div key={i} data-testid={`go-band-${i}`} className={`go-band ${lethal(w) ? 'lethal' : 'handled'}`}
+          <div key={i} data-testid={`go-band-${i}`} className={`go-band ${w.attackingTeam === 'friendly' ? 'friendly-go' : 'enemy-go'}`}
             style={{ left: pct(w.startSec), width: `${((w.endSec - w.startSec) / matchEnd) * 100}%` }}
-            onClick={() => onSelectWindow(i)} title={`GO ${i + 1}`}>
+            onClick={() => onSelectWindow(i)} title={`GO ${i + 1} · ${w.attackingTeam === 'friendly' ? 'our offense' : 'enemy offense'}`}>
             <span className="go-lbl">GO {i + 1}</span>
           </div>
         ))}
