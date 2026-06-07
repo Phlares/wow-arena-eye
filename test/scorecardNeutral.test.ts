@@ -4,7 +4,7 @@ import type { PlayerMatch } from '../src/scorecard/types.js';
 
 function pm(id: string, result: string, precog: number): PlayerMatch {
   return { matchId: id, startMs: 1000, bracket: '3v3', zoneId: '1', allyComp: '', enemyComp: '',
-    rating: 1800, result, character: 'Me', metrics: { precognitionUptimeSec: precog } };
+    rating: 1800, durationSec: 120, result, character: 'Me', metrics: { precognitionUptimeSec: precog } };
 }
 
 describe('neutral scorecard metric', () => {

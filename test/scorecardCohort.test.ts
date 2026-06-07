@@ -4,7 +4,7 @@ import type { PlayerMatch } from '../src/scorecard/types.js';
 
 function mk(over: Partial<PlayerMatch>): PlayerMatch {
   return { matchId: 'M', startMs: 0, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e',
-    rating: 2000, result: 'win', character: 'Me', metrics: {}, ...over };
+    rating: 2000, durationSec: 120, result: 'win', character: 'Me', metrics: {}, ...over };
 }
 
 describe('stats', () => {

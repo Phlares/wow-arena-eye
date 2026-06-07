@@ -7,6 +7,7 @@ export interface PlayerMatch {
   allyComp: string;
   enemyComp: string;
   rating: number | null;
+  durationSec: number | null;
   result: string;            // 'win' | 'loss' | 'unknown'
   character: string;         // player_name (e.g. 'Phlares-Stormrage-US')
   metrics: Record<string, number>;

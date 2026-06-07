@@ -4,7 +4,7 @@ import type { PlayerMatch } from '../src/scorecard/types.js';
 
 function mk(matchId: string, result: string, metrics: Record<string, number>): PlayerMatch {
   return { matchId, startMs: 0, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e',
-    rating: 2000, result, character: 'Me', metrics };
+    rating: 2000, durationSec: 120, result, character: 'Me', metrics };
 }
 // 6 history matches + 1 target (>= MIN_COHORT after excluding target)
 function pool(targetMetrics: Record<string, number>): PlayerMatch[] {
@@ -50,7 +50,7 @@ describe('buildScorecard season-best', () => {
   const seasons = [{ name: 'S1', startMs: 1000 }, { name: 'S2', startMs: 2000 }];
   function mk2(matchId: string, startMs: number, metrics: Record<string, number>): PlayerMatch {
     return { matchId, startMs, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e',
-      rating: 2000, result: 'win', character: 'Me', metrics };
+      rating: 2000, durationSec: 120, result: 'win', character: 'Me', metrics };
   }
   it('seasonBest uses only the target season (higher-better) and flags a new best', () => {
     const matches = [
