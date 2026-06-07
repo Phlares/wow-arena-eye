@@ -26,6 +26,7 @@ export interface DetailTimelineEvent { tSec: number; unitId: string; unitName: s
 export interface OffensiveWindow {
   startSec: number; endSec: number; attackingTeam: string; defendingTeam: string; teamDamageTaken: number;
   damageByTarget: { unitId: string; name: string; damage: number }[];
+  damageByAttacker: { unitId: string; name: string; damage: number }[];
   mitigation: { available: { name: string }[]; used: { name: string }[] };
   counterPlay?: unknown; positioning?: unknown; lineOfSight?: unknown;
 }

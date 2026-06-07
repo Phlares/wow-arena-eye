@@ -17,8 +17,8 @@ const detail: MatchDetail = {
       { tSec: 95, unitId: 'P', unitName: 'Me', kind: 'death' },
     ],
     offensiveWindows: [
-      { startSec: 10, endSec: 18, attackingTeam: 'enemy', defendingTeam: 'friendly', teamDamageTaken: 50000, damageByTarget: [], mitigation: { available: [], used: [] } },
-      { startSec: 90, endSec: 98, attackingTeam: 'friendly', defendingTeam: 'enemy', teamDamageTaken: 120000, damageByTarget: [], mitigation: { available: [], used: [] } },
+      { startSec: 10, endSec: 18, attackingTeam: 'enemy', defendingTeam: 'friendly', teamDamageTaken: 50000, damageByTarget: [], damageByAttacker: [], mitigation: { available: [], used: [] } },
+      { startSec: 90, endSec: 98, attackingTeam: 'friendly', defendingTeam: 'enemy', teamDamageTaken: 120000, damageByTarget: [], damageByAttacker: [], mitigation: { available: [], used: [] } },
     ],
   },
 };

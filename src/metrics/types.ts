@@ -136,6 +136,7 @@ export interface OffensiveWindow {
   openedBy: CdRef[];
   teamDamageTaken: number;
   damageByTarget: { unitId: string; name: string; damage: number }[];
+  damageByAttacker: { unitId: string; name: string; damage: number }[];
   mitigation: { available: MitigationItem[]; used: MitigationItem[] };
   counterPlay: WindowCounterPlay;
   positioning?: WindowPositioning;
