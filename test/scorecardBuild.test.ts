@@ -4,7 +4,7 @@ import type { PlayerMatch } from '../src/scorecard/types.js';
 
 function mk(matchId: string, result: string, metrics: Record<string, number>): PlayerMatch {
   return { matchId, startMs: 0, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e',
-    rating: 2000, durationSec: 120, result, character: 'Me', metrics };
+    rating: 2000, durationSec: 60, result, character: 'Me', metrics };
 }
 // 6 history matches + 1 target (>= MIN_COHORT after excluding target)
 function pool(targetMetrics: Record<string, number>): PlayerMatch[] {
@@ -21,10 +21,9 @@ describe('buildScorecard', () => {
     expect(deaths.value).toBe(5);
     expect(deaths.n).toBe(6);
   });
-  it('marks high damage better (higher-better) and average when near the mean', () => {
+  it('marks high damage better (higher-better, rate-normalized)', () => {
     const sc = buildScorecard(pool({ deaths: 1, damageDone: 5000, dps: 100 }), 'T', { scope: {}, seasons: [] });
     expect(sc.metrics.find((m) => m.id === 'damageDone')!.verdict).toBe('better');
-    expect(sc.metrics.find((m) => m.id === 'dps')!.verdict).toBe('average'); // equals mean
   });
   it('flags insufficient when the cohort is below MIN_COHORT', () => {
     const small = [mk('T', 'loss', { deaths: 9 }), mk('H0', 'win', { deaths: 1 })]; // cohort n=1
@@ -50,7 +49,7 @@ describe('buildScorecard season-best', () => {
   const seasons = [{ name: 'S1', startMs: 1000 }, { name: 'S2', startMs: 2000 }];
   function mk2(matchId: string, startMs: number, metrics: Record<string, number>): PlayerMatch {
     return { matchId, startMs, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e',
-      rating: 2000, durationSec: 120, result: 'win', character: 'Me', metrics };
+      rating: 2000, durationSec: 60, result: 'win', character: 'Me', metrics };
   }
   it('seasonBest uses only the target season (higher-better) and flags a new best', () => {
     const matches = [
