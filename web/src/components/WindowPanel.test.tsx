@@ -3,7 +3,7 @@ import { WindowPanel } from './WindowPanel.js';
 import type { OffensiveWindow } from '../api.js';
 
 const w: OffensiveWindow = {
-  startSec: 10, endSec: 18, defendingTeam: 'friendly', teamDamageTaken: 50000,
+  startSec: 10, endSec: 18, attackingTeam: 'enemy', defendingTeam: 'friendly', teamDamageTaken: 50000,
   damageByTarget: [{ unitId: 'P', name: 'Me', damage: 40000 }],
   mitigation: { available: [{ name: 'Unending Resolve' }], used: [] },
 };
