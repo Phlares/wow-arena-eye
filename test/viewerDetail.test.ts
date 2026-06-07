@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DatabaseSync } from '../src/store/sqlite.js';
 import { migrate } from '../src/store/schema.js';
-import { loadMatchDetail, buildRangeSeries } from '../src/viewer/queries.js';
+import { loadMatchDetail, buildRangeSeries, buildRangeTargets } from '../src/viewer/queries.js';
 import type { MatchMetrics } from '../src/metrics/types.js';
 
 // player P at (0,0); top-damage enemy E at (10,0); E2 is low-damage (so threat = E).
@@ -37,5 +37,16 @@ describe('loadMatchDetail + buildRangeSeries', () => {
   it('returns null when there is no detail row', () => {
     const db = new DatabaseSync(':memory:'); migrate(db);
     expect(loadMatchDetail(db, 'nope')).toBeNull();
+  });
+});
+
+describe('buildRangeTargets', () => {
+  it('emits a per-target series for every non-recording player, marking the primary threat', () => {
+    const targets = buildRangeTargets(metrics);
+    expect(targets.map((t) => t.unitId)).toEqual(['E', 'E2']); // self P excluded; threat E first
+    expect(targets[0]).toMatchObject({ unitId: 'E', team: 'enemy', isPrimaryThreat: true });
+    expect(targets[0].series[0]).toMatchObject({ tSec: 0, dist: 10 });
+    expect(targets[1]).toMatchObject({ unitId: 'E2', isPrimaryThreat: false });
+    expect(targets[1].series).toEqual([]); // E2 has no position track → honest empty series
   });
 });

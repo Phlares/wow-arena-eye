@@ -4,6 +4,7 @@ import type { MatchDetail } from '../api.js';
 
 const detail: MatchDetail = {
   rangeSeries: [],
+  rangeTargets: [],
   roster: [],
   goTracks: [],
   metrics: {

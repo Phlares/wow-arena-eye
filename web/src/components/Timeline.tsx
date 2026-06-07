@@ -49,7 +49,7 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
         </div>
       </div>
       <GoTracks tracks={detail.goTracks} matchEnd={matchEnd} />
-      <RangeLane series={detail.rangeSeries} matchEnd={matchEnd} />
+      <RangeLane series={detail.rangeSeries} targets={detail.rangeTargets} matchEnd={matchEnd} />
     </div>
   );
 }

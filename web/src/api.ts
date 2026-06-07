@@ -32,9 +32,11 @@ export interface OffensiveWindow {
 }
 export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean }
 export interface GoTrack { unitId: string; name: string; team: string; className: string; intervals: { startSec: number; endSec: number }[] }
+export interface RangeTarget { unitId: string; name: string; className: string; team: string; isHealer: boolean; isPrimaryThreat: boolean; series: RangePoint[] }
 export interface MatchDetail {
   metrics: { playerUnitId?: string; timeline: DetailTimelineEvent[]; offensiveWindows: OffensiveWindow[]; losDisruptors: { kind?: string; startSec?: number }[] };
   rangeSeries: RangePoint[];
+  rangeTargets: RangeTarget[];
   roster: RosterEntry[];
   goTracks: GoTrack[];
 }

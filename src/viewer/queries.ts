@@ -9,7 +9,7 @@ import { buildScorecard } from '../scorecard/scorecard.js';
 import { loadPlayerMatches } from '../scorecard/loadMatches.js';
 import type { Scope, Season, Scorecard } from '../scorecard/types.js';
 import type { MatchMetrics, PositionTrack } from '../metrics/types.js';
-import type { FilterOptions, MatchQuery, MatchSummary, RangePoint, RosterEntry, GoTrack } from './types.js';
+import type { FilterOptions, MatchQuery, MatchSummary, RangePoint, RosterEntry, GoTrack, RangeTarget } from './types.js';
 
 interface Row {
   match_id: string; start_ms: number | null; duration_sec: number | null; bracket: string | null;
@@ -182,13 +182,15 @@ export function loadMatchDetail(db: DatabaseSync, matchId: string): MatchMetrics
   return row?.metrics_json ? (JSON.parse(row.metrics_json) as MatchMetrics) : null;
 }
 
-/** Recording player's distance to the primary threat (highest-damage enemy player) over time.
- *  null where either position is unknown — gaps are honest, never a fabricated 0. */
-export function buildRangeSeries(m: MatchMetrics): RangePoint[] {
+/** Highest-damage enemy player's unitId — the default range target. */
+function primaryThreatId(m: MatchMetrics): string | undefined {
   const enemies = m.teams.find((t) => t.team === 'enemy')?.players ?? [];
-  const threat = enemies.slice().sort((a, b) => (b.player.damageDone ?? 0) - (a.player.damageDone ?? 0))[0]?.player.unitId;
-  const trackOf = (id?: string): PositionTrack | undefined => m.positionTracks.find((t) => t.unitId === id);
-  const pt = trackOf(m.playerUnitId), tt = trackOf(threat);
+  return enemies.slice().sort((a, b) => (b.player.damageDone ?? 0) - (a.player.damageDone ?? 0))[0]?.player.unitId;
+}
+
+/** Distance series between two position tracks, sampled at STEP_SEC. null where either position
+ *  is unknown — gaps are honest, never a fabricated 0. Empty if either track has no samples. */
+function rangeSeriesBetween(pt: PositionTrack | undefined, tt: PositionTrack | undefined): RangePoint[] {
   if (!pt?.samples.length || !tt?.samples.length) return [];
   const lastSec = Math.max(pt.samples.at(-1)?.tSec ?? 0, tt.samples.at(-1)?.tSec ?? 0);
   const out: RangePoint[] = [];
@@ -197,6 +199,35 @@ export function buildRangeSeries(m: MatchMetrics): RangePoint[] {
     out.push({ tSec: round1(t), dist: d === undefined ? null : round1(d) });
   }
   return out;
+}
+
+/** Recording player's distance to the primary threat (highest-damage enemy player) over time. */
+export function buildRangeSeries(m: MatchMetrics): RangePoint[] {
+  const trackOf = (id?: string): PositionTrack | undefined => m.positionTracks.find((t) => t.unitId === id);
+  return rangeSeriesBetween(trackOf(m.playerUnitId), trackOf(primaryThreatId(m)));
+}
+
+/** Range series from the recording player to every OTHER player, so the detail view can let the
+ *  user re-target the range lane. The primary threat is marked and sorted first. */
+export function buildRangeTargets(m: MatchMetrics): RangeTarget[] {
+  const playerId = m.playerUnitId;
+  const threat = primaryThreatId(m);
+  const trackOf = (id?: string): PositionTrack | undefined => m.positionTracks.find((t) => t.unitId === id);
+  const pt = trackOf(playerId);
+  const out: RangeTarget[] = [];
+  for (const tg of m.teams) {
+    for (const pg of tg.players) {
+      const p = pg.player;
+      if (p.unitId === playerId) continue;
+      const spec = p.spec !== undefined ? String(p.spec) : '';
+      out.push({
+        unitId: p.unitId, name: p.name, className: className(spec), team: tg.team,
+        isHealer: HEALER_SPEC_IDS.includes(spec), isPrimaryThreat: p.unitId === threat,
+        series: rangeSeriesBetween(pt, trackOf(p.unitId)),
+      });
+    }
+  }
+  return out.sort((a, b) => Number(b.isPrimaryThreat) - Number(a.isPrimaryThreat) || a.team.localeCompare(b.team));
 }
 
 /** Build a comparative scorecard for one match, or null if it isn't in the store. */

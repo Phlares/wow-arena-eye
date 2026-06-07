@@ -105,3 +105,4 @@ table.sct td { padding: 4px 8px; border-bottom: 1px solid #1c2129; color: #c8ccd
 .go-track { position: relative; height: 22px; }
 .go-track .tl-name { font-weight: 600; }
 .go-seg { position: absolute; top: 50%; transform: translateY(-50%); height: 8px; border-radius: 3px; opacity: .85; }
+.range-target { max-width: 120px; background: #161a22; color: #c8cdd6; border: 1px solid #2a3140; border-radius: 3px; font-size: 11px; padding: 1px 2px; }
