@@ -27,6 +27,8 @@ export interface Scope {
   ratingBand?: number;       // within ± this of target rating
   timeOfDayHours?: number;   // within ± this many hours of target's local hour
   season?: boolean;          // only target's current season
+  lastNGames?: number;       // the N most-recent games before the target (recency mode)
+  lastNSessions?: number;    // the matches in the N sessions before the target's session
 }
 
 export interface MetricScore {
