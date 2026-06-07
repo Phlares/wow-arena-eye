@@ -5,7 +5,8 @@ import { classColor } from '../classColors.js';
  *  class-colored line filled across that attacker's offensive (GO) intervals. Two lit enemy rows
  *  at the same time = both enemies going. */
 export function GoTracks({ tracks, matchEnd }: { tracks: GoTrack[]; matchEnd: number }) {
-  const ordered = [...tracks.filter((t) => t.team === 'enemy'), ...tracks.filter((t) => t.team === 'friendly')];
+  const ts = tracks ?? [];
+  const ordered = [...ts.filter((t) => t.team === 'enemy'), ...ts.filter((t) => t.team === 'friendly')];
   const pct = (t: number) => `${(t / matchEnd) * 100}%`;
   return (
     <div className="go-tracks">

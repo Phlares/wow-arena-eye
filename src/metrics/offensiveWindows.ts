@@ -1,4 +1,4 @@
-import { type Team, type OffensiveWindow, type CdRef, type UnitMetrics, type MitigationItem, type MitigationCategory, unitTeam } from './types.js';
+import { type Team, type OffensiveWindow, type CdRef, type UnitMetrics, type MitigationItem, type MitigationCategory, unitTeam, resolvePlayer } from './types.js';
 import { type AuraState, type Interval } from './auraState.js';
 import { cdsForSpec, isOffensiveCd, type CdEntry } from '../metadata/cooldowns.js';
 import { ccInfo, isInterrupt, isImmunity } from '../metadata/spells.js';
@@ -107,7 +107,8 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
       if (teamOf(s) !== w.team || teamOf(d) !== OTHER[w.team]) continue;
       accs[i].dmgTotal += amt;
       accs[i].dmgByTarget.set(d, (accs[i].dmgByTarget.get(d) ?? 0) + amt);
-      accs[i].dmgBySource.set(s, (accs[i].dmgBySource.get(s) ?? 0) + amt); // s is on the attacking team (guarded above)
+      const attacker = resolvePlayer(rawUnits, s) ?? s; // roll pet damage to its owner (Felguard → Warlock)
+      accs[i].dmgBySource.set(attacker, (accs[i].dmgBySource.get(attacker) ?? 0) + amt);
     }
   }
 
