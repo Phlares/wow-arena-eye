@@ -14,7 +14,15 @@ const LANES: { key: string; label: string; pick: (e: DetailTimelineEvent, player
 
 export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSelectWindow: (i: number) => void }) {
   const { timeline, offensiveWindows: wins, playerUnitId: p } = detail.metrics;
-  const matchEnd = Math.max(1, ...timeline.map((e) => e.tSec), ...wins.map((w) => w.endSec), ...detail.rangeSeries.map((r) => r.tSec));
+  // include every re-targetable range series' end, so switching to a target whose track outlives
+  // the primary threat doesn't push the line past the right edge of the axis.
+  const matchEnd = Math.max(
+    1,
+    ...timeline.map((e) => e.tSec),
+    ...wins.map((w) => w.endSec),
+    ...detail.rangeSeries.map((r) => r.tSec),
+    ...(detail.rangeTargets ?? []).map((t) => t.series.at(-1)?.tSec ?? 0),
+  );
   const pct = (t: number) => `${(t / matchEnd) * 100}%`;
   // Death markers get a richer hover: the ~5s of damage that preceded the death ("what killed me").
   const deathTitle = (e: DetailTimelineEvent): string => {
