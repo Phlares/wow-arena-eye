@@ -77,3 +77,12 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .cmp-ctl .chips { display: flex; gap: 7px; flex-wrap: wrap; }
 .cmp-ctl .chip { font-size: 11px; padding: 4px 9px; border-radius: 14px; border: 1px solid #2f3a4d; color: #9aa2b1; background: #0f1217; cursor: pointer; }
 .cmp-ctl .chip.on { background: #243044; color: #cfe0ff; border-color: #3a5b8c; }
+
+table.sct { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+table.sct th { text-align: left; color: #7d8597; font-weight: 500; padding: 4px 8px; border-bottom: 1px solid #2a2f3a; }
+table.sct td { padding: 4px 8px; border-bottom: 1px solid #1c2129; color: #c8ccd4; }
+.sct-summary { font-size: 12px; color: #cdd3dd; margin-top: 6px; }
+.sct-warn { color: #e5c07b; }
+.v-better { color: #7fd9b3; } .v-worse { color: #e5897f; } .v-avg { color: #9aa2b1; } .v-info { color: #8fb3e0; }
+.wl-win { color: #7fd9b3; } .wl-loss { color: #e5897f; } .wl-neu { color: #7d8597; }
+.sct .star { color: #f0c24b; }
