@@ -1,5 +1,6 @@
 import type { UnitMetrics, PositionTrack, SpacingSummary, DistanceBandRow } from './types.js';
 import { distanceAt, resolvePosition } from './positionTracks.js';
+import { HEALER_SPEC_IDS } from './registry.js';
 
 export const STEP_MS = 500;
 export const MELEE_YD = 8;
@@ -51,12 +52,27 @@ function spacingFor(u: UnitMetrics, players: UnitMetrics[], tracks: Map<string, 
   return { meleeRangeSec: round1(meleeRangeSec), isolatedSec: round1(isolatedSec) };
 }
 
-/** Return a copy of `units` with `spacing` filled per player (non-players get a zero summary). */
+/** Mean distance from `u` to its own-team healer over the match, or null if the team has no healer
+ *  (or no resolvable samples). The healer is the first same-team player whose spec ∈ HEALER_SPEC_IDS. */
+function avgHealerDistance(u: UnitMetrics, players: UnitMetrics[], tracks: Map<string, PositionTrack>): number | null {
+  const self = tracks.get(u.unitId);
+  if (!self || self.samples.length === 0) return null;
+  const healer = players.find((p) => p.team === u.team && p.unitId !== u.unitId && p.spec !== undefined && HEALER_SPEC_IDS.includes(String(p.spec)));
+  const ht = healer ? tracks.get(healer.unitId) : undefined;
+  if (!ht) return null;
+  const startT = self.samples[0].tSec, endT = self.samples[self.samples.length - 1].tSec;
+  let sum = 0, n = 0;
+  for (let t = startT; t <= endT; t += STEP_SEC) { const d = distanceAt(self, ht, t); if (d !== undefined) { sum += d; n += 1; } }
+  return n ? round1(sum / n) : null;
+}
+
+/** Return a copy of `units` with `spacing` + `avgHealerDistanceYd` filled per player. */
 export function attachSpacing(units: UnitMetrics[], tracks: Map<string, PositionTrack>): UnitMetrics[] {
   const players = units.filter((u) => u.kind === 'player');
   return units.map((u) => ({
     ...u,
     spacing: u.kind === 'player' ? spacingFor(u, players, tracks) : { meleeRangeSec: 0, isolatedSec: 0 },
+    avgHealerDistanceYd: u.kind === 'player' ? avgHealerDistance(u, players, tracks) : null,
   }));
 }
 
