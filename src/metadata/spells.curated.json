@@ -18,6 +18,7 @@
   "51514": { "name": "Hex",             "tags": ["cc"], "ccCategory": "incapacitate" },
   "605":   { "name": "Mind Control",    "tags": ["cc"], "ccCategory": "disorient" },
   "5782":  { "name": "Fear",            "tags": ["cc"], "ccCategory": "disorient" },
+  "6358":  { "name": "Seduction",       "tags": ["cc"], "ccCategory": "disorient" },
   "33786": { "name": "Cyclone",         "tags": ["cc"], "ccCategory": "disorient" },
   "853":   { "name": "Hammer of Justice","tags": ["cc"], "ccCategory": "stun" },
   "408":   { "name": "Kidney Shot",     "tags": ["cc"], "ccCategory": "stun" },
