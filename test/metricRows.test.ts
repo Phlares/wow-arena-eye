@@ -37,7 +37,7 @@ function mkMetrics(): MatchMetrics {
       { team: 'friendly', summary: { targetPriority: [], healerPressureDamage: 5, swaps: 3, attackerFocus: [], alignmentFraction: 0.5, alignedTimeSec: 10 } },
     ],
     focusTracks: { stepMs: 0, tickCount: 0, startMs: 0, tracks: [] },
-    offensiveWindows: [], positionTracks: [], distanceBands: [],
+    offensiveWindows: [], attackerGoTracks: [], positionTracks: [], distanceBands: [],
     lineOfSight: { zoneId: '1825', resolved: true, approximate: false }, losDisruptors: [],
   };
 }
