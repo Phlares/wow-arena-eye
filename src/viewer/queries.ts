@@ -188,17 +188,22 @@ function primaryThreatId(m: MatchMetrics): string | undefined {
   return enemies.slice().sort((a, b) => (b.player.damageDone ?? 0) - (a.player.damageDone ?? 0))[0]?.player.unitId;
 }
 
-/** Distance series between two position tracks, sampled at STEP_SEC. null where either position
- *  is unknown — gaps are honest, never a fabricated 0. Empty if either track has no samples. */
-function rangeSeriesBetween(pt: PositionTrack | undefined, tt: PositionTrack | undefined): RangePoint[] {
-  if (!pt?.samples.length || !tt?.samples.length) return [];
-  const lastSec = Math.max(pt.samples.at(-1)?.tSec ?? 0, tt.samples.at(-1)?.tSec ?? 0);
+/** Sample a distance function over [0, lastSec] at STEP_SEC. An undefined distance becomes a null
+ *  gap — honest, never a fabricated 0. Shared skeleton for all range-lane series. */
+function sampleSeries(lastSec: number, distAt: (t: number) => number | undefined): RangePoint[] {
   const out: RangePoint[] = [];
   for (let t = 0; t <= lastSec; t += STEP_SEC) {
-    const d = distanceAt(pt, tt, t);
+    const d = distAt(t);
     out.push({ tSec: round1(t), dist: d === undefined ? null : round1(d) });
   }
   return out;
+}
+
+/** Distance series between two position tracks. Empty if either track has no samples. */
+function rangeSeriesBetween(pt: PositionTrack | undefined, tt: PositionTrack | undefined): RangePoint[] {
+  if (!pt?.samples.length || !tt?.samples.length) return [];
+  const lastSec = Math.max(pt.samples.at(-1)?.tSec ?? 0, tt.samples.at(-1)?.tSec ?? 0);
+  return sampleSeries(lastSec, (t) => distanceAt(pt, tt, t));
 }
 
 /** Recording player's distance to the primary threat (highest-damage enemy player) over time. */
@@ -214,15 +219,12 @@ function rangeSeriesToAnchor(pt: PositionTrack, placements: { tSec: number; x: n
   if (!pt.samples.length || !placements.length) return [];
   const lastSec = pt.samples.at(-1)?.tSec ?? 0;
   const sorted = [...placements].sort((a, b) => a.tSec - b.tSec);
-  const out: RangePoint[] = [];
-  for (let t = 0; t <= lastSec; t += STEP_SEC) {
+  return sampleSeries(lastSec, (t) => {
     const pos = positionAt(pt, t);
     let anchor: { tSec: number; x: number; y: number } | undefined;
     for (const pl of sorted) { if (pl.tSec <= t) anchor = pl; else break; }
-    const d = pos && anchor ? Math.hypot(pos.x - anchor.x, pos.y - anchor.y) : undefined;
-    out.push({ tSec: round1(t), dist: d === undefined ? null : round1(d) });
-  }
-  return out;
+    return pos && anchor ? Math.hypot(pos.x - anchor.x, pos.y - anchor.y) : undefined;
+  });
 }
 
 /** Range series from the recording player to every OTHER player (plus their own Demon Circle, if
@@ -231,7 +233,8 @@ function rangeSeriesToAnchor(pt: PositionTrack, placements: { tSec: number; x: n
 export function buildRangeTargets(m: MatchMetrics): RangeTarget[] {
   const playerId = m.playerUnitId;
   const threat = primaryThreatId(m);
-  const trackOf = (id?: string): PositionTrack | undefined => m.positionTracks.find((t) => t.unitId === id);
+  const byId = new Map(m.positionTracks.map((t) => [t.unitId, t]));
+  const trackOf = (id?: string): PositionTrack | undefined => (id ? byId.get(id) : undefined);
   const pt = trackOf(playerId);
   const out: RangeTarget[] = [];
   for (const tg of m.teams) {
