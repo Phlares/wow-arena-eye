@@ -4,6 +4,9 @@ import { mapName } from '../metadata/arenas.js';
 import { sessionize, type Session, type SessionInput } from '../store/sessions.js';
 import { distanceAt } from '../metrics/positionTracks.js';
 import { STEP_SEC, round1 } from '../metrics/spacing.js';
+import { buildScorecard } from '../scorecard/scorecard.js';
+import { loadPlayerMatches } from '../scorecard/loadMatches.js';
+import type { Scope, Season, Scorecard } from '../scorecard/types.js';
 import type { MatchMetrics, PositionTrack } from '../metrics/types.js';
 import type { FilterOptions, MatchQuery, MatchSummary, RangePoint } from './types.js';
 
@@ -193,4 +196,13 @@ export function buildRangeSeries(m: MatchMetrics): RangePoint[] {
     out.push({ tSec: round1(t), dist: d === undefined ? null : round1(d) });
   }
   return out;
+}
+
+/** Build a comparative scorecard for one match, or null if it isn't in the store. */
+export function buildScorecardFor(db: DatabaseSync, matchId: string, scope: Scope, seasons: Season[], gapMs: number): Scorecard | null {
+  const row = db.prepare('SELECT player_name FROM match WHERE match_id = ?').get(matchId) as { player_name?: string } | undefined;
+  if (!row?.player_name) return null;
+  const matches = loadPlayerMatches(db, row.player_name);
+  if (!matches.some((m) => m.matchId === matchId)) return null;
+  return buildScorecard(matches, matchId, { scope, seasons, gapMs });
 }
