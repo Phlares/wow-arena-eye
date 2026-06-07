@@ -4,7 +4,7 @@ import type { PlayerMatch } from '../src/scorecard/types.js';
 
 function mk(matchId: string, startMs: number, character = 'Me'): PlayerMatch {
   return { matchId, startMs, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e',
-    rating: 2000, result: 'win', character, metrics: {} };
+    rating: 2000, durationSec: 60, result: 'win', character, metrics: {} };
 }
 
 describe('latestMatchId', () => {
@@ -20,7 +20,7 @@ describe('latestMatchId', () => {
   });
   it('ignores matches with a null startMs', () => {
     const ms: PlayerMatch[] = [
-      { matchId: 'NT', startMs: null, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e', rating: 2000, result: 'win', character: 'Me', metrics: {} },
+      { matchId: 'NT', startMs: null, bracket: '3v3', zoneId: '1825', allyComp: 'a', enemyComp: 'e', rating: 2000, durationSec: 60, result: 'win', character: 'Me', metrics: {} },
       mk('A', 100),
     ];
     expect(latestMatchId(ms, 'Me')).toBe('A');

@@ -30,17 +30,34 @@ export function seasonOf(seasons: Season[], startMs: number | null): string | nu
   return best ? best.name : null;
 }
 
+/** `matchId → session index` over chronological matches, using the same idle-gap split as
+ *  `sessionize` (a new session when next.startMs − prev end > gapMs). end = startMs + dur. */
+function sessionIndexByStart(rows: { matchId: string; startMs: number; durationSec: number | null }[], gapMs: number): Map<string, number> {
+  const sorted = [...rows].sort((a, b) => a.startMs - b.startMs);
+  const idx = new Map<string, number>();
+  let cur = 0, prevEnd = 0, first = true;
+  for (const r of sorted) {
+    if (!first && r.startMs - prevEnd > gapMs) cur += 1;
+    idx.set(r.matchId, cur);
+    prevEnd = r.startMs + (r.durationSec ?? 0) * 1000;
+    first = false;
+  }
+  return idx;
+}
+
 /** The recording character's past matches matching the active scope. Always enforces the
- *  target's bracket and excludes the target match itself. */
+ *  target's bracket and excludes the target match itself. Recency modes (lastNGames /
+ *  lastNSessions) narrow to games BEFORE the target so a baseline never includes later games. */
 export function filterCohort(
   matches: PlayerMatch[],
   target: PlayerMatch,
   scope: Scope,
   seasons: Season[] = [],
+  gapMs = 30 * 60_000,
 ): PlayerMatch[] {
   const targetHour = target.startMs !== null ? new Date(target.startMs).getHours() : null;
   const targetSeason = seasonOf(seasons, target.startMs);
-  return matches.filter((m) => {
+  const base = matches.filter((m) => {
     if (m.matchId === target.matchId) return false;
     if (m.bracket !== target.bracket) return false;
     if (scope.map && m.zoneId !== target.zoneId) return false;
@@ -56,4 +73,27 @@ export function filterCohort(
     if (scope.season && seasonOf(seasons, m.startMs) !== targetSeason) return false;
     return true;
   });
+
+  if (scope.lastNGames !== undefined) {
+    if (target.startMs === null) return [];
+    return base
+      .filter((m) => m.startMs !== null && m.startMs < target.startMs!)
+      .sort((a, b) => (b.startMs ?? 0) - (a.startMs ?? 0))
+      .slice(0, scope.lastNGames);
+  }
+  if (scope.lastNSessions !== undefined) {
+    if (target.startMs === null) return [];
+    // Sessions are defined over the FULL bracket history (not the attribute-filtered `base`), so
+    // combining lastNSessions with comp/map/etc. keeps real session boundaries — then we apply the
+    // attribute filter (base) WITHIN the N sessions before the target's.
+    const rows = matches
+      .filter((m) => m.bracket === target.bracket && m.startMs !== null)
+      .map((m) => ({ matchId: m.matchId, startMs: m.startMs as number, durationSec: m.durationSec }));
+    const idx = sessionIndexByStart(rows, gapMs);
+    const targetIdx = idx.get(target.matchId);
+    if (targetIdx === undefined) return [];
+    const lo = targetIdx - scope.lastNSessions;
+    return base.filter((m) => { const i = idx.get(m.matchId); return i !== undefined && i >= lo && i <= targetIdx - 1; });
+  }
+  return base;
 }

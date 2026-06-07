@@ -14,6 +14,8 @@ const UNIT_METRICS: { id: string; get: (u: UnitMetrics) => number; combine?: tru
   // Precognition uptime is player-only (never on a pet) — no combine.
   { id: 'precognitionUptimeSec', get: (u) => u.precognitionUptimeSec },
   { id: 'enemyPrecognitionUptimeSec', get: (u) => u.enemyPrecognitionUptimeSec },
+  // null healer distance → NaN → dropped by the Number.isFinite guard (absent, not 0).
+  { id: 'avgHealerDistanceYd', get: (u) => u.avgHealerDistanceYd ?? NaN },
   { id: 'dispels', get: (u) => u.dispels, combine: true },
   { id: 'purges', get: (u) => u.purges, combine: true },
   { id: 'cleanses', get: (u) => u.cleanses, combine: true },

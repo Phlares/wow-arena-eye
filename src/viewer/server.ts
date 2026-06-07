@@ -5,8 +5,21 @@ import { fileURLToPath } from 'node:url';
 import type { DatabaseSync } from '../store/sqlite.js';
 import { openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
-import { attachSessions, buildRangeSeries, enrichRatingDeltas, loadFilterOptions, loadMatchDetail, loadMatchScalars, loadViewerMatches } from './queries.js';
+import { attachSessions, buildRangeSeries, buildScorecardFor, enrichRatingDeltas, loadFilterOptions, loadMatchDetail, loadMatchScalars, loadViewerMatches } from './queries.js';
 import type { MatchQuery } from './types.js';
+import type { Scope } from '../scorecard/types.js';
+
+/** A baseline Scope from /scorecard query params: mode (overall|games|sessions) + composable filters. */
+function parseScope(p: URLSearchParams): Scope {
+  const mode = p.get('mode'); const n = Number(p.get('n'));
+  const num = (k: string) => (p.get(k) && Number.isFinite(Number(p.get(k))) ? Number(p.get(k)) : undefined);
+  return {
+    lastNGames: mode === 'games' && Number.isFinite(n) && n > 0 ? n : undefined,
+    lastNSessions: mode === 'sessions' && Number.isFinite(n) && n > 0 ? n : undefined,
+    comp: p.get('comp') === '1' || undefined, map: p.get('map') === '1' || undefined,
+    ratingBand: num('ratingBand'), timeOfDayHours: num('timeOfDay'), season: p.get('season') === '1' || undefined,
+  };
+}
 
 export interface ApiResult { status: number; body: string; }
 
@@ -45,6 +58,11 @@ export function handleApi(db: DatabaseSync, method: string, path: string, params
       ? matches.length
       : loadViewerMatches(db, { ...query, limit: undefined, offset: undefined }).length;
     return json(200, { matches, sessions, total });
+  }
+  const scorecard = path.match(/^\/api\/matches\/(.+)\/scorecard$/);
+  if (scorecard) {
+    const sc = buildScorecardFor(db, decodeURIComponent(scorecard[1]), parseScope(params), loadConfig().seasons, gapMs);
+    return sc ? json(200, sc) : json(404, { error: 'match not in store' });
   }
   const detail = path.match(/^\/api\/matches\/(.+)\/detail$/);
   if (detail) {

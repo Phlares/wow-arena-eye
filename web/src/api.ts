@@ -39,6 +39,32 @@ export async function fetchMatchDetail(id: string): Promise<MatchDetail> {
   if (!r.ok) throw new Error(`/detail ${r.status}`);
   return r.json() as Promise<MatchDetail>;
 }
+
+// --- comparative scorecard (C1) ---
+export interface MetricScore { id: string; label: string; polarity: string; value: number | null; mean: number;
+  stdev: number; n: number; z: number | null; verdict: string; seasonBest: number | null; isNewBest: boolean; winLikeness: string; }
+export interface Scorecard { matchId: string; cohort: { description: string; n: number; wins: number; losses: number }; metrics: MetricScore[]; }
+export interface BaselineQuery { mode: 'overall' | 'games' | 'sessions'; n?: number;
+  comp?: boolean; map?: boolean; ratingBand?: number; timeOfDay?: number; season?: boolean; }
+
+// Metric ids whose scorecard value is a per-minute rate (mirror of the server's `rate: true` flags;
+// kept in sync by hand — update both when a rate metric is added/removed). Drives the "/min" suffix.
+const RATE_IDS = new Set(['damageDone', 'interruptsLanded', 'interruptsSuffered', 'ccDone.hardCcSec', 'ccReceived.hardCcSec', 'ccReceived.timeSec', 'spacing.isolatedSec', 'spacing.meleeRangeSec', 'precognitionUptimeSec', 'enemyPrecognitionUptimeSec']);
+export const isRateMetric = (id: string): boolean => RATE_IDS.has(id);
+
+export async function fetchScorecard(id: string, b: BaselineQuery): Promise<Scorecard> {
+  const p = new URLSearchParams({ mode: b.mode });
+  if (b.n !== undefined) p.set('n', String(b.n));
+  if (b.comp) p.set('comp', '1');
+  if (b.map) p.set('map', '1');
+  if (b.season) p.set('season', '1');
+  if (b.ratingBand !== undefined) p.set('ratingBand', String(b.ratingBand));
+  if (b.timeOfDay !== undefined) p.set('timeOfDay', String(b.timeOfDay));
+  const r = await fetch(`/api/matches/${encodeURIComponent(id)}/scorecard?${p}`);
+  if (r.status === 404) throw new Error('not-in-store');
+  if (!r.ok) throw new Error(`/scorecard ${r.status}`);
+  return r.json() as Promise<Scorecard>;
+}
 export type Filters = Record<string, string>;
 
 /** A Filters object as URLSearchParams, omitting empty/nullish values. Shared by the

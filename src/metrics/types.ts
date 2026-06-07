@@ -202,6 +202,7 @@ export interface UnitMetrics {
   interruptsSufferedBySpell: SpellTally[];
   precognitionUptimeSec: number;        // union of this unit's own Precognition (377362) buff, seconds
   enemyPrecognitionUptimeSec: number;   // sum of Precognition uptime over opposite-team player units
+  avgHealerDistanceYd: number | null;   // mean distance to this unit's own-team healer; null if none
   deathsWhileCcd: number;
   deathsWhileCcdBySpell: SpellTally[];
   defensivesUsed: number;
