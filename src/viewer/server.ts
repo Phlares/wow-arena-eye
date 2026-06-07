@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { DatabaseSync } from '../store/sqlite.js';
 import { openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
-import { attachSessions, buildRangeSeries, buildScorecardFor, enrichRatingDeltas, loadFilterOptions, loadMatchDetail, loadMatchScalars, loadViewerMatches } from './queries.js';
+import { attachSessions, buildRangeSeries, buildRoster, buildScorecardFor, enrichRatingDeltas, loadFilterOptions, loadMatchDetail, loadMatchScalars, loadViewerMatches } from './queries.js';
 import type { MatchQuery } from './types.js';
 import type { Scope } from '../scorecard/types.js';
 
@@ -67,7 +67,7 @@ export function handleApi(db: DatabaseSync, method: string, path: string, params
   const detail = path.match(/^\/api\/matches\/(.+)\/detail$/);
   if (detail) {
     const metrics = loadMatchDetail(db, decodeURIComponent(detail[1]));
-    return metrics ? json(200, { metrics, rangeSeries: buildRangeSeries(metrics) }) : json(404, { error: 'no detail for match (re-ingest to populate)' });
+    return metrics ? json(200, { metrics, rangeSeries: buildRangeSeries(metrics), roster: buildRoster(metrics) }) : json(404, { error: 'no detail for match (re-ingest to populate)' });
   }
   const single = path.match(/^\/api\/matches\/(.+)$/);
   if (single) {

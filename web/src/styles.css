@@ -89,3 +89,11 @@ table.sct td { padding: 4px 8px; border-bottom: 1px solid #1c2129; color: #c8ccd
 
 .compare-panel { margin-top: 16px; padding-top: 12px; border-top: 1px solid #2a2f3a; }
 .cp-title { font-size: 13px; color: #e6e9ef; margin: 0 0 6px; }
+
+/* roster strip */
+.roster { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.roster-team { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.roster-lbl { font-size: 11px; color: #7d8597; text-transform: uppercase; min-width: 46px; }
+.roster-chip { font-size: 12px; font-weight: 600; padding: 3px 8px; border: 1px solid #2a2f3a; border-radius: 6px; background: #0f1217; }
+.roster-chip.healer { border-color: #3a5b8c; }
+.roster-spec { color: #9aa2b1; font-weight: 400; }

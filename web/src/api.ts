@@ -29,9 +29,11 @@ export interface OffensiveWindow {
   mitigation: { available: { name: string }[]; used: { name: string }[] };
   counterPlay?: unknown; positioning?: unknown; lineOfSight?: unknown;
 }
+export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean }
 export interface MatchDetail {
   metrics: { playerUnitId?: string; timeline: DetailTimelineEvent[]; offensiveWindows: OffensiveWindow[]; losDisruptors: { kind?: string; startSec?: number }[] };
   rangeSeries: RangePoint[];
+  roster: RosterEntry[];
 }
 export async function fetchMatchDetail(id: string): Promise<MatchDetail> {
   const r = await fetch(`/api/matches/${encodeURIComponent(id)}/detail`);

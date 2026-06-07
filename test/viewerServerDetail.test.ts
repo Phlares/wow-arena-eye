@@ -18,6 +18,7 @@ describe('GET /api/matches/:id/detail', () => {
     const body = JSON.parse(r.body);
     expect(body.metrics.timeline).toEqual([]);
     expect(Array.isArray(body.rangeSeries)).toBe(true);
+    expect(Array.isArray(body.roster)).toBe(true);
   });
   it('404s when the match has no detail row', () => {
     const r = handleApi(db(), 'GET', '/api/matches/NOPE/detail', new URLSearchParams(), 60000);

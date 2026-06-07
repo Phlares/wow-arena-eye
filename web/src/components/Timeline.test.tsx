@@ -4,6 +4,7 @@ import type { MatchDetail } from '../api.js';
 
 const detail: MatchDetail = {
   rangeSeries: [],
+  roster: [],
   metrics: {
     playerUnitId: 'P',
     losDisruptors: [{ kind: 'smoke-bomb', startSec: 40 }],

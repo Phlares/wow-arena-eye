@@ -30,6 +30,7 @@ export interface MatchSummary {
 export type SessionSummary = Session;
 
 export interface RangePoint { tSec: number; dist: number | null; }
+export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean; }
 
 export interface FilterOptions {
   characters: string[];
