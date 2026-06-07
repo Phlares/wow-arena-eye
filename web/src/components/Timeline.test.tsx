@@ -24,7 +24,8 @@ const detail: MatchDetail = {
 
 it('renders lane labels and marks lethal vs handled windows', () => {
   const { container } = render(<Timeline detail={detail} onSelectWindow={() => {}} />);
-  expect(screen.getByText('Kicks')).toBeInTheDocument();
+  expect(screen.getByText('Kicks landed')).toBeInTheDocument();
+  expect(screen.getByText('Kicks taken')).toBeInTheDocument();
   expect(screen.getByText('CC')).toBeInTheDocument();
   expect(screen.getByText('LoS / smoke')).toBeInTheDocument();
   expect(container.querySelectorAll('.go-band').length).toBe(2);

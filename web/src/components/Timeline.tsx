@@ -4,7 +4,8 @@ import { RangeLane } from './RangeLane.js';
 /** Per-lane: how a timeline event maps to a marker class in that lane (null = not in this lane). */
 const LANES: { key: string; label: string; pick: (e: DetailTimelineEvent, playerId?: string) => string | null }[] = [
   { key: 'cast', label: 'You · casts', pick: (e, p) => (e.kind === 'cast' && e.unitId === p ? 'cast' : null) },
-  { key: 'kick', label: 'Kicks', pick: (e, p) => (e.kind === 'interrupt' ? (e.unitId === p ? 'kick' : e.targetId === p ? 'kicked' : null) : null) },
+  { key: 'kickLanded', label: 'Kicks landed', pick: (e, p) => (e.kind === 'interrupt' && e.unitId === p ? 'kick' : null) },
+  { key: 'kickTaken', label: 'Kicks taken', pick: (e, p) => (e.kind === 'interrupt' && e.targetId === p ? 'kicked' : null) },
   { key: 'cc', label: 'CC', pick: (e, p) => (e.kind === 'cc' ? (e.unitId === p ? 'cc' : e.targetId === p ? 'ccd' : null) : null) },
   { key: 'death', label: 'Deaths', pick: (e) => (e.kind === 'death' ? 'death' : null) },
 ];
