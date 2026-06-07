@@ -15,6 +15,8 @@ export const DEFAULT_TIME_OF_DAY_HOURS = 2;
 // rate-normalized damage row makes the old per-second `dps` entry redundant, so `dps` was dropped.
 export const SCORECARD_METRICS: { id: string; label: string; polarity: Polarity; rate?: true }[] = [
   { id: 'damageDone', label: 'Damage done', polarity: 'higher-better', rate: true },
+  // deaths are discrete events, not a duration — rate-normalizing them would mislead (a 0-death win
+  // shouldn't read "twice as good" just because the match was short), so they stay raw counts.
   { id: 'deaths', label: 'Deaths', polarity: 'lower-better' },
   { id: 'deathsWhileCcd', label: "Deaths while CC'd", polarity: 'lower-better' },
   { id: 'interruptsLanded', label: 'Kicks landed', polarity: 'higher-better', rate: true },

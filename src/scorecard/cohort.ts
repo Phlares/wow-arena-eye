@@ -83,8 +83,11 @@ export function filterCohort(
   }
   if (scope.lastNSessions !== undefined) {
     if (target.startMs === null) return [];
-    const rows = [...base, target]
-      .filter((m) => m.startMs !== null)
+    // Sessions are defined over the FULL bracket history (not the attribute-filtered `base`), so
+    // combining lastNSessions with comp/map/etc. keeps real session boundaries — then we apply the
+    // attribute filter (base) WITHIN the N sessions before the target's.
+    const rows = matches
+      .filter((m) => m.bracket === target.bracket && m.startMs !== null)
       .map((m) => ({ matchId: m.matchId, startMs: m.startMs as number, durationSec: m.durationSec }));
     const idx = sessionIndexByStart(rows, gapMs);
     const targetIdx = idx.get(target.matchId);

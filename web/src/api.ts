@@ -49,7 +49,7 @@ export interface BaselineQuery { mode: 'overall' | 'games' | 'sessions'; n?: num
 
 // Metric ids whose scorecard value is a per-minute rate (mirror of the server's `rate: true` flags;
 // kept in sync by hand — update both when a rate metric is added/removed). Drives the "/min" suffix.
-const RATE_IDS = new Set(['damageDone', 'healingDone', 'interruptsLanded', 'interruptsSuffered', 'ccDone.hardCcSec', 'ccReceived.hardCcSec', 'ccReceived.timeSec', 'spacing.isolatedSec', 'spacing.meleeRangeSec', 'precognitionUptimeSec', 'enemyPrecognitionUptimeSec']);
+const RATE_IDS = new Set(['damageDone', 'interruptsLanded', 'interruptsSuffered', 'ccDone.hardCcSec', 'ccReceived.hardCcSec', 'ccReceived.timeSec', 'spacing.isolatedSec', 'spacing.meleeRangeSec', 'precognitionUptimeSec', 'enemyPrecognitionUptimeSec']);
 export const isRateMetric = (id: string): boolean => RATE_IDS.has(id);
 
 export async function fetchScorecard(id: string, b: BaselineQuery): Promise<Scorecard> {
