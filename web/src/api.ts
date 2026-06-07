@@ -33,8 +33,9 @@ export interface OffensiveWindow {
 export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean }
 export interface GoTrack { unitId: string; name: string; team: string; className: string; intervals: { startSec: number; endSec: number }[] }
 export interface RangeTarget { unitId: string; name: string; className: string; team: string; isHealer: boolean; isPrimaryThreat: boolean; series: RangePoint[] }
+export interface DeathBlow { victimId: string; tSec: number; recent: { srcName: string; spell: string; amount: number; tSec: number }[] }
 export interface MatchDetail {
-  metrics: { playerUnitId?: string; timeline: DetailTimelineEvent[]; offensiveWindows: OffensiveWindow[]; losDisruptors: { kind?: string; startSec?: number }[] };
+  metrics: { playerUnitId?: string; timeline: DetailTimelineEvent[]; offensiveWindows: OffensiveWindow[]; losDisruptors: { kind?: string; startSec?: number }[]; deathBlows?: DeathBlow[] };
   rangeSeries: RangePoint[];
   rangeTargets: RangeTarget[];
   roster: RosterEntry[];

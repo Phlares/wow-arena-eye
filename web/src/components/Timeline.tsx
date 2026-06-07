@@ -1,6 +1,7 @@
 import type { MatchDetail, DetailTimelineEvent } from '../api.js';
 import { RangeLane } from './RangeLane.js';
 import { GoTracks } from './GoTracks.js';
+import { fmtNum } from '../format.js';
 
 /** Per-lane: how a timeline event maps to a marker class in that lane (null = not in this lane). */
 const LANES: { key: string; label: string; pick: (e: DetailTimelineEvent, playerId?: string) => string | null }[] = [
@@ -15,6 +16,13 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
   const { timeline, offensiveWindows: wins, playerUnitId: p } = detail.metrics;
   const matchEnd = Math.max(1, ...timeline.map((e) => e.tSec), ...wins.map((w) => w.endSec), ...detail.rangeSeries.map((r) => r.tSec));
   const pct = (t: number) => `${(t / matchEnd) * 100}%`;
+  // Death markers get a richer hover: the ~5s of damage that preceded the death ("what killed me").
+  const deathTitle = (e: DetailTimelineEvent): string => {
+    const db = (detail.metrics.deathBlows ?? []).find((d) => d.victimId === e.unitId && Math.abs(d.tSec - e.tSec) < 1);
+    const head = `${e.unitName} died · ${e.tSec}s`;
+    if (!db || db.recent.length === 0) return head;
+    return `${head}\nKilled by:\n${db.recent.map((h) => `${h.srcName} · ${h.spell || '—'} · ${fmtNum(h.amount)} (${h.tSec}s)`).join('\n')}`;
+  };
   return (
     <div className="tl">
       <div className="tl-bands">
@@ -35,7 +43,9 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
           <div className="tl-track">
             {timeline.map((e, j) => {
               const c = lane.pick(e, p);
-              return c ? <span key={j} className={`ev ${c}`} style={{ left: pct(e.tSec) }} title={`${e.unitName} · ${e.spell ?? ''} · ${e.tSec}s`} /> : null;
+              if (!c) return null;
+              const title = c === 'death' ? deathTitle(e) : `${e.unitName} · ${e.spell ?? ''} · ${e.tSec}s`;
+              return <span key={j} className={`ev ${c}`} style={{ left: pct(e.tSec) }} title={title} />;
             })}
           </div>
         </div>
