@@ -28,6 +28,8 @@ export const SCORECARD_METRICS: { id: string; label: string; polarity: Polarity;
   // Reactive PvP-talent uptime — reported for context, not graded (see 'neutral' polarity).
   { id: 'precognitionUptimeSec', label: 'Precognition uptime (s)', polarity: 'neutral', rate: true },
   { id: 'enemyPrecognitionUptimeSec', label: 'Enemy Precognition (s)', polarity: 'neutral', rate: true },
+  // Already an average over the match (not accumulative) → descriptive, not rate-normalized.
+  { id: 'avgHealerDistanceYd', label: 'Avg dist from healer (yd)', polarity: 'neutral' },
 ];
 
 export interface BuildOpts { scope: Scope; seasons: Season[]; minCohort?: number; gapMs?: number; }

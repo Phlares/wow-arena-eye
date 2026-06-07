@@ -68,6 +68,7 @@ SELECT m.match_id, m.start_ms, m.bracket, m.zone_id, m.result,
        MAX(CASE WHEN x.metric_id = 'interruptsSuffered' THEN x.value END) AS interruptsSuffered,
        MAX(CASE WHEN x.metric_id = 'precognitionUptimeSec' THEN x.value END) AS precognitionUptimeSec,
        MAX(CASE WHEN x.metric_id = 'enemyPrecognitionUptimeSec' THEN x.value END) AS enemyPrecognitionUptimeSec,
+       MAX(CASE WHEN x.metric_id = 'avgHealerDistanceYd' THEN x.value END) AS avgHealerDistanceYd,
        MAX(CASE WHEN x.metric_id = 'ccDone.hardCcSec'  THEN x.value END) AS ccDone_hardCcSec,
        MAX(CASE WHEN x.metric_id = 'defensivesIntoBurst' THEN x.value END) AS defensivesIntoBurst
 FROM match m
@@ -84,7 +85,7 @@ export function migrate(db: DatabaseSync): void {
   // dataset_export predates a column, drop+recreate it. Guarded so steady-state opens never drop
   // the view (avoids a needless rebuild and the brief "no such view" window for a concurrent reader).
   const viewCols = (db.prepare('PRAGMA table_info(dataset_export)').all() as { name: string }[]).map((c) => c.name);
-  if (viewCols.length > 0 && !viewCols.includes('precognitionUptimeSec')) {
+  if (viewCols.length > 0 && !viewCols.includes('avgHealerDistanceYd')) {
     db.exec('DROP VIEW dataset_export');
     db.exec(SCHEMA_SQL);
   }
