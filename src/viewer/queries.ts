@@ -221,9 +221,10 @@ export function buildRoster(m: MatchMetrics): RosterEntry[] {
   return out;
 }
 
-/** Per-attacker GO tracks enriched with class name for the web (the metric carries only spec). */
+/** Per-attacker GO tracks enriched with class name for the web (the metric carries only spec).
+ *  Tolerant of pre-DV2-b detail blobs that have no attackerGoTracks field. */
 export function buildGoTracks(m: MatchMetrics): GoTrack[] {
-  return m.attackerGoTracks.map((t) => ({
+  return (m.attackerGoTracks ?? []).map((t) => ({
     unitId: t.unitId, name: t.name, team: t.team, className: className(t.spec ?? ''), intervals: t.intervals,
   }));
 }
