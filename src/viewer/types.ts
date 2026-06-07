@@ -31,6 +31,7 @@ export type SessionSummary = Session;
 
 export interface RangePoint { tSec: number; dist: number | null; }
 export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean; }
+export interface GoTrack { unitId: string; name: string; team: string; className: string; intervals: { startSec: number; endSec: number }[]; }
 
 export interface FilterOptions {
   characters: string[];

@@ -9,7 +9,7 @@ import { buildScorecard } from '../scorecard/scorecard.js';
 import { loadPlayerMatches } from '../scorecard/loadMatches.js';
 import type { Scope, Season, Scorecard } from '../scorecard/types.js';
 import type { MatchMetrics, PositionTrack } from '../metrics/types.js';
-import type { FilterOptions, MatchQuery, MatchSummary, RangePoint, RosterEntry } from './types.js';
+import type { FilterOptions, MatchQuery, MatchSummary, RangePoint, RosterEntry, GoTrack } from './types.js';
 
 interface Row {
   match_id: string; start_ms: number | null; duration_sec: number | null; bracket: string | null;
@@ -219,4 +219,11 @@ export function buildRoster(m: MatchMetrics): RosterEntry[] {
     }
   }
   return out;
+}
+
+/** Per-attacker GO tracks enriched with class name for the web (the metric carries only spec). */
+export function buildGoTracks(m: MatchMetrics): GoTrack[] {
+  return m.attackerGoTracks.map((t) => ({
+    unitId: t.unitId, name: t.name, team: t.team, className: className(t.spec ?? ''), intervals: t.intervals,
+  }));
 }

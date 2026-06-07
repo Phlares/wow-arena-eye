@@ -19,6 +19,7 @@ describe('GET /api/matches/:id/detail', () => {
     expect(body.metrics.timeline).toEqual([]);
     expect(Array.isArray(body.rangeSeries)).toBe(true);
     expect(Array.isArray(body.roster)).toBe(true);
+    expect(Array.isArray(body.goTracks)).toBe(true);
   });
   it('404s when the match has no detail row', () => {
     const r = handleApi(db(), 'GET', '/api/matches/NOPE/detail', new URLSearchParams(), 60000);

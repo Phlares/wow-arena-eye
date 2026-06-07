@@ -30,10 +30,12 @@ export interface OffensiveWindow {
   counterPlay?: unknown; positioning?: unknown; lineOfSight?: unknown;
 }
 export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean }
+export interface GoTrack { unitId: string; name: string; team: string; className: string; intervals: { startSec: number; endSec: number }[] }
 export interface MatchDetail {
   metrics: { playerUnitId?: string; timeline: DetailTimelineEvent[]; offensiveWindows: OffensiveWindow[]; losDisruptors: { kind?: string; startSec?: number }[] };
   rangeSeries: RangePoint[];
   roster: RosterEntry[];
+  goTracks: GoTrack[];
 }
 export async function fetchMatchDetail(id: string): Promise<MatchDetail> {
   const r = await fetch(`/api/matches/${encodeURIComponent(id)}/detail`);

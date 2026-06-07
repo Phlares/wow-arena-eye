@@ -99,3 +99,9 @@ table.sct td { padding: 4px 8px; border-bottom: 1px solid #1c2129; color: #c8ccd
 .roster-chip { font-size: 12px; font-weight: 600; padding: 3px 8px; border: 1px solid #2a2f3a; border-radius: 6px; background: #0f1217; }
 .roster-chip.healer { border-color: #3a5b8c; }
 .roster-spec { color: #9aa2b1; font-weight: 400; }
+
+/* per-attacker GO tracks (DV2-b) */
+.go-tracks { margin-top: 6px; border-top: 1px dashed #232833; padding-top: 4px; }
+.go-track { position: relative; height: 22px; }
+.go-track .tl-name { font-weight: 600; }
+.go-seg { position: absolute; top: 50%; transform: translateY(-50%); height: 8px; border-radius: 3px; opacity: .85; }
