@@ -63,7 +63,7 @@ export function App() {
         </div>
         <SummaryDrawer match={selected} onOpenDetail={setDetailId} />
       </div>
-      {detailId !== null && <DetailView detail={detail} error={detailErr} onClose={closeDetail} />}
+      {detailId !== null && <DetailView detail={detail} error={detailErr} matchId={detailId} onClose={closeDetail} />}
     </div>
   );
 }

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import type { MatchDetail } from '../api.js';
 import { Timeline } from './Timeline.js';
 import { WindowPanel } from './WindowPanel.js';
+import { ComparePanel } from './ComparePanel.js';
 
-export function DetailView({ detail, error, onClose }: { detail: MatchDetail | null; error: string | null; onClose: () => void }) {
+export function DetailView({ detail, error, matchId, onClose }: { detail: MatchDetail | null; error: string | null; matchId: string; onClose: () => void }) {
   const [selectedWindow, setSelectedWindow] = useState<number | null>(null);
   const win = detail && selectedWindow !== null ? detail.metrics.offensiveWindows[selectedWindow] : undefined;
   return (
@@ -21,6 +22,7 @@ export function DetailView({ detail, error, onClose }: { detail: MatchDetail | n
         <div className="detail-body">
           <Timeline detail={detail} onSelectWindow={setSelectedWindow} />
           {win && selectedWindow !== null && <WindowPanel window={win} index={selectedWindow} />}
+          <ComparePanel matchId={matchId} />
         </div>
       )}
     </div>

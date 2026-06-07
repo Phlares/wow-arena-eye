@@ -86,3 +86,6 @@ table.sct td { padding: 4px 8px; border-bottom: 1px solid #1c2129; color: #c8ccd
 .v-better { color: #7fd9b3; } .v-worse { color: #e5897f; } .v-avg { color: #9aa2b1; } .v-info { color: #8fb3e0; }
 .wl-win { color: #7fd9b3; } .wl-loss { color: #e5897f; } .wl-neu { color: #7d8597; }
 .sct .star { color: #f0c24b; }
+
+.compare-panel { margin-top: 16px; padding-top: 12px; border-top: 1px solid #2a2f3a; }
+.cp-title { font-size: 13px; color: #e6e9ef; margin: 0 0 6px; }
