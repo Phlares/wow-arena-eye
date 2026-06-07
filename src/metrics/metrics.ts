@@ -6,6 +6,7 @@ import { computeCoordination } from './coordination.js';
 import { computeFocusTracks } from './targeting.js';
 import { collectCasts } from './cooldownTimeline.js';
 import { computeOffensiveWindows } from './offensiveWindows.js';
+import { computeAttackerGoTracks } from './attackerGoTracks.js';
 import { HEALER_SPEC_IDS } from './registry.js';
 import { buildPositionTracks } from './positionTracks.js';
 import { attachSpacing, computeDistanceBands } from './spacing.js';
@@ -40,6 +41,7 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
     coordination: computeCoordination(match, HEALER_SPEC_IDS, focusTracks),
     focusTracks,
     offensiveWindows: windowsWithLos,
+    attackerGoTracks: computeAttackerGoTracks(match, units, auras),
     positionTracks: [...tracks.values()],
     distanceBands: computeDistanceBands(units, tracks),
     lineOfSight,

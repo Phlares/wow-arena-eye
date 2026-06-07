@@ -10,8 +10,12 @@ export function WindowPanel({ window: w, index }: { window: OffensiveWindow; ind
   return (
     <div className="win-panel">
       <div className="win-head">GO {index + 1} · {w.startSec}–{w.endSec}s · {fmtNum(w.teamDamageTaken)} dmg taken</div>
+      {w.damageByAttacker.length > 0 && (
+        <div className="win-row"><span className="win-k">By attacker</span>
+          <span>{w.damageByAttacker.map((d) => `${d.name} ${fmtNum(d.damage)}`).join(' · ')}</span></div>
+      )}
       {w.damageByTarget.length > 0 && (
-        <div className="win-row"><span className="win-k">By target</span>
+        <div className="win-row"><span className="win-k">On target</span>
           <span>{w.damageByTarget.map((d) => `${d.name} ${fmtNum(d.damage)}`).join(' · ')}</span></div>
       )}
       <div className="win-row"><span className="win-k">Mitigation up</span>

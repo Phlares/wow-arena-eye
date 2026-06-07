@@ -98,11 +98,11 @@ describe('renderReport metrics block (per-player)', () => {
       offensiveWindows: [{
         attackingTeam: 'enemy', defendingTeam: 'friendly', startSec: 10, endSec: 20,
         openedBy: [{ spellId: 107574, spellName: 'Avatar', unitId: 'E1', startSec: 10, endSec: 20 }],
-        teamDamageTaken: 5000, damageByTarget: [{ unitId: 'P', name: 'You', damage: 5000 }],
+        teamDamageTaken: 5000, damageByTarget: [{ unitId: 'P', name: 'You', damage: 5000 }], damageByAttacker: [],
         mitigation: { available: [], used: [] }, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] },
         positioning: { primaryTargetId: 'P', threatDistanceStartYd: 5, threatDistanceMinYd: 3, nearestHealerYd: 12, teamSpreadYd: 18, escape: { anchorPlaced: true, anchorDistanceYd: 4, escapeAvailable: false } },
         lineOfSight: { primaryTargetId: 'P', result: 'blocked', clearFraction: 0.2, approximate: false, disruptorsActive: ['smoke-bomb'] },
-      }], positionTracks: [], distanceBands: [], lineOfSight: { zoneId: '', resolved: false, approximate: false }, losDisruptors: [],
+      }], attackerGoTracks: [], positionTracks: [], distanceBands: [], lineOfSight: { zoneId: '', resolved: false, approximate: false }, losDisruptors: [],
       teams: [
         {
           team: 'friendly',

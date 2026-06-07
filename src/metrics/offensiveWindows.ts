@@ -1,4 +1,4 @@
-import { type Team, type OffensiveWindow, type CdRef, type UnitMetrics, type MitigationItem, type MitigationCategory, unitTeam } from './types.js';
+import { type Team, type OffensiveWindow, type CdRef, type UnitMetrics, type MitigationItem, type MitigationCategory, unitTeam, resolvePlayer } from './types.js';
 import { type AuraState, type Interval } from './auraState.js';
 import { cdsForSpec, isOffensiveCd, type CdEntry } from '../metadata/cooldowns.js';
 import { ccInfo, isInterrupt, isImmunity } from '../metadata/spells.js';
@@ -9,7 +9,7 @@ const OTHER: Record<Team, Team> = { friendly: 'enemy', enemy: 'friendly', neutra
 
 const AVAILABLE_CATS = new Set<MitigationCategory>(['defensive', 'external', 'trinket', 'immunity']);
 
-interface WindowAcc { dmgTotal: number; dmgByTarget: Map<string, number>; }
+interface WindowAcc { dmgTotal: number; dmgByTarget: Map<string, number>; dmgBySource: Map<string, number>; }
 
 /** Offensive-CD active intervals cast by `unitId`. */
 function offensiveContribs(unitId: string, auras: AuraState): Interval[] {
@@ -92,7 +92,7 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
   }
 
   const teamOf = (id: string | undefined): Team => unitTeam((rawUnits[id ?? ''] ?? {}).reaction);
-  const accs: WindowAcc[] = merged.map(() => ({ dmgTotal: 0, dmgByTarget: new Map<string, number>() }));
+  const accs: WindowAcc[] = merged.map(() => ({ dmgTotal: 0, dmgByTarget: new Map<string, number>(), dmgBySource: new Map<string, number>() }));
   for (const ev of events) {
     const t = eventType(ev);
     if (!DAMAGE_EVENTS.test(t)) continue;
@@ -107,6 +107,8 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
       if (teamOf(s) !== w.team || teamOf(d) !== OTHER[w.team]) continue;
       accs[i].dmgTotal += amt;
       accs[i].dmgByTarget.set(d, (accs[i].dmgByTarget.get(d) ?? 0) + amt);
+      const attacker = resolvePlayer(rawUnits, s) ?? s; // roll pet damage to its owner (Felguard → Warlock)
+      accs[i].dmgBySource.set(attacker, (accs[i].dmgBySource.get(attacker) ?? 0) + amt);
     }
   }
 
@@ -196,6 +198,9 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
       openedBy,
       teamDamageTaken: Math.round(acc.dmgTotal),
       damageByTarget: [...acc.dmgByTarget.entries()]
+        .map(([unitId, damage]) => ({ unitId, name: nameOf(unitId), damage: Math.round(damage) }))
+        .sort((a, b) => b.damage - a.damage),
+      damageByAttacker: [...acc.dmgBySource.entries()]
         .map(([unitId, damage]) => ({ unitId, name: nameOf(unitId), damage: Math.round(damage) }))
         .sort((a, b) => b.damage - a.damage),
       mitigation: { available, used },

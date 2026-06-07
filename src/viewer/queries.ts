@@ -4,11 +4,12 @@ import { mapName } from '../metadata/arenas.js';
 import { sessionize, type Session, type SessionInput } from '../store/sessions.js';
 import { distanceAt } from '../metrics/positionTracks.js';
 import { STEP_SEC, round1 } from '../metrics/spacing.js';
+import { HEALER_SPEC_IDS } from '../metrics/registry.js';
 import { buildScorecard } from '../scorecard/scorecard.js';
 import { loadPlayerMatches } from '../scorecard/loadMatches.js';
 import type { Scope, Season, Scorecard } from '../scorecard/types.js';
 import type { MatchMetrics, PositionTrack } from '../metrics/types.js';
-import type { FilterOptions, MatchQuery, MatchSummary, RangePoint } from './types.js';
+import type { FilterOptions, MatchQuery, MatchSummary, RangePoint, RosterEntry, GoTrack } from './types.js';
 
 interface Row {
   match_id: string; start_ms: number | null; duration_sec: number | null; bracket: string | null;
@@ -205,4 +206,25 @@ export function buildScorecardFor(db: DatabaseSync, matchId: string, scope: Scop
   const matches = loadPlayerMatches(db, row.player_name);
   if (!matches.some((m) => m.matchId === matchId)) return null;
   return buildScorecard(matches, matchId, { scope, seasons, gapMs });
+}
+
+/** Both teams' combatants for the detail roster: class color name + spec label + healer flag. */
+export function buildRoster(m: MatchMetrics): RosterEntry[] {
+  const out: RosterEntry[] = [];
+  for (const tg of m.teams) {
+    for (const pg of tg.players) {
+      const p = pg.player;
+      const spec = p.spec !== undefined ? String(p.spec) : '';
+      out.push({ name: p.name, className: className(spec), specLabel: specLabel(spec), team: tg.team, isHealer: HEALER_SPEC_IDS.includes(spec) });
+    }
+  }
+  return out;
+}
+
+/** Per-attacker GO tracks enriched with class name for the web (the metric carries only spec).
+ *  Tolerant of pre-DV2-b detail blobs that have no attackerGoTracks field. */
+export function buildGoTracks(m: MatchMetrics): GoTrack[] {
+  return (m.attackerGoTracks ?? []).map((t) => ({
+    unitId: t.unitId, name: t.name, team: t.team, className: className(t.spec ?? ''), intervals: t.intervals,
+  }));
 }

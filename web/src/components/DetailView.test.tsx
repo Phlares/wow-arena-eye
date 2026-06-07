@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { DetailView } from './DetailView.js';
 import type { MatchDetail } from '../api.js';
 
-const empty: MatchDetail = { metrics: { playerUnitId: 'P', timeline: [], offensiveWindows: [], losDisruptors: [] }, rangeSeries: [] };
+const empty: MatchDetail = { metrics: { playerUnitId: 'P', timeline: [], offensiveWindows: [], losDisruptors: [] }, rangeSeries: [], roster: [], goTracks: [] };
 
 it('renders a close control', () => {
   render(<DetailView detail={empty} error={null} matchId="M1" onClose={() => {}} />);
