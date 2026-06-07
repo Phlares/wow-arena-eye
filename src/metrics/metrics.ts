@@ -7,6 +7,7 @@ import { computeFocusTracks } from './targeting.js';
 import { collectCasts } from './cooldownTimeline.js';
 import { computeOffensiveWindows } from './offensiveWindows.js';
 import { computeAttackerGoTracks } from './attackerGoTracks.js';
+import { computeDeathBlows } from './deathBlows.js';
 import { HEALER_SPEC_IDS } from './registry.js';
 import { buildPositionTracks } from './positionTracks.js';
 import { attachSpacing, computeDistanceBands } from './spacing.js';
@@ -19,8 +20,10 @@ import type { MatchMetrics } from './types.js';
 export * from './types.js';
 
 export function computeMatchMetrics(match: unknown): MatchMetrics {
-  const m = match as { playerId?: unknown };
+  const m = match as { playerId?: unknown; units?: Record<string, { name?: unknown }> };
   const playerUnitId = typeof m.playerId === 'string' ? m.playerId : undefined;
+  const rawUnits = m.units ?? {};
+  const nameOf = (id: string): string => { const u = rawUnits[id]; return u && typeof u.name === 'string' && u.name.length > 0 ? u.name : id; };
   const auras = buildAuraState(match);
   const casts = collectCasts(match);
   const baseUnits = computeUnitMetrics(match, auras, casts);
@@ -42,6 +45,7 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
     focusTracks,
     offensiveWindows: windowsWithLos,
     attackerGoTracks: computeAttackerGoTracks(match, units, auras),
+    deathBlows: computeDeathBlows(match, nameOf),
     positionTracks: [...tracks.values()],
     distanceBands: computeDistanceBands(units, tracks),
     lineOfSight,

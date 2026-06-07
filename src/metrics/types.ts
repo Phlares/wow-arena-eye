@@ -244,7 +244,10 @@ export interface TimelineEvent { tSec: number; unitId: string; unitName: string;
 
 export interface AttackerGoTrack { unitId: string; name: string; team: Team; spec?: string; intervals: { startSec: number; endSec: number }[]; }
 
-export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; attackerGoTracks: AttackerGoTrack[]; positionTracks: PositionTrack[]; distanceBands: DistanceBandRow[]; lineOfSight: MatchLineOfSight; losDisruptors: LosDisruptor[]; }
+/** Per-death preceding damage: what landed on the victim in the ~5s before they died. */
+export interface DeathBlow { victimId: string; tSec: number; recent: { srcName: string; spell: string; amount: number; tSec: number }[]; }
+
+export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; attackerGoTracks: AttackerGoTrack[]; deathBlows: DeathBlow[]; positionTracks: PositionTrack[]; distanceBands: DistanceBandRow[]; lineOfSight: MatchLineOfSight; losDisruptors: LosDisruptor[]; }
 
 export function tally(names: string[]): SpellTally[] {
   const counts = new Map<string, number>();
