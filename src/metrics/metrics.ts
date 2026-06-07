@@ -8,6 +8,7 @@ import { collectCasts } from './cooldownTimeline.js';
 import { computeOffensiveWindows } from './offensiveWindows.js';
 import { computeAttackerGoTracks } from './attackerGoTracks.js';
 import { computeDeathBlows } from './deathBlows.js';
+import { computeAnchors } from './anchors.js';
 import { HEALER_SPEC_IDS } from './registry.js';
 import { buildPositionTracks } from './positionTracks.js';
 import { attachSpacing, computeDistanceBands } from './spacing.js';
@@ -46,6 +47,7 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
     offensiveWindows: windowsWithLos,
     attackerGoTracks: computeAttackerGoTracks(match, units, auras),
     deathBlows: computeDeathBlows(match, nameOf),
+    anchors: computeAnchors(match, tracks, casts),
     positionTracks: [...tracks.values()],
     distanceBands: computeDistanceBands(units, tracks),
     lineOfSight,

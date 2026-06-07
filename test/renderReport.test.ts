@@ -102,7 +102,7 @@ describe('renderReport metrics block (per-player)', () => {
         mitigation: { available: [], used: [] }, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] },
         positioning: { primaryTargetId: 'P', threatDistanceStartYd: 5, threatDistanceMinYd: 3, nearestHealerYd: 12, teamSpreadYd: 18, escape: { anchorPlaced: true, anchorDistanceYd: 4, escapeAvailable: false } },
         lineOfSight: { primaryTargetId: 'P', result: 'blocked', clearFraction: 0.2, approximate: false, disruptorsActive: ['smoke-bomb'] },
-      }], attackerGoTracks: [], deathBlows: [], positionTracks: [], distanceBands: [], lineOfSight: { zoneId: '', resolved: false, approximate: false }, losDisruptors: [],
+      }], attackerGoTracks: [], deathBlows: [], anchors: [], positionTracks: [], distanceBands: [], lineOfSight: { zoneId: '', resolved: false, approximate: false }, losDisruptors: [],
       teams: [
         {
           team: 'friendly',

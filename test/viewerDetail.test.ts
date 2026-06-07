@@ -17,6 +17,7 @@ const metrics = {
     { unitId: 'P', samples: [{ tSec: 0, x: 0, y: 0 }, { tSec: 1, x: 0, y: 0 }], breaks: [] },
     { unitId: 'E', samples: [{ tSec: 0, x: 10, y: 0 }, { tSec: 1, x: 10, y: 0 }], breaks: [] },
   ],
+  anchors: [{ unitId: 'P', placements: [{ tSec: 0, x: 3, y: 4 }] }], // P's Demon Circle at (3,4)
 } as unknown as MatchMetrics;
 
 function seedDetail(db: InstanceType<typeof DatabaseSync>, id: string, m: MatchMetrics) {
@@ -43,10 +44,17 @@ describe('loadMatchDetail + buildRangeSeries', () => {
 describe('buildRangeTargets', () => {
   it('emits a per-target series for every non-recording player, marking the primary threat', () => {
     const targets = buildRangeTargets(metrics);
-    expect(targets.map((t) => t.unitId)).toEqual(['E', 'E2']); // self P excluded; threat E first
+    expect(targets.map((t) => t.unitId)).toEqual(['E', 'E2', '__anchor__']); // self P excluded; threat E first; anchor last
     expect(targets[0]).toMatchObject({ unitId: 'E', team: 'enemy', isPrimaryThreat: true });
     expect(targets[0].series[0]).toMatchObject({ tSec: 0, dist: 10 });
     expect(targets[1]).toMatchObject({ unitId: 'E2', isPrimaryThreat: false });
     expect(targets[1].series).toEqual([]); // E2 has no position track → honest empty series
+  });
+
+  it('exposes the recording player\'s Demon Circle as a range target ("range to my port")', () => {
+    const anchor = buildRangeTargets(metrics).find((t) => t.unitId === '__anchor__')!;
+    expect(anchor).toBeDefined();
+    expect(anchor.name).toMatch(/Demon Circle/);
+    expect(anchor.series[0]).toMatchObject({ tSec: 0, dist: 5 }); // P(0,0) → anchor(3,4) = 5yd
   });
 });

@@ -2,7 +2,7 @@ import type { DatabaseSync } from '../store/sqlite.js';
 import { compLabel, specLabel, className, specsOfClass } from '../metadata/specs.js';
 import { mapName } from '../metadata/arenas.js';
 import { sessionize, type Session, type SessionInput } from '../store/sessions.js';
-import { distanceAt } from '../metrics/positionTracks.js';
+import { distanceAt, positionAt } from '../metrics/positionTracks.js';
 import { STEP_SEC, round1 } from '../metrics/spacing.js';
 import { HEALER_SPEC_IDS } from '../metrics/registry.js';
 import { buildScorecard } from '../scorecard/scorecard.js';
@@ -207,8 +207,27 @@ export function buildRangeSeries(m: MatchMetrics): RangePoint[] {
   return rangeSeriesBetween(trackOf(m.playerUnitId), trackOf(primaryThreatId(m)));
 }
 
-/** Range series from the recording player to every OTHER player, so the detail view can let the
- *  user re-target the range lane. The primary threat is marked and sorted first. */
+/** Recording player's distance to their own escape anchor (Demon Circle) over time: distance to
+ *  the most-recently-placed anchor at each step. null where position is unknown or no anchor is
+ *  placed yet — gaps stay honest. */
+function rangeSeriesToAnchor(pt: PositionTrack, placements: { tSec: number; x: number; y: number }[]): RangePoint[] {
+  if (!pt.samples.length || !placements.length) return [];
+  const lastSec = pt.samples.at(-1)?.tSec ?? 0;
+  const sorted = [...placements].sort((a, b) => a.tSec - b.tSec);
+  const out: RangePoint[] = [];
+  for (let t = 0; t <= lastSec; t += STEP_SEC) {
+    const pos = positionAt(pt, t);
+    let anchor: { tSec: number; x: number; y: number } | undefined;
+    for (const pl of sorted) { if (pl.tSec <= t) anchor = pl; else break; }
+    const d = pos && anchor ? Math.hypot(pos.x - anchor.x, pos.y - anchor.y) : undefined;
+    out.push({ tSec: round1(t), dist: d === undefined ? null : round1(d) });
+  }
+  return out;
+}
+
+/** Range series from the recording player to every OTHER player (plus their own Demon Circle, if
+ *  placed), so the detail view can let the user re-target the range lane. The primary threat is
+ *  marked and sorted first. */
 export function buildRangeTargets(m: MatchMetrics): RangeTarget[] {
   const playerId = m.playerUnitId;
   const threat = primaryThreatId(m);
@@ -227,7 +246,17 @@ export function buildRangeTargets(m: MatchMetrics): RangeTarget[] {
       });
     }
   }
-  return out.sort((a, b) => Number(b.isPrimaryThreat) - Number(a.isPrimaryThreat) || a.team.localeCompare(b.team));
+  out.sort((a, b) => Number(b.isPrimaryThreat) - Number(a.isPrimaryThreat) || a.team.localeCompare(b.team));
+
+  // The recording player's own escape anchor ("range to my port") — appended last.
+  const myAnchor = m.anchors?.find((a) => a.unitId === playerId);
+  if (pt && myAnchor?.placements.length) {
+    out.push({
+      unitId: '__anchor__', name: 'Demon Circle (port)', className: '', team: 'friendly',
+      isHealer: false, isPrimaryThreat: false, series: rangeSeriesToAnchor(pt, myAnchor.placements),
+    });
+  }
+  return out;
 }
 
 /** Build a comparative scorecard for one match, or null if it isn't in the store. */
