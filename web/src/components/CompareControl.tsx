@@ -7,8 +7,12 @@ const SESSION_NS = [1, 2, 3];
  *  an N selector (with All) + composable filter chips. Emits a fresh BaselineQuery on any change. */
 export function CompareControl({ baseline, onChange }: { baseline: BaselineQuery; onChange: (b: BaselineQuery) => void }) {
   const set = (patch: Partial<BaselineQuery>) => onChange({ ...baseline, ...patch });
-  const setMode = (mode: BaselineQuery['mode']) =>
-    onChange({ ...baseline, mode, n: mode === 'overall' ? undefined : baseline.n ?? (mode === 'games' ? 20 : 1) });
+  const setMode = (mode: BaselineQuery['mode']) => {
+    // keep N only when staying in the same mode; switching modes resets to that mode's default
+    // (a games count like 50 is out of range for sessions, and vice versa)
+    const keptN = mode !== 'overall' && baseline.mode === mode ? baseline.n : undefined;
+    onChange({ ...baseline, mode, n: mode === 'overall' ? undefined : keptN ?? (mode === 'games' ? 20 : 1) });
+  };
   const toggle = (k: 'comp' | 'map' | 'season') => set({ [k]: baseline[k] ? undefined : true } as Partial<BaselineQuery>);
   const toggleNum = (k: 'ratingBand' | 'timeOfDay', v: number) =>
     set({ [k]: baseline[k] === undefined ? v : undefined } as Partial<BaselineQuery>);

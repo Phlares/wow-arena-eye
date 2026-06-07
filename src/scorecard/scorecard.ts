@@ -93,7 +93,7 @@ export function buildScorecard(matches: PlayerMatch[], targetMatchId: string, op
   // season-best cohort: same bracket + same season, ignoring the narrower scope (target excluded).
   // the season filter only bites when seasons are configured; otherwise it spans all history.
   const seasonScoped = opts.seasons.length > 0;
-  const seasonCohort = filterCohort(matches, target, { season: seasonScoped }, opts.seasons);
+  const seasonCohort = filterCohort(matches, target, { season: seasonScoped }, opts.seasons, opts.gapMs);
 
   const metrics: MetricScore[] = SCORECARD_METRICS.map((def) => {
     const value = valueOf(target, def.id, def.rate) ?? null;
@@ -113,6 +113,8 @@ export function buildScorecard(matches: PlayerMatch[], targetMatchId: string, op
   });
 
   const parts: string[] = [`${target.bracket}`];
+  if (opts.scope.lastNGames !== undefined) parts.push(`last ${opts.scope.lastNGames} games`);
+  if (opts.scope.lastNSessions !== undefined) parts.push(`last ${opts.scope.lastNSessions} session${opts.scope.lastNSessions === 1 ? '' : 's'}`);
   if (opts.scope.map) parts.push('same map');
   if (opts.scope.comp) parts.push('same comp');
   if (opts.scope.ratingBand !== undefined) parts.push(`rating ±${opts.scope.ratingBand}`);

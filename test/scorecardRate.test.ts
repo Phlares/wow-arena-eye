@@ -17,6 +17,11 @@ describe('rate-normalized verdicting', () => {
   it('dropped the standalone dps metric (folded into rate-normalized damage)', () => {
     expect(SCORECARD_METRICS.some((d) => d.id === 'dps')).toBe(false);
   });
+  it('names the recency mode in the cohort description', () => {
+    const matches = [mk('T', 2_000_000, 60), mk('a', 2_000_000, 60), mk('b', 2_000_000, 60)];
+    const sc = buildScorecard(matches, 'T', { scope: { lastNGames: 20 }, seasons: [] });
+    expect(sc.cohort.description).toMatch(/last 20 games/);
+  });
   it('descriptive (neutral) metrics still get a win/loss lean', () => {
     const matches = [
       mk('T', 0, 60, 'win', { precognitionUptimeSec: 8 }),
