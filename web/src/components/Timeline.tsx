@@ -17,13 +17,16 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
   return (
     <div className="tl">
       <div className="tl-bands">
-        {wins.map((w, i) => (
-          <div key={i} data-testid={`go-band-${i}`} className={`go-band ${w.attackingTeam === 'friendly' ? 'friendly-go' : 'enemy-go'}`}
+        {wins.map((w, i) => {
+          const ours = w.attackingTeam === 'friendly';
+          return (
+          <div key={i} data-testid={`go-band-${i}`} className={`go-band ${ours ? 'friendly-go' : 'enemy-go'}`}
             style={{ left: pct(w.startSec), width: `${((w.endSec - w.startSec) / matchEnd) * 100}%` }}
-            onClick={() => onSelectWindow(i)} title={`GO ${i + 1} · ${w.attackingTeam === 'friendly' ? 'our offense' : 'enemy offense'}`}>
+            onClick={() => onSelectWindow(i)} title={`GO ${i + 1} · ${ours ? 'our offense' : 'enemy offense'}`}>
             <span className="go-lbl">GO {i + 1}</span>
           </div>
-        ))}
+          );
+        })}
       </div>
       {LANES.map((lane) => (
         <div key={lane.key} className="tl-lane">

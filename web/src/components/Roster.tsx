@@ -3,7 +3,7 @@ import { classColor } from '../classColors.js';
 
 function chip(r: RosterEntry) {
   return (
-    <span key={`${r.team}-${r.name}`} className={`roster-chip ${r.isHealer ? 'healer' : ''}`} style={{ color: classColor(r.className) }}>
+    <span key={`${r.team}-${r.name}`} className={`roster-chip${r.isHealer ? ' healer' : ''}`} style={{ color: classColor(r.className) }}>
       {r.name} <span className="roster-spec">{r.specLabel}{r.isHealer ? ' ✚' : ''}</span>
     </span>
   );

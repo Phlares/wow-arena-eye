@@ -13,10 +13,11 @@ function fmtVal(v: number | null): string {
   return Math.abs(v) >= 1000 ? fmtNum(v) : String(Math.round(v * 10) / 10);
 }
 
-/** Signed difference for the "vs avg" column, e.g. "+100.0k" / "−2". U+2212 for the minus. */
+/** Signed difference for the "vs avg" column, e.g. "+100.0k" / "−2" / "0" (no sign at exactly avg).
+ *  U+2212 for the minus. */
 function signedDelta(value: number, mean: number): string {
   const d = value - mean;
-  return (d >= 0 ? '+' : '−') + fmtVal(Math.abs(d));
+  return (d > 0 ? '+' : d < 0 ? '−' : '') + fmtVal(Math.abs(d));
 }
 
 function Row({ m }: { m: MetricScore }) {
@@ -26,7 +27,7 @@ function Row({ m }: { m: MetricScore }) {
       <td>{m.label}</td>
       <td>{m.value === null ? '—' : `${fmtVal(m.value)}${unit}`}{m.isNewBest && <span className="star"> ★</span>}</td>
       <td className={VCLASS[m.verdict] ?? ''}>{GLYPH[m.verdict] ?? m.verdict}</td>
-      <td>{m.verdict === 'insufficient' || m.value === null ? '' : `${signedDelta(m.value, m.mean)}${unit}`}</td>
+      <td>{m.verdict === 'insufficient' || m.value === null || m.n === 0 ? '' : `${signedDelta(m.value, m.mean)}${unit}`}</td>
       <td className={WLCLASS[m.winLikeness] ?? ''}>{m.winLikeness}</td>
     </tr>
   );

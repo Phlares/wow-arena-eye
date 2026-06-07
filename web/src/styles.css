@@ -1,6 +1,7 @@
 :root { color-scheme: dark; --bg:#0f0f14; --panel:#15151c; --line:#23232c; --text:#cdd; --accent:#9cf; }
 * { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; }
+/* zoom 1.6 = a uniform ~1.6x UI scale (Chromium); the base 12–14px text is too small. */
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; zoom:1.6; }
 .win { color:#6d6; font-weight:700; } .loss { color:#e77; font-weight:700; }
 .rail{width:160px;flex:0 0 160px;background:var(--panel);padding:10px;border-radius:6px}
 .rail .grp{margin-bottom:10px;display:flex;flex-direction:column;gap:3px}
@@ -98,8 +99,3 @@ table.sct td { padding: 4px 8px; border-bottom: 1px solid #1c2129; color: #c8ccd
 .roster-chip { font-size: 12px; font-weight: 600; padding: 3px 8px; border: 1px solid #2a2f3a; border-radius: 6px; background: #0f1217; }
 .roster-chip.healer { border-color: #3a5b8c; }
 .roster-spec { color: #9aa2b1; font-weight: 400; }
-
-/* --- global UI scale (~1.6x): the base 12–14px text is too small. zoom is uniform in Chromium
-   (the viewer's target) and scales layout + the fixed detail overlay together. Adjust the factor
-   to taste. --- */
-body { zoom: 1.6; }
