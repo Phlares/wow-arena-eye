@@ -21,8 +21,8 @@ const match = { events: [{ event: 'X', timestamp: 1000 }, { event: 'Y', timestam
 describe('computeAttackerGoTracks', () => {
   it('emits a per-attacker track (offensive interval, tSec-relative); excludes healers', () => {
     const tracks = computeAttackerGoTracks(match, units(), auras({ P: [iv('P', OFF, 11000, 21000)], H: [iv('H', OFF, 11000, 21000)] }));
-    expect(tracks.map((t) => t.unitId)).toEqual(['P']);                 // healer H excluded
-    expect(tracks[0].intervals).toEqual([{ startSec: 10, endSec: 20 }]); // (11000-1000)/1000 .. (21000-1000)/1000
+    expect(tracks.map((t) => t.unitId)).toEqual(['P']);                              // healer H excluded
+    expect(tracks[0].intervals).toEqual([{ startSec: 10, endSec: 20, spell: 'CD' }]); // carries the ability name for hover
   });
   it('ignores non-offensive auras', () => {
     const tracks = computeAttackerGoTracks(match, units(), auras({ P: [iv('P', 999999, 5000, 9000)] }));

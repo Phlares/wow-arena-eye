@@ -15,7 +15,7 @@ export function GoTracks({ tracks, matchEnd }: { tracks: GoTrack[]; matchEnd: nu
           <div className="tl-name" style={{ color: classColor(t.className) }}>{t.name}</div>
           <div className="tl-track">
             {t.intervals.map((iv, j) => (
-              <span key={j} className="go-seg" title={`${t.name} GO · ${iv.startSec}–${iv.endSec}s`}
+              <span key={j} className="go-seg" title={`${t.name}${iv.spell ? ` · ${iv.spell}` : ''} · ${iv.startSec}–${iv.endSec}s`}
                 style={{ left: pct(iv.startSec), width: pct(iv.endSec - iv.startSec), background: classColor(t.className) }} />
             ))}
           </div>

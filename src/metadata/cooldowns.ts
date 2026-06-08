@@ -18,7 +18,38 @@ const DATA = JSON.parse(
   readFileSync(fileURLToPath(new URL('./cooldowns.json', import.meta.url)), 'utf8'),
 ) as RawData;
 
-export const OFFENSIVE_SPELL_IDS: Set<number> = new Set(DATA.offensiveSpellIds);
+/** Offensive cooldown classification (kind/cooldown) for the curated supplement. */
+export interface OffensiveCdMeta { name: string; cooldownSec: number; kind: 'buff' | 'debuff' | 'pet-summon'; windowSec?: number; }
+
+const VENDOR_OFFENSIVE = JSON.parse(
+  readFileSync(fileURLToPath(new URL('./offensiveCds.json', import.meta.url)), 'utf8'),
+) as { ids: { id: string; name: string }[] };
+
+// Current-retail (12.0.x) offensive cooldowns (>=30s) the vendor SpellTag.Offensive set and the
+// MiniCC highlight list miss. kind: buff (self-buff aura) | debuff (target aura the attacker
+// applies) | pet-summon (no aura -> cast-based fixed window of windowSec). cooldownSec drives the
+// GO-band safety availability. Hand-curated; verify live.
+const CURATED_OFFENSIVE = JSON.parse(
+  readFileSync(fileURLToPath(new URL('./offensiveCds.curated.json', import.meta.url)), 'utf8'),
+) as Record<string, OffensiveCdMeta>;
+
+/** Curated offensive-CD metadata by spellId (kind/cooldown/window). */
+const CURATED_META = new Map<number, OffensiveCdMeta>(
+  Object.entries(CURATED_OFFENSIVE).map(([id, v]) => [Number(id), v]),
+);
+
+/** Curated offensive-CD metadata for a spellId, or undefined. */
+export function offensiveCdMeta(spellId: number | undefined): OffensiveCdMeta | undefined {
+  return spellId === undefined ? undefined : CURATED_META.get(spellId);
+}
+
+/** Union of every offensive-CD source: the MiniCC highlight list, the vendor SpellTag.Offensive
+ *  set, and the curated current-retail supplement. Single source of truth for `isOffensiveCd`. */
+export const OFFENSIVE_SPELL_IDS: Set<number> = new Set<number>([
+  ...DATA.offensiveSpellIds,
+  ...VENDOR_OFFENSIVE.ids.map((e) => Number(e.id)),
+  ...CURATED_META.keys(),
+]);
 /** PvP trinket + the two common PvP-trinket racials (Will to Survive / Will of the Forsaken). */
 export const TRINKET_SPELL_IDS: Set<number> = new Set([336126, 59752, 7744]);
 
