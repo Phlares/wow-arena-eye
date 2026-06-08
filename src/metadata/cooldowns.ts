@@ -25,16 +25,18 @@ const VENDOR_OFFENSIVE = JSON.parse(
   readFileSync(fileURLToPath(new URL('./offensiveCds.json', import.meta.url)), 'utf8'),
 ) as { ids: { id: string; name: string }[] };
 
+// Current-retail (12.0.x) offensive cooldowns (>=30s) the vendor SpellTag.Offensive set and the
+// MiniCC highlight list miss. kind: buff (self-buff aura) | debuff (target aura the attacker
+// applies) | pet-summon (no aura -> cast-based fixed window of windowSec). cooldownSec drives the
+// GO-band safety availability. Hand-curated; verify live.
 const CURATED_OFFENSIVE = JSON.parse(
   readFileSync(fileURLToPath(new URL('./offensiveCds.curated.json', import.meta.url)), 'utf8'),
-) as Record<string, OffensiveCdMeta | string>;
+) as Record<string, OffensiveCdMeta>;
 
-/** Curated offensive-CD metadata by spellId (kind/cooldown/window). Excludes the `_comment` key. */
-const CURATED_META = new Map<number, OffensiveCdMeta>();
-for (const [id, v] of Object.entries(CURATED_OFFENSIVE)) {
-  if (typeof v === 'string') continue; // _comment
-  CURATED_META.set(Number(id), v);
-}
+/** Curated offensive-CD metadata by spellId (kind/cooldown/window). */
+const CURATED_META = new Map<number, OffensiveCdMeta>(
+  Object.entries(CURATED_OFFENSIVE).map(([id, v]) => [Number(id), v]),
+);
 
 /** Curated offensive-CD metadata for a spellId, or undefined. */
 export function offensiveCdMeta(spellId: number | undefined): OffensiveCdMeta | undefined {

@@ -1,6 +1,4 @@
 {
-  "_comment": "Current-retail (12.0.x) offensive cooldowns (>=30s) the vendor SpellTag.Offensive set and the MiniCC highlight list miss. kind: buff (self-buff aura) | debuff (target aura the attacker applies) | pet-summon (no aura -> cast-based fixed window of windowSec). cooldownSec drives availability (GO-band safety). Hand-curated; verify live.",
-
   "1719":   { "name": "Recklessness", "cooldownSec": 90, "kind": "buff" },
   "167105": { "name": "Colossus Smash", "cooldownSec": 45, "kind": "debuff" },
   "376079": { "name": "Spear of Bastion", "cooldownSec": 90, "kind": "debuff" },
