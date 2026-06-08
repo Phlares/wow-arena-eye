@@ -19,7 +19,7 @@ export function computeAttackerGoTracks(match: unknown, units: UnitMetrics[], au
     unitId: p.unitId, name: p.name, team: p.team, spec: p.spec,
     intervals: auras.intervalsBy(p.unitId)
       .filter((iv) => isOffensiveCd(iv.spellId))
-      .map((iv) => ({ startSec: round1((Math.max(iv.start, matchStart) - matchStart) / 1000), endSec: round1((Math.min(iv.end, clampEnd) - matchStart) / 1000) }))
+      .map((iv) => ({ startSec: round1((Math.max(iv.start, matchStart) - matchStart) / 1000), endSec: round1((Math.min(iv.end, clampEnd) - matchStart) / 1000), spell: iv.name }))
       .filter((w) => w.endSec > w.startSec)
       .sort((a, b) => a.startSec - b.startSec),
   }));

@@ -31,7 +31,7 @@ export interface OffensiveWindow {
   counterPlay?: unknown; positioning?: unknown; lineOfSight?: unknown;
 }
 export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean }
-export interface GoTrack { unitId: string; name: string; team: string; className: string; intervals: { startSec: number; endSec: number }[] }
+export interface GoTrack { unitId: string; name: string; team: string; className: string; intervals: { startSec: number; endSec: number; spell?: string }[] }
 export interface RangeTarget { unitId: string; name: string; className: string; team: string; isHealer: boolean; isPrimaryThreat: boolean; series: RangePoint[] }
 export interface DeathBlow { victimId: string; tSec: number; recent: { srcName: string; spell: string; amount: number; tSec: number }[] }
 export interface MatchDetail {

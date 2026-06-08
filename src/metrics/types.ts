@@ -242,7 +242,7 @@ export interface TeamGroup { team: Team; players: PlayerGroup[]; unownedPets: Un
 export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death' | 'cc';
 export interface TimelineEvent { tSec: number; unitId: string; unitName: string; kind: TimelineKind; spell?: string; extra?: string; targetId?: string; targetName?: string; }
 
-export interface AttackerGoTrack { unitId: string; name: string; team: Team; spec?: string; intervals: { startSec: number; endSec: number }[]; }
+export interface AttackerGoTrack { unitId: string; name: string; team: Team; spec?: string; intervals: { startSec: number; endSec: number; spell?: string }[]; }
 
 /** Per-death preceding damage: what landed on the victim in the ~5s before they died. */
 export interface DeathBlow { victimId: string; tSec: number; recent: { srcName: string; spell: string; amount: number; tSec: number }[]; }
