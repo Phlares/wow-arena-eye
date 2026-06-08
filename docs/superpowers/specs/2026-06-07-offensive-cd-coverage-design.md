@@ -100,10 +100,56 @@ A small starter set of common PvP on-use trinket buffs; expandable.
 - `computeAttackerGoTracks` emits a pet-summon window from a Darkglare cast (no
   aura) and still excludes healers; buff/debuff CDs unchanged.
 
+## Additional detail-view scope (session add-ons)
+
+These ship alongside the coverage work (decisions captured via session Q&A).
+
+### B. GO-track hover shows the ability used
+Each GO segment currently hovers as "Name GO · a–b s" with no ability. Carry the
+spell name onto each interval: `AttackerGoTrack.intervals[]` gains `spell?: string`
+(from `iv.name`; pet-summon path uses the summon's cast name). `GoTracks.tsx`
+renders it in the segment `title` ("Recklessness · 12–24s"). No merge — each
+offensive aura/summon is its own segment, so one spell per segment.
+
+### C. Range lane: 3× taller + labeled yardage gridlines
+`RangeLane` height ~3× (60→180). Add horizontal reference lines at 8 (melee, kept),
+10, 20, 30, 40 yd, each with a small yard label, so distances are readable at a
+glance instead of one melee line.
+
+### D. Settings tab (persistent, read-only)
+A permanent viewer tab listing **what the analysis considers**: offensive CDs
+(id, name, cooldownSec, kind), CC (id, name, DR category), and defensive/external
+CDs — grouped by category. Sourced from the metadata via a new read-only
+`GET /api/metadata` endpoint (offensive set + CC categories + cooldown registry).
+Read-only for now; editing/persisting a user override set is future.
+
+### E. GO-band safety coloring (defender-perspective, both bands)
+Replace the binary green/red tint with a **favorability ratio** from the
+recording player's perspective:
+
+```
+relevant(team)  = (we are DEFENDING this go) ? defensives-available
+                : (we are ATTACKING this go) ? offense-available
+our_favor       = (1 + our_relevant) / (1 + their_relevant)   // (1+x)/(1+y), no div-by-0
+```
+
+- Enemy go (we defend): `our_favor = (1 + our defensives up) / (1 + their offense up)`.
+- Our go (we attack): `our_favor = (1 + our offense up) / (1 + their defensives up)`.
+
+High `our_favor` → **green** (favored), low → **red** (RED·Orange·Yellow·Blue·GREEN
+scale). The window already carries the **defenders' available mitigation**
+(`mitigation.available`); add `attackerOffenseAvailableCount` per window
+(attacking team's offensive CDs not on cooldown at window start, via the existing
+`isAvailable` machinery + the new offensive dataset's `cooldownSec`). The band's
+`title`/click panel shows the ratio inputs so the color is legible.
+
 ## Rollout
 
 Changing the offensive set changes stored `attackerGoTracks` **and**
 `offensiveWindows` (bands) → a **re-ingest** is required. Phaseable:
-- **Phase 1:** dataset + `isOffensiveCd` union (fixes all aura-based burst CDs —
-  the bulk). Re-ingest → most DPS lines populate.
+- **Phase 1:** offensive dataset + `isOffensiveCd` union + GO-hover ability name
+  (B). Re-ingest → most DPS lines populate with named segments.
 - **Phase 2:** pet-summon cast path + trinkets (the no-aura cases).
+- **Phase 3:** range lane 3× + gridlines (C); GO-band safety coloring (E,
+  needs `attackerOffenseAvailableCount`). Re-ingest for E.
+- **Phase 4:** Settings tab (D) — `/api/metadata` + read-only web tab (no re-ingest).
