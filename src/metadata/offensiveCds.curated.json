@@ -1,0 +1,70 @@
+{
+  "_comment": "Current-retail (12.0.x) offensive cooldowns (>=30s) the vendor SpellTag.Offensive set and the MiniCC highlight list miss. kind: buff (self-buff aura) | debuff (target aura the attacker applies) | pet-summon (no aura -> cast-based fixed window of windowSec). cooldownSec drives availability (GO-band safety). Hand-curated; verify live.",
+
+  "1719":   { "name": "Recklessness", "cooldownSec": 90, "kind": "buff" },
+  "167105": { "name": "Colossus Smash", "cooldownSec": 45, "kind": "debuff" },
+  "376079": { "name": "Spear of Bastion", "cooldownSec": 90, "kind": "debuff" },
+  "384318": { "name": "Thunderous Roar", "cooldownSec": 90, "kind": "debuff" },
+  "228920": { "name": "Ravager", "cooldownSec": 90, "kind": "buff" },
+
+  "231895": { "name": "Crusade", "cooldownSec": 120, "kind": "buff" },
+  "255937": { "name": "Wake of Ashes", "cooldownSec": 30, "kind": "buff" },
+  "343527": { "name": "Execution Sentence", "cooldownSec": 30, "kind": "debuff" },
+  "343721": { "name": "Final Reckoning", "cooldownSec": 60, "kind": "debuff" },
+
+  "360952": { "name": "Coordinated Assault", "cooldownSec": 120, "kind": "buff" },
+  "359844": { "name": "Call of the Wild", "cooldownSec": 180, "kind": "buff" },
+  "321530": { "name": "Bloodshed", "cooldownSec": 60, "kind": "debuff" },
+  "360966": { "name": "Spearhead", "cooldownSec": 90, "kind": "debuff" },
+
+  "360194": { "name": "Deathmark", "cooldownSec": 120, "kind": "debuff" },
+  "385627": { "name": "Kingsbane", "cooldownSec": 60, "kind": "debuff" },
+  "212283": { "name": "Symbols of Death", "cooldownSec": 30, "kind": "buff" },
+  "382245": { "name": "Cold Blood", "cooldownSec": 45, "kind": "buff" },
+  "385408": { "name": "Sepsis", "cooldownSec": 90, "kind": "debuff" },
+
+  "51271":  { "name": "Pillar of Frost", "cooldownSec": 60, "kind": "buff" },
+  "47568":  { "name": "Empower Rune Weapon", "cooldownSec": 120, "kind": "buff" },
+  "207289": { "name": "Unholy Assault", "cooldownSec": 75, "kind": "buff" },
+  "275699": { "name": "Apocalypse", "cooldownSec": 90, "kind": "debuff" },
+  "63560":  { "name": "Dark Transformation", "cooldownSec": 60, "kind": "buff" },
+  "42650":  { "name": "Army of the Dead", "cooldownSec": 480, "kind": "pet-summon", "windowSec": 30 },
+  "383269": { "name": "Abomination Limb", "cooldownSec": 120, "kind": "buff" },
+
+  "191427": { "name": "Metamorphosis", "cooldownSec": 180, "kind": "buff" },
+  "198013": { "name": "Eye Beam", "cooldownSec": 30, "kind": "buff" },
+  "370965": { "name": "The Hunt", "cooldownSec": 90, "kind": "debuff" },
+  "258860": { "name": "Essence Break", "cooldownSec": 40, "kind": "debuff" },
+
+  "365350": { "name": "Arcane Surge", "cooldownSec": 90, "kind": "buff" },
+  "321507": { "name": "Touch of the Magi", "cooldownSec": 45, "kind": "debuff" },
+
+  "113860": { "name": "Dark Soul: Misery", "cooldownSec": 120, "kind": "buff" },
+  "113858": { "name": "Dark Soul: Instability", "cooldownSec": 120, "kind": "buff" },
+  "205180": { "name": "Summon Darkglare", "cooldownSec": 120, "kind": "pet-summon", "windowSec": 20 },
+  "1122":   { "name": "Summon Infernal", "cooldownSec": 180, "kind": "pet-summon", "windowSec": 30 },
+  "265187": { "name": "Summon Demonic Tyrant", "cooldownSec": 90, "kind": "pet-summon", "windowSec": 15 },
+  "267217": { "name": "Nether Portal", "cooldownSec": 180, "kind": "buff" },
+  "111898": { "name": "Grimoire: Felguard", "cooldownSec": 90, "kind": "pet-summon", "windowSec": 17 },
+
+  "194223": { "name": "Celestial Alignment", "cooldownSec": 120, "kind": "buff" },
+  "391528": { "name": "Convoke the Spirits", "cooldownSec": 120, "kind": "buff" },
+  "274837": { "name": "Feral Frenzy", "cooldownSec": 45, "kind": "debuff" },
+
+  "51533":  { "name": "Feral Spirit", "cooldownSec": 90, "kind": "pet-summon", "windowSec": 15 },
+  "198067": { "name": "Fire Elemental", "cooldownSec": 150, "kind": "pet-summon", "windowSec": 30 },
+  "192249": { "name": "Storm Elemental", "cooldownSec": 150, "kind": "pet-summon", "windowSec": 30 },
+
+  "228260": { "name": "Void Eruption", "cooldownSec": 90, "kind": "buff" },
+  "391109": { "name": "Dark Ascension", "cooldownSec": 60, "kind": "buff" },
+  "34433":  { "name": "Shadowfiend", "cooldownSec": 180, "kind": "pet-summon", "windowSec": 15 },
+  "200174": { "name": "Mindbender", "cooldownSec": 60, "kind": "pet-summon", "windowSec": 15 },
+
+  "137639": { "name": "Storm, Earth, and Fire", "cooldownSec": 90, "kind": "buff" },
+  "152173": { "name": "Serenity", "cooldownSec": 90, "kind": "buff" },
+  "123904": { "name": "Invoke Xuen, the White Tiger", "cooldownSec": 120, "kind": "pet-summon", "windowSec": 20 },
+
+  "357210": { "name": "Deep Breath", "cooldownSec": 120, "kind": "debuff" },
+  "370553": { "name": "Tip the Scales", "cooldownSec": 120, "kind": "buff" },
+  "395152": { "name": "Ebon Might", "cooldownSec": 30, "kind": "buff" }
+}
