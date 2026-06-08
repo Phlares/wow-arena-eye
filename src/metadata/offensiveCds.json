@@ -1,0 +1,229 @@
+{
+  "source": "wowarenalogs classMetadata.ts SpellTag.Offensive",
+  "ids": [
+    {
+      "id": "107574",
+      "name": "Avatar"
+    },
+    {
+      "id": "262161",
+      "name": "Warbreaker"
+    },
+    {
+      "id": "227847",
+      "name": "Bladestorm (Arms)"
+    },
+    {
+      "id": "46924",
+      "name": "Bladestorm (Fury)"
+    },
+    {
+      "id": "12292",
+      "name": "Death Wish"
+    },
+    {
+      "id": "31884",
+      "name": "Avenging Wrath"
+    },
+    {
+      "id": "31842",
+      "name": "Avenging Wrath (Holy)"
+    },
+    {
+      "id": "19574",
+      "name": "Bestial Wrath"
+    },
+    {
+      "id": "36554",
+      "name": "Shadowstep"
+    },
+    {
+      "id": "79140",
+      "name": "Vendetta"
+    },
+    {
+      "id": "13750",
+      "name": "Adrenaline Rush"
+    },
+    {
+      "id": "51690",
+      "name": "Killing Spree"
+    },
+    {
+      "id": "121471",
+      "name": "Shadow Blades"
+    },
+    {
+      "id": "185313",
+      "name": "Shadow Dance"
+    },
+    {
+      "id": "185422",
+      "name": "Shadow Dance"
+    },
+    {
+      "id": "207736",
+      "name": "Shadowy Duel"
+    },
+    {
+      "id": "213981",
+      "name": "Cold Blood"
+    },
+    {
+      "id": "13877",
+      "name": "Blade Flurry"
+    },
+    {
+      "id": "14177",
+      "name": "Cold Blood"
+    },
+    {
+      "id": "14183",
+      "name": "Premeditation"
+    },
+    {
+      "id": "10060",
+      "name": "Power Infusion"
+    },
+    {
+      "id": "197871",
+      "name": "Dark Archangel"
+    },
+    {
+      "id": "152279",
+      "name": "Breath of Sindragosa"
+    },
+    {
+      "id": "2825",
+      "name": "Bloodlust"
+    },
+    {
+      "id": "32182",
+      "name": "Heroism"
+    },
+    {
+      "id": "114049",
+      "name": "Ascendance"
+    },
+    {
+      "id": "114050",
+      "name": "Ascendance (Elemental)"
+    },
+    {
+      "id": "114051",
+      "name": "Ascendance (Enhancement)"
+    },
+    {
+      "id": "114052",
+      "name": "Ascendance (Restoration)"
+    },
+    {
+      "id": "204330",
+      "name": "Skyfury Totem"
+    },
+    {
+      "id": "208963",
+      "name": "Skyfury Totem"
+    },
+    {
+      "id": "16166",
+      "name": "Elemental Mastery"
+    },
+    {
+      "id": "191634",
+      "name": "Stormkeeper"
+    },
+    {
+      "id": "305483",
+      "name": "Lightning Lasso"
+    },
+    {
+      "id": "305485",
+      "name": "Lightning Lasso"
+    },
+    {
+      "id": "12042",
+      "name": "Arcane Power"
+    },
+    {
+      "id": "205025",
+      "name": "Presence of Mind"
+    },
+    {
+      "id": "190319",
+      "name": "Combustion"
+    },
+    {
+      "id": "12472",
+      "name": "Icy Veins"
+    },
+    {
+      "id": "11129",
+      "name": "Combustion"
+    },
+    {
+      "id": "12043",
+      "name": "Presence of Mind"
+    },
+    {
+      "id": "113860",
+      "name": "Dark Soul: Misery"
+    },
+    {
+      "id": "113858",
+      "name": "Dark Soul: Instability"
+    },
+    {
+      "id": "18288",
+      "name": "Amplify Curse"
+    },
+    {
+      "id": "123904",
+      "name": "Invoke Xuen, the White Tiger"
+    },
+    {
+      "id": "137639",
+      "name": "Storm, Earth, and Fire"
+    },
+    {
+      "id": "323764",
+      "name": "Convoke the Spirits"
+    },
+    {
+      "id": "102560",
+      "name": "Incarnation: Chosen of Elune"
+    },
+    {
+      "id": "194223",
+      "name": "Celestial Alignment"
+    },
+    {
+      "id": "102543",
+      "name": "Incarnation: King of the Jungle"
+    },
+    {
+      "id": "106951",
+      "name": "Berserk"
+    },
+    {
+      "id": "102558",
+      "name": "Incarnation: Guardian of Ursoc"
+    },
+    {
+      "id": "191427",
+      "name": "Metamorphosis"
+    },
+    {
+      "id": "187827",
+      "name": "Metamorphosis (Vengeance)"
+    },
+    {
+      "id": "162264",
+      "name": "Metamorphosis"
+    },
+    {
+      "id": "311054",
+      "name": "Weapons of Order"
+    }
+  ]
+}
