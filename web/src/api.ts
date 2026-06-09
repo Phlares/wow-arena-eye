@@ -80,7 +80,7 @@ export interface MetadataView {
   offensive: { id: number; name?: string; cooldownSec?: number; kind?: string; windowSec?: number }[];
   denied: { id: number; name: string; reason: string }[];
   cc: { id: number; name: string; category: string }[];
-  defensives: { id: number; cooldownSec: number; category: string }[];
+  defensives: { id: number; name?: string; cooldownSec: number; category: string }[];
 }
 export async function fetchMetadata(): Promise<MetadataView> {
   const r = await fetch('/api/metadata');

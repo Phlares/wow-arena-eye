@@ -1,4 +1,5 @@
 import { loadJson } from './loadJson.js';
+import { spellMeta } from './spells.js';
 import type { CdCategory } from '../metrics/types.js';
 
 interface RawEntry {
@@ -145,14 +146,15 @@ export function deniedOffensiveCatalog(): { id: number; name: string; reason: st
   return Object.entries(DENIED_OFFENSIVE).map(([id, v]) => ({ id: Number(id), name: v.name, reason: v.reason }));
 }
 
-/** Flat dedup of the non-offensive cooldown registry (defensive/external/trinket/important). */
-export function defensiveCatalog(): { id: number; cooldownSec: number; category: CdCategory }[] {
-  const seen = new Map<number, { id: number; cooldownSec: number; category: CdCategory }>();
+/** Flat dedup of the non-offensive cooldown registry (defensive/external/trinket/important).
+ *  Names come from the curated spell table where known (the registry itself is id-only). */
+export function defensiveCatalog(): { id: number; name?: string; cooldownSec: number; category: CdCategory }[] {
+  const seen = new Map<number, { id: number; name?: string; cooldownSec: number; category: CdCategory }>();
   for (const list of [...Object.values(DATA.bySpec), ...Object.values(DATA.byClass)]) {
     for (const e of list) {
       const category = categoryOf(e);
       if (category === 'offensive' || e.cooldownSec <= 0 || seen.has(e.spellId)) continue;
-      seen.set(e.spellId, { id: e.spellId, cooldownSec: e.cooldownSec, category });
+      seen.set(e.spellId, { id: e.spellId, name: spellMeta(e.spellId)?.name, cooldownSec: e.cooldownSec, category });
     }
   }
   return [...seen.values()].sort((a, b) => a.id - b.id);

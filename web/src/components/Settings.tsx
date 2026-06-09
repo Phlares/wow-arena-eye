@@ -30,8 +30,8 @@ export function Settings({ meta }: { meta: MetadataView }) {
         rows={meta.denied.map((o) => [o.id, o.name, o.reason])} />
       <Section title={`CC / diminishing returns (${meta.cc.length})`} head={['id', 'name', 'DR category']}
         rows={meta.cc.map((c) => [c.id, c.name, c.category])} />
-      <Section title={`Defensives & other tracked CDs (${meta.defensives.length})`} head={['id', 'cooldown', 'category']}
-        rows={meta.defensives.map((d) => [d.id, `${d.cooldownSec}s`, d.category])} />
+      <Section title={`Defensives & other tracked CDs (${meta.defensives.length})`} head={['id', 'name', 'cooldown', 'category']}
+        rows={meta.defensives.map((d) => [d.id, d.name ?? '—', `${d.cooldownSec}s`, d.category])} />
     </div>
   );
 }
