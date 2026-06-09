@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isOffensiveCd, offensiveCdMeta } from '../src/metadata/cooldowns.js';
+import { loadJson } from '../src/metadata/loadJson.js';
 
 // Current-retail (12.0.x) burst cooldowns across specs that the GO tracks must recognize. Mix of
 // vendor-tagged, MiniCC-highlight, and curated-supplement ids — all must resolve via the union.
@@ -8,8 +9,8 @@ const KNOWN_BURST: [number, string][] = [
   [360194, 'Deathmark'],
   [51271, 'Pillar of Frost'],
   [191427, 'Metamorphosis'],
-  [113860, 'Dark Soul: Misery'],
-  [113858, 'Dark Soul: Instability'],
+  [386997, 'Soul Rot'],
+  [442726, 'Malevolence'],
   [288613, 'Trueshot'],
   [190319, 'Combustion'],
   [31884, 'Avenging Wrath'],
@@ -20,15 +21,44 @@ const KNOWN_BURST: [number, string][] = [
   [375087, 'Dragonrage'],
 ];
 
+// The denylist (vendor SpellTag.Offensive ids that are NOT >=30s burst markers) — every entry
+// must be excluded from the union, whatever source it came in through.
+const DENY = loadJson<Record<string, { name: string; reason: string }>>(
+  new URL('../src/metadata/offensiveCds.deny.json', import.meta.url),
+);
+const DENIED: [number, string][] = Object.entries(DENY).map(([id, v]) => [Number(id), `${v.name} — ${v.reason}`]);
+
 describe('offensive-CD coverage', () => {
   it.each(KNOWN_BURST)('isOffensiveCd(%i) is true (%s)', (id) => {
     expect(isOffensiveCd(id), `${id} should be offensive`).toBe(true);
+  });
+
+  it.each(DENIED)('isOffensiveCd(%i) is false — denylisted (%s)', (id) => {
+    expect(isOffensiveCd(id), `${id} should be denylisted`).toBe(false);
+  });
+
+  it('Shadowstep (the false-positive that motivated the denylist) stays excluded', () => {
+    expect(isOffensiveCd(36554)).toBe(false);
+  });
+
+  it('every denylist entry carries a human-readable reason', () => {
+    for (const [id, v] of Object.entries(DENY)) {
+      expect(v.reason, `${id} needs a reason`).toBeTruthy();
+    }
   });
 
   it('curated pet-summons expose a window duration', () => {
     const darkglare = offensiveCdMeta(205180); // Summon Darkglare
     expect(darkglare?.kind).toBe('pet-summon');
     expect(darkglare?.windowSec).toBeGreaterThan(0);
+  });
+
+  it('drops curated ids that never occur in 12.x logs (verified against the 70GB live corpus)', () => {
+    // Sepsis, Nether Portal, Serenity: removed from the game; Dark Soul / Meta cast id: vendor
+    // legacy ids that no longer fire — none should claim curated (cooldown/kind) metadata.
+    for (const stale of [385408, 267217, 152173, 113860, 113858, 191427]) {
+      expect(offensiveCdMeta(stale), `${stale} should not be curated`).toBeUndefined();
+    }
   });
 
   it('returns undefined meta for an unknown spell', () => {

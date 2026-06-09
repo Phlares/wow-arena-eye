@@ -1,5 +1,5 @@
 {
-  "source": "wowarenalogs classMetadata.ts SpellTag.Offensive",
+  "source": "wowarenalogs classMetadata.ts SpellTag.Offensive (minus offensiveCds.deny.json)",
   "ids": [
     {
       "id": "107574",
@@ -26,16 +26,8 @@
       "name": "Avenging Wrath"
     },
     {
-      "id": "31842",
-      "name": "Avenging Wrath (Holy)"
-    },
-    {
       "id": "19574",
       "name": "Bestial Wrath"
-    },
-    {
-      "id": "36554",
-      "name": "Shadowstep"
     },
     {
       "id": "79140",
@@ -62,24 +54,8 @@
       "name": "Shadow Dance"
     },
     {
-      "id": "207736",
-      "name": "Shadowy Duel"
-    },
-    {
-      "id": "213981",
-      "name": "Cold Blood"
-    },
-    {
       "id": "13877",
       "name": "Blade Flurry"
-    },
-    {
-      "id": "14177",
-      "name": "Cold Blood"
-    },
-    {
-      "id": "14183",
-      "name": "Premeditation"
     },
     {
       "id": "10060",
@@ -94,14 +70,6 @@
       "name": "Breath of Sindragosa"
     },
     {
-      "id": "2825",
-      "name": "Bloodlust"
-    },
-    {
-      "id": "32182",
-      "name": "Heroism"
-    },
-    {
       "id": "114049",
       "name": "Ascendance"
     },
@@ -112,10 +80,6 @@
     {
       "id": "114051",
       "name": "Ascendance (Enhancement)"
-    },
-    {
-      "id": "114052",
-      "name": "Ascendance (Restoration)"
     },
     {
       "id": "204330",
@@ -146,10 +110,6 @@
       "name": "Arcane Power"
     },
     {
-      "id": "205025",
-      "name": "Presence of Mind"
-    },
-    {
       "id": "190319",
       "name": "Combustion"
     },
@@ -160,10 +120,6 @@
     {
       "id": "11129",
       "name": "Combustion"
-    },
-    {
-      "id": "12043",
-      "name": "Presence of Mind"
     },
     {
       "id": "113860",
@@ -206,16 +162,8 @@
       "name": "Berserk"
     },
     {
-      "id": "102558",
-      "name": "Incarnation: Guardian of Ursoc"
-    },
-    {
       "id": "191427",
       "name": "Metamorphosis"
-    },
-    {
-      "id": "187827",
-      "name": "Metamorphosis (Vengeance)"
     },
     {
       "id": "162264",

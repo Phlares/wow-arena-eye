@@ -1,5 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { loadJson } from './loadJson.js';
 import type { CdCategory } from '../metrics/types.js';
 
 interface RawEntry {
@@ -14,24 +13,18 @@ interface RawData {
   byClass: Record<string, RawEntry[]>;
 }
 
-const DATA = JSON.parse(
-  readFileSync(fileURLToPath(new URL('./cooldowns.json', import.meta.url)), 'utf8'),
-) as RawData;
+const DATA = loadJson<RawData>(new URL('./cooldowns.json', import.meta.url));
 
 /** Offensive cooldown classification (kind/cooldown) for the curated supplement. */
 export interface OffensiveCdMeta { name: string; cooldownSec: number; kind: 'buff' | 'debuff' | 'pet-summon'; windowSec?: number; }
 
-const VENDOR_OFFENSIVE = JSON.parse(
-  readFileSync(fileURLToPath(new URL('./offensiveCds.json', import.meta.url)), 'utf8'),
-) as { ids: { id: string; name: string }[] };
+const VENDOR_OFFENSIVE = loadJson<{ ids: { id: string; name: string }[] }>(new URL('./offensiveCds.json', import.meta.url));
 
 // Current-retail (12.0.x) offensive cooldowns (>=30s) the vendor SpellTag.Offensive set and the
 // MiniCC highlight list miss. kind: buff (self-buff aura) | debuff (target aura the attacker
 // applies) | pet-summon (no aura -> cast-based fixed window of windowSec). cooldownSec drives the
-// GO-band safety availability. Hand-curated; verify live.
-const CURATED_OFFENSIVE = JSON.parse(
-  readFileSync(fileURLToPath(new URL('./offensiveCds.curated.json', import.meta.url)), 'utf8'),
-) as Record<string, OffensiveCdMeta>;
+// GO-band safety availability. Hand-curated; verified against the live log corpus 2026-06-09.
+const CURATED_OFFENSIVE = loadJson<Record<string, OffensiveCdMeta>>(new URL('./offensiveCds.curated.json', import.meta.url));
 
 /** Curated offensive-CD metadata by spellId (kind/cooldown/window). */
 const CURATED_META = new Map<number, OffensiveCdMeta>(
@@ -43,13 +36,22 @@ export function offensiveCdMeta(spellId: number | undefined): OffensiveCdMeta | 
   return spellId === undefined ? undefined : CURATED_META.get(spellId);
 }
 
-/** Union of every offensive-CD source: the MiniCC highlight list, the vendor SpellTag.Offensive
- *  set, and the curated current-retail supplement. Single source of truth for `isOffensiveCd`. */
-export const OFFENSIVE_SPELL_IDS: Set<number> = new Set<number>([
-  ...DATA.offensiveSpellIds,
-  ...VENDOR_OFFENSIVE.ids.map((e) => Number(e.id)),
-  ...CURATED_META.keys(),
-]);
+// Ids that are NOT >=30s burst markers (mobility/utility/legacy, arena-unusable, healing/tank
+// variants). The generator already excludes them from offensiveCds.json; subtracting here too
+// protects the union whichever source (MiniCC/vendor/curated) an id arrives through.
+const DENIED_OFFENSIVE = loadJson<Record<string, { name: string; reason: string }>>(new URL('./offensiveCds.deny.json', import.meta.url));
+const DENIED_IDS = new Set<number>(Object.keys(DENIED_OFFENSIVE).map(Number));
+
+/** Union of every offensive-CD source — the MiniCC highlight list, the vendor SpellTag.Offensive
+ *  set, and the curated current-retail supplement — minus the denylist of vendor false-positives.
+ *  Single source of truth for `isOffensiveCd`. */
+export const OFFENSIVE_SPELL_IDS: Set<number> = new Set<number>(
+  [
+    ...DATA.offensiveSpellIds,
+    ...VENDOR_OFFENSIVE.ids.map((e) => Number(e.id)),
+    ...CURATED_META.keys(),
+  ].filter((id) => !DENIED_IDS.has(id)),
+);
 /** PvP trinket + the two common PvP-trinket racials (Will to Survive / Will of the Forsaken). */
 export const TRINKET_SPELL_IDS: Set<number> = new Set([336126, 59752, 7744]);
 

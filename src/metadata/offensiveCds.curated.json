@@ -19,7 +19,6 @@
   "385627": { "name": "Kingsbane", "cooldownSec": 60, "kind": "debuff" },
   "212283": { "name": "Symbols of Death", "cooldownSec": 30, "kind": "buff" },
   "382245": { "name": "Cold Blood", "cooldownSec": 45, "kind": "buff" },
-  "385408": { "name": "Sepsis", "cooldownSec": 90, "kind": "debuff" },
 
   "51271":  { "name": "Pillar of Frost", "cooldownSec": 60, "kind": "buff" },
   "47568":  { "name": "Empower Rune Weapon", "cooldownSec": 120, "kind": "buff" },
@@ -29,7 +28,6 @@
   "42650":  { "name": "Army of the Dead", "cooldownSec": 480, "kind": "pet-summon", "windowSec": 30 },
   "383269": { "name": "Abomination Limb", "cooldownSec": 120, "kind": "buff" },
 
-  "191427": { "name": "Metamorphosis", "cooldownSec": 180, "kind": "buff" },
   "198013": { "name": "Eye Beam", "cooldownSec": 30, "kind": "buff" },
   "370965": { "name": "The Hunt", "cooldownSec": 90, "kind": "debuff" },
   "258860": { "name": "Essence Break", "cooldownSec": 40, "kind": "debuff" },
@@ -37,12 +35,11 @@
   "365350": { "name": "Arcane Surge", "cooldownSec": 90, "kind": "buff" },
   "321507": { "name": "Touch of the Magi", "cooldownSec": 45, "kind": "debuff" },
 
-  "113860": { "name": "Dark Soul: Misery", "cooldownSec": 120, "kind": "buff" },
-  "113858": { "name": "Dark Soul: Instability", "cooldownSec": 120, "kind": "buff" },
+  "386997": { "name": "Soul Rot", "cooldownSec": 60, "kind": "debuff" },
+  "442726": { "name": "Malevolence", "cooldownSec": 60, "kind": "buff" },
   "205180": { "name": "Summon Darkglare", "cooldownSec": 120, "kind": "pet-summon", "windowSec": 20 },
   "1122":   { "name": "Summon Infernal", "cooldownSec": 180, "kind": "pet-summon", "windowSec": 30 },
   "265187": { "name": "Summon Demonic Tyrant", "cooldownSec": 90, "kind": "pet-summon", "windowSec": 15 },
-  "267217": { "name": "Nether Portal", "cooldownSec": 180, "kind": "buff" },
   "111898": { "name": "Grimoire: Felguard", "cooldownSec": 90, "kind": "pet-summon", "windowSec": 17 },
 
   "194223": { "name": "Celestial Alignment", "cooldownSec": 120, "kind": "buff" },
@@ -59,7 +56,6 @@
   "200174": { "name": "Mindbender", "cooldownSec": 60, "kind": "pet-summon", "windowSec": 15 },
 
   "137639": { "name": "Storm, Earth, and Fire", "cooldownSec": 90, "kind": "buff" },
-  "152173": { "name": "Serenity", "cooldownSec": 90, "kind": "buff" },
   "123904": { "name": "Invoke Xuen, the White Tiger", "cooldownSec": 120, "kind": "pet-summon", "windowSec": 20 },
 
   "357210": { "name": "Deep Breath", "cooldownSec": 120, "kind": "debuff" },

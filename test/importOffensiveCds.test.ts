@@ -24,4 +24,12 @@ describe('parseOffensive', () => {
     const dup = `{ spellId: '5', name: 'A', tags: [SpellTag.Offensive] }, { spellId: '5', name: 'A', tags: [SpellTag.Offensive] },`;
     expect(parseOffensive(dup)).toEqual([{ id: '5', name: 'A' }]);
   });
+
+  it('excludes denylisted ids at generation time', () => {
+    const src = `
+      { spellId: '36554', name: 'Shadowstep', tags: [SpellTag.Offensive] },
+      { spellId: '107574', name: 'Avatar', tags: [SpellTag.Offensive] },
+    `;
+    expect(parseOffensive(src, new Set(['36554']))).toEqual([{ id: '107574', name: 'Avatar' }]);
+  });
 });
