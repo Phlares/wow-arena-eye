@@ -51,6 +51,14 @@ CREATE TABLE IF NOT EXISTS match_detail (
   match_id     TEXT PRIMARY KEY REFERENCES match(match_id),
   metrics_json TEXT NOT NULL
 );
+-- Incremental-ingest ledger: a log file already parsed at this size is skipped on the next run
+-- (combat logs are append-only, so same size = same content; a grown file re-ingests and its
+-- matches upsert idempotently).
+CREATE TABLE IF NOT EXISTS ingest_file (
+  path        TEXT PRIMARY KEY,
+  size_bytes  INTEGER NOT NULL,
+  ingested_ms INTEGER
+);
 CREATE INDEX IF NOT EXISTS ix_match_start     ON match(start_ms);
 CREATE INDEX IF NOT EXISTS ix_match_enemycomp ON match(enemy_comp_sig);
 CREATE INDEX IF NOT EXISTS ix_match_zone      ON match(zone_id);

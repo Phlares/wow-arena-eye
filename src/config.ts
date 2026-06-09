@@ -17,6 +17,10 @@ export interface Config {
   players: PlayerIdentity[];
   seasons: Season[];
   sessionGapMinutes: number;
+  /** How many game seasons (client major.minor) back a bare ingest parses. 1 = current season
+   *  only (the safe default — older-season data is kept on disk but dilutes current-meta
+   *  analysis). Override per-run with --seasons-back / --all-seasons. */
+  ingestSeasonsBack: number;
 }
 
 function requireString(obj: Record<string, unknown>, key: string, displayKey?: string): string {
@@ -100,6 +104,14 @@ export function loadConfig(path?: string): Config {
     sessionGapMinutes = raw.sessionGapMinutes;
   }
 
+  let ingestSeasonsBack = 1;
+  if (raw.ingestSeasonsBack !== undefined) {
+    if (typeof raw.ingestSeasonsBack !== 'number' || !Number.isInteger(raw.ingestSeasonsBack) || raw.ingestSeasonsBack < 1) {
+      throw new Error('Config error: "ingestSeasonsBack" must be a positive integer');
+    }
+    ingestSeasonsBack = raw.ingestSeasonsBack;
+  }
+
   return {
     sampleLogsDir,
     outputDir,
@@ -110,5 +122,6 @@ export function loadConfig(path?: string): Config {
     players,
     seasons,
     sessionGapMinutes,
+    ingestSeasonsBack,
   };
 }

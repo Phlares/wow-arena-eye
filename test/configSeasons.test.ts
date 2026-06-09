@@ -24,3 +24,17 @@ describe('loadConfig seasons', () => {
     expect(() => withConfig({ ...base, seasons: [{ name: 'S1', startMs: 'oops' }] })).toThrow(/startMs/);
   });
 });
+
+describe('loadConfig ingestSeasonsBack', () => {
+  it('defaults to 1 (current season only — safe re-ingest)', () => {
+    expect(withConfig(base).ingestSeasonsBack).toBe(1);
+  });
+  it('reads a positive integer', () => {
+    expect(withConfig({ ...base, ingestSeasonsBack: 3 }).ingestSeasonsBack).toBe(3);
+  });
+  it('rejects zero/negative/non-integer values', () => {
+    expect(() => withConfig({ ...base, ingestSeasonsBack: 0 })).toThrow(/ingestSeasonsBack/);
+    expect(() => withConfig({ ...base, ingestSeasonsBack: 1.5 })).toThrow(/ingestSeasonsBack/);
+    expect(() => withConfig({ ...base, ingestSeasonsBack: 'all' })).toThrow(/ingestSeasonsBack/);
+  });
+});
