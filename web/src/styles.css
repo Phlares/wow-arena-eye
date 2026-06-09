@@ -64,6 +64,16 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .ev.cc { background: #b07cf0; } .ev.ccd { background: #b07cf0; border: 2px solid #e5736b; box-sizing: border-box; }
 .ev.death { width: 0; height: 0; border-radius: 0; background: none; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 11px solid #e5736b; }
 
+/* app tabs + settings */
+.app-head { display: flex; align-items: baseline; gap: 18px; }
+.tabs { display: inline-flex; border: 1px solid #2f3a4d; border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+.tabs button { background: #161b24; color: #aeb6c2; border: none; padding: 5px 14px; font-size: 12px; cursor: pointer; }
+.tabs button.on { background: #2c3e5c; color: #fff; }
+.settings { max-width: 760px; }
+.settings-note { color: #9aa2b1; font-size: 12px; }
+.meta-section { margin: 10px 0; background: #13161c; border: 1px solid #2a2f3a; border-radius: 8px; padding: 8px 12px; }
+.meta-section summary { cursor: pointer; color: #e6e9ef; font-weight: 600; font-size: 13px; }
+
 /* TimeSeriesChart primitive (dotted thresholds + superimposed series + hover readout) */
 .ts-chart { position: relative; }
 .ts-hover { position: absolute; inset: 0; }

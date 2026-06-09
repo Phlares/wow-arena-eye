@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { DatabaseSync } from '../store/sqlite.js';
 import { openDb } from '../store/store.js';
 import { loadConfig } from '../config.js';
-import { attachSessions, buildGoTracks, buildRangeSeries, buildRangeTargets, buildRoster, buildScorecardFor, enrichRatingDeltas, loadFilterOptions, loadMatchDetail, loadMatchScalars, loadViewerMatches } from './queries.js';
+import { attachSessions, buildGoTracks, buildMetadataView, buildRangeSeries, buildRangeTargets, buildRoster, buildScorecardFor, enrichRatingDeltas, loadFilterOptions, loadMatchDetail, loadMatchScalars, loadViewerMatches } from './queries.js';
 import type { MatchQuery } from './types.js';
 import type { Scope } from '../scorecard/types.js';
 
@@ -48,6 +48,7 @@ function parseQuery(p: URLSearchParams): MatchQuery {
 export function handleApi(db: DatabaseSync, method: string, path: string, params: URLSearchParams, gapMs: number): ApiResult {
   if (method !== 'GET') return json(405, { error: 'method not allowed' });
   if (path === '/api/filters') return json(200, loadFilterOptions(db, params.get('character') || undefined));
+  if (path === '/api/metadata') return json(200, buildMetadataView());
   if (path === '/api/matches') {
     const query = parseQuery(params);
     const matches = loadViewerMatches(db, query);

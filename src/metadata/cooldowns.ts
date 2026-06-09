@@ -1,4 +1,5 @@
 import { loadJson } from './loadJson.js';
+import { spellMeta } from './spells.js';
 import type { CdCategory } from '../metrics/types.js';
 
 interface RawEntry {
@@ -127,4 +128,34 @@ export function cdInfo(spellId: number | undefined, specId?: string): CdEntry | 
 
 export function isOffensiveCd(spellId: number | undefined): boolean {
   return spellId !== undefined && OFFENSIVE_SPELL_IDS.has(spellId);
+}
+
+// --- read-only catalogs for the viewer's Settings view ---
+
+/** Every tracked offensive CD (union minus denylist), with curated/vendor names + meta where known. */
+export function offensiveCatalog(): { id: number; name?: string; cooldownSec?: number; kind?: string; windowSec?: number }[] {
+  const vendorName = new Map(VENDOR_OFFENSIVE.ids.map((e) => [Number(e.id), e.name]));
+  return [...OFFENSIVE_SPELL_IDS].sort((a, b) => a - b).map((id) => {
+    const meta = CURATED_META.get(id);
+    return { id, name: meta?.name ?? vendorName.get(id), cooldownSec: meta?.cooldownSec, kind: meta?.kind, windowSec: meta?.windowSec };
+  });
+}
+
+/** The denylisted vendor false-positives, with the reason each was pruned. */
+export function deniedOffensiveCatalog(): { id: number; name: string; reason: string }[] {
+  return Object.entries(DENIED_OFFENSIVE).map(([id, v]) => ({ id: Number(id), name: v.name, reason: v.reason }));
+}
+
+/** Flat dedup of the non-offensive cooldown registry (defensive/external/trinket/important).
+ *  Names come from the curated spell table where known (the registry itself is id-only). */
+export function defensiveCatalog(): { id: number; name?: string; cooldownSec: number; category: CdCategory }[] {
+  const seen = new Map<number, { id: number; name?: string; cooldownSec: number; category: CdCategory }>();
+  for (const list of [...Object.values(DATA.bySpec), ...Object.values(DATA.byClass)]) {
+    for (const e of list) {
+      const category = categoryOf(e);
+      if (category === 'offensive' || e.cooldownSec <= 0 || seen.has(e.spellId)) continue;
+      seen.set(e.spellId, { id: e.spellId, name: spellMeta(e.spellId)?.name, cooldownSec: e.cooldownSec, category });
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.id - b.id);
 }

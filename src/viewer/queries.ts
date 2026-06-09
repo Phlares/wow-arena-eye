@@ -9,7 +9,9 @@ import { buildScorecard } from '../scorecard/scorecard.js';
 import { loadPlayerMatches } from '../scorecard/loadMatches.js';
 import type { Scope, Season, Scorecard } from '../scorecard/types.js';
 import type { MatchMetrics, PositionTrack } from '../metrics/types.js';
-import type { FilterOptions, MatchQuery, MatchSummary, RangePoint, RosterEntry, GoTrack, RangeTarget } from './types.js';
+import { offensiveCatalog, deniedOffensiveCatalog, defensiveCatalog } from '../metadata/cooldowns.js';
+import { ccCatalog } from '../metadata/spells.js';
+import type { FilterOptions, MatchQuery, MatchSummary, MetadataView, RangePoint, RosterEntry, GoTrack, RangeTarget } from './types.js';
 
 interface Row {
   match_id: string; start_ms: number | null; duration_sec: number | null; bracket: string | null;
@@ -290,4 +292,10 @@ export function buildGoTracks(m: MatchMetrics): GoTrack[] {
   return (m.attackerGoTracks ?? []).map((t) => ({
     unitId: t.unitId, name: t.name, team: t.team, className: className(t.spec ?? ''), intervals: t.intervals,
   }));
+}
+
+/** The read-only metadata view for the Settings tab: what the analysis considers. Pure metadata —
+ *  no store access. */
+export function buildMetadataView(): MetadataView {
+  return { offensive: offensiveCatalog(), denied: deniedOffensiveCatalog(), cc: ccCatalog(), defensives: defensiveCatalog() };
 }

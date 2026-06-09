@@ -35,6 +35,15 @@ export interface GoTrack { unitId: string; name: string; team: string; className
 /** A reassignable range-lane target: the recording player's distance series to this player. */
 export interface RangeTarget { unitId: string; name: string; className: string; team: string; isHealer: boolean; isPrimaryThreat: boolean; series: RangePoint[]; }
 
+/** What the analysis considers (read-only Settings view): tracked offensive CDs, the pruned
+ *  vendor false-positives, CC with DR categories, and the defensive registry. */
+export interface MetadataView {
+  offensive: { id: number; name?: string; cooldownSec?: number; kind?: string; windowSec?: number }[];
+  denied: { id: number; name: string; reason: string }[];
+  cc: { id: number; name: string; category: string }[];
+  defensives: { id: number; name?: string; cooldownSec: number; category: string }[];
+}
+
 export interface FilterOptions {
   characters: string[];
   brackets: string[];

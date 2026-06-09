@@ -35,3 +35,15 @@ export function interruptLockoutSec(id: number | undefined): number {
   if (!m || !m.tags.includes('interrupt')) return 0;
   return m.lockoutSec ?? 4;
 }
+
+/** Read-only CC catalog (DR category per spell): the imported DR table plus curated cc spells it
+ *  misses (e.g. Seduction). For the viewer's Settings view. */
+export function ccCatalog(): { id: number; name: string; category: DrCategory }[] {
+  const out = new Map<number, { id: number; name: string; category: DrCategory }>();
+  for (const [id, v] of Object.entries(CC_CATEGORIES)) out.set(Number(id), { id: Number(id), name: v.name, category: v.drCategory });
+  for (const [id, v] of Object.entries(TABLE)) {
+    const n = Number(id);
+    if (!out.has(n) && v.tags.includes('cc') && v.ccCategory) out.set(n, { id: n, name: v.name, category: v.ccCategory });
+  }
+  return [...out.values()].sort((a, b) => a.id - b.id);
+}
