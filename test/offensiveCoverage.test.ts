@@ -9,7 +9,6 @@ const KNOWN_BURST: [number, string][] = [
   [360194, 'Deathmark'],
   [51271, 'Pillar of Frost'],
   [191427, 'Metamorphosis'],
-  [386997, 'Soul Rot'],
   [442726, 'Malevolence'],
   [288613, 'Trueshot'],
   [190319, 'Combustion'],
@@ -63,9 +62,10 @@ describe('offensive-CD coverage', () => {
   });
 
   it('drops curated ids that never occur in 12.x logs (verified against the 70GB live corpus)', () => {
-    // Sepsis, Nether Portal, Serenity: removed from the game; Dark Soul / Meta cast id: vendor
-    // legacy ids that no longer fire — none should claim curated (cooldown/kind) metadata.
-    for (const stale of [385408, 267217, 152173, 113860, 113858, 191427]) {
+    // Sepsis, Nether Portal, Serenity, Soul Rot: removed from the game (Soul Rot: 0 spell events
+    // in season-12.0 logs — earlier corpus scan was polluted by prior-season files); Dark Soul /
+    // Meta cast id: vendor legacy ids that no longer fire — none claim curated metadata.
+    for (const stale of [385408, 267217, 152173, 386997, 113860, 113858, 191427]) {
       expect(offensiveCdMeta(stale), `${stale} should not be curated`).toBeUndefined();
     }
   });

@@ -35,7 +35,6 @@
   "365350": { "name": "Arcane Surge", "cooldownSec": 90, "kind": "buff" },
   "321507": { "name": "Touch of the Magi", "cooldownSec": 45, "kind": "debuff" },
 
-  "386997": { "name": "Soul Rot", "cooldownSec": 60, "kind": "debuff" },
   "442726": { "name": "Malevolence", "cooldownSec": 60, "kind": "buff" },
   "205180": { "name": "Summon Darkglare", "cooldownSec": 120, "kind": "pet-summon", "windowSec": 20 },
   "1122":   { "name": "Summon Infernal", "cooldownSec": 180, "kind": "pet-summon", "windowSec": 30 },
