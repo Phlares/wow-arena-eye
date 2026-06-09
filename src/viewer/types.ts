@@ -30,6 +30,10 @@ export interface MatchSummary {
 export type SessionSummary = Session;
 
 export interface RangePoint { tSec: number; dist: number | null; }
+export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean; }
+export interface GoTrack { unitId: string; name: string; team: string; className: string; intervals: { startSec: number; endSec: number }[]; }
+/** A reassignable range-lane target: the recording player's distance series to this player. */
+export interface RangeTarget { unitId: string; name: string; className: string; team: string; isHealer: boolean; isPrimaryThreat: boolean; series: RangePoint[]; }
 
 export interface FilterOptions {
   characters: string[];

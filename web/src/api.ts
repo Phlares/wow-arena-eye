@@ -24,14 +24,22 @@ export interface MatchesResponse { matches: MatchSummary[]; sessions: SessionSum
 export interface RangePoint { tSec: number; dist: number | null }
 export interface DetailTimelineEvent { tSec: number; unitId: string; unitName: string; kind: string; spell?: string; extra?: string; targetId?: string; targetName?: string }
 export interface OffensiveWindow {
-  startSec: number; endSec: number; defendingTeam: string; teamDamageTaken: number;
+  startSec: number; endSec: number; attackingTeam: string; defendingTeam: string; teamDamageTaken: number;
   damageByTarget: { unitId: string; name: string; damage: number }[];
+  damageByAttacker: { unitId: string; name: string; damage: number }[];
   mitigation: { available: { name: string }[]; used: { name: string }[] };
   counterPlay?: unknown; positioning?: unknown; lineOfSight?: unknown;
 }
+export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean }
+export interface GoTrack { unitId: string; name: string; team: string; className: string; intervals: { startSec: number; endSec: number; spell?: string }[] }
+export interface RangeTarget { unitId: string; name: string; className: string; team: string; isHealer: boolean; isPrimaryThreat: boolean; series: RangePoint[] }
+export interface DeathBlow { victimId: string; tSec: number; recent: { srcName: string; spell: string; amount: number; tSec: number }[] }
 export interface MatchDetail {
-  metrics: { playerUnitId?: string; timeline: DetailTimelineEvent[]; offensiveWindows: OffensiveWindow[]; losDisruptors: { kind?: string; startSec?: number }[] };
+  metrics: { playerUnitId?: string; timeline: DetailTimelineEvent[]; offensiveWindows: OffensiveWindow[]; losDisruptors: { kind?: string; startSec?: number }[]; deathBlows?: DeathBlow[] };
   rangeSeries: RangePoint[];
+  rangeTargets: RangeTarget[];
+  roster: RosterEntry[];
+  goTracks: GoTrack[];
 }
 export async function fetchMatchDetail(id: string): Promise<MatchDetail> {
   const r = await fetch(`/api/matches/${encodeURIComponent(id)}/detail`);

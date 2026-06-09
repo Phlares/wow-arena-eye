@@ -136,6 +136,7 @@ export interface OffensiveWindow {
   openedBy: CdRef[];
   teamDamageTaken: number;
   damageByTarget: { unitId: string; name: string; damage: number }[];
+  damageByAttacker: { unitId: string; name: string; damage: number }[];
   mitigation: { available: MitigationItem[]; used: MitigationItem[] };
   counterPlay: WindowCounterPlay;
   positioning?: WindowPositioning;
@@ -241,7 +242,15 @@ export interface TeamGroup { team: Team; players: PlayerGroup[]; unownedPets: Un
 export type TimelineKind = 'cast' | 'interrupt' | 'dispel' | 'steal' | 'death' | 'cc';
 export interface TimelineEvent { tSec: number; unitId: string; unitName: string; kind: TimelineKind; spell?: string; extra?: string; targetId?: string; targetName?: string; }
 
-export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; positionTracks: PositionTrack[]; distanceBands: DistanceBandRow[]; lineOfSight: MatchLineOfSight; losDisruptors: LosDisruptor[]; }
+export interface AttackerGoTrack { unitId: string; name: string; team: Team; spec?: string; intervals: { startSec: number; endSec: number; spell?: string }[]; }
+
+/** Per-death preceding damage: what landed on the victim in the ~5s before they died. */
+export interface DeathBlow { victimId: string; tSec: number; recent: { srcName: string; spell: string; amount: number; tSec: number }[]; }
+
+/** A player's escape-anchor placements over the match (e.g. Demonic Circle), in arena coords. */
+export interface AnchorPlacements { unitId: string; placements: { tSec: number; x: number; y: number }[]; }
+
+export interface MatchMetrics { teams: TeamGroup[]; timeline: TimelineEvent[]; playerUnitId?: string; coordination: { team: Team; summary: CoordinationSummary }[]; focusTracks: FocusTracks; offensiveWindows: OffensiveWindow[]; attackerGoTracks: AttackerGoTrack[]; deathBlows: DeathBlow[]; anchors: AnchorPlacements[]; positionTracks: PositionTrack[]; distanceBands: DistanceBandRow[]; lineOfSight: MatchLineOfSight; losDisruptors: LosDisruptor[]; }
 
 export function tally(names: string[]): SpellTally[] {
   const counts = new Map<string, number>();

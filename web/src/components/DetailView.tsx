@@ -3,6 +3,7 @@ import type { MatchDetail } from '../api.js';
 import { Timeline } from './Timeline.js';
 import { WindowPanel } from './WindowPanel.js';
 import { ComparePanel } from './ComparePanel.js';
+import { Roster } from './Roster.js';
 
 export function DetailView({ detail, error, matchId, onClose }: { detail: MatchDetail | null; error: string | null; matchId: string; onClose: () => void }) {
   const [selectedWindow, setSelectedWindow] = useState<number | null>(null);
@@ -20,6 +21,7 @@ export function DetailView({ detail, error, matchId, onClose }: { detail: MatchD
       {!error && !detail && <div className="detail-empty">Loading…</div>}
       {detail && (
         <div className="detail-body">
+          <Roster roster={detail.roster} />
           <Timeline detail={detail} onSelectWindow={setSelectedWindow} />
           {win && selectedWindow !== null && <WindowPanel window={win} index={selectedWindow} />}
           <ComparePanel matchId={matchId} />

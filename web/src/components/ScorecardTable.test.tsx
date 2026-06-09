@@ -18,6 +18,7 @@ it('renders rate metrics with /min, verdict + win/loss styling, and the season-b
   const { container } = render(<ScorecardTable scorecard={sc()} />);
   expect(screen.getAllByText(/\/min/).length).toBeGreaterThan(0);    // damageDone is a rate metric
   expect(screen.getByText(/better/)).toBeInTheDocument();
+  expect(screen.getByText(/\+100\.0k/)).toBeInTheDocument();          // signed delta vs avg (1.6M − 1.5M)
   expect(screen.getByText(/win-like/)).toBeInTheDocument();
   expect(screen.getByText(/loss-like/)).toBeInTheDocument();
   expect(container.querySelector('.star')).toBeTruthy();             // isNewBest → ★
