@@ -1,10 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { loadJson } from './loadJson.js';
 
 interface SpecRow { className: string; specName: string }
-const TABLE = JSON.parse(
-  readFileSync(fileURLToPath(new URL('./specs.json', import.meta.url)), 'utf8'),
-) as Record<string, SpecRow>;
+const TABLE = loadJson<Record<string, SpecRow>>(new URL('./specs.json', import.meta.url));
 
 /** Short display label for a spec id (the spec name, e.g. '265' -> 'Affliction'); raw id if unknown. */
 export function specLabel(id: string): string {

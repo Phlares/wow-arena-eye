@@ -1,5 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { loadJson } from './loadJson.js';
 import type { CdCategory } from '../metrics/types.js';
 
 interface RawEntry {
@@ -14,22 +13,18 @@ interface RawData {
   byClass: Record<string, RawEntry[]>;
 }
 
-/** A metadata JSON sibling of this module, parsed. */
-const loadJson = <T>(rel: string): T =>
-  JSON.parse(readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')) as T;
-
-const DATA = loadJson<RawData>('./cooldowns.json');
+const DATA = loadJson<RawData>(new URL('./cooldowns.json', import.meta.url));
 
 /** Offensive cooldown classification (kind/cooldown) for the curated supplement. */
 export interface OffensiveCdMeta { name: string; cooldownSec: number; kind: 'buff' | 'debuff' | 'pet-summon'; windowSec?: number; }
 
-const VENDOR_OFFENSIVE = loadJson<{ ids: { id: string; name: string }[] }>('./offensiveCds.json');
+const VENDOR_OFFENSIVE = loadJson<{ ids: { id: string; name: string }[] }>(new URL('./offensiveCds.json', import.meta.url));
 
 // Current-retail (12.0.x) offensive cooldowns (>=30s) the vendor SpellTag.Offensive set and the
 // MiniCC highlight list miss. kind: buff (self-buff aura) | debuff (target aura the attacker
 // applies) | pet-summon (no aura -> cast-based fixed window of windowSec). cooldownSec drives the
 // GO-band safety availability. Hand-curated; verified against the live log corpus 2026-06-09.
-const CURATED_OFFENSIVE = loadJson<Record<string, OffensiveCdMeta>>('./offensiveCds.curated.json');
+const CURATED_OFFENSIVE = loadJson<Record<string, OffensiveCdMeta>>(new URL('./offensiveCds.curated.json', import.meta.url));
 
 /** Curated offensive-CD metadata by spellId (kind/cooldown/window). */
 const CURATED_META = new Map<number, OffensiveCdMeta>(
@@ -44,7 +39,7 @@ export function offensiveCdMeta(spellId: number | undefined): OffensiveCdMeta | 
 // Ids that are NOT >=30s burst markers (mobility/utility/legacy, arena-unusable, healing/tank
 // variants). The generator already excludes them from offensiveCds.json; subtracting here too
 // protects the union whichever source (MiniCC/vendor/curated) an id arrives through.
-const DENIED_OFFENSIVE = loadJson<Record<string, { name: string; reason: string }>>('./offensiveCds.deny.json');
+const DENIED_OFFENSIVE = loadJson<Record<string, { name: string; reason: string }>>(new URL('./offensiveCds.deny.json', import.meta.url));
 const DENIED_IDS = new Set<number>(Object.keys(DENIED_OFFENSIVE).map(Number));
 
 /** Union of every offensive-CD source — the MiniCC highlight list, the vendor SpellTag.Offensive

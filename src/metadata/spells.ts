@@ -1,17 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { loadJson } from './loadJson.js';
 import type { DrCategory } from '../metrics/types.js';
 
 export type SpellTag = 'interrupt' | 'cc' | 'defensive' | 'immunity' | 'offensive';
 export interface SpellMeta { name: string; tags: SpellTag[]; ccCategory?: DrCategory; lockoutSec?: number; priority?: number; }
 
-const TABLE = JSON.parse(
-  readFileSync(fileURLToPath(new URL('./spells.curated.json', import.meta.url)), 'utf8'),
-) as Record<string, SpellMeta>;
+const TABLE = loadJson<Record<string, SpellMeta>>(new URL('./spells.curated.json', import.meta.url));
 
-const CC_CATEGORIES = JSON.parse(
-  readFileSync(fileURLToPath(new URL('./ccCategories.json', import.meta.url)), 'utf8'),
-) as Record<string, { drCategory: DrCategory; name: string }>;
+const CC_CATEGORIES = loadJson<Record<string, { drCategory: DrCategory; name: string }>>(new URL('./ccCategories.json', import.meta.url));
 
 export function spellMeta(id: number | undefined): SpellMeta | undefined {
   return id === undefined ? undefined : TABLE[String(id)];

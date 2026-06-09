@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { isOffensiveCd, offensiveCdMeta } from '../src/metadata/cooldowns.js';
+import { loadJson } from '../src/metadata/loadJson.js';
 
 // Current-retail (12.0.x) burst cooldowns across specs that the GO tracks must recognize. Mix of
 // vendor-tagged, MiniCC-highlight, and curated-supplement ids — all must resolve via the union.
@@ -24,9 +23,9 @@ const KNOWN_BURST: [number, string][] = [
 
 // The denylist (vendor SpellTag.Offensive ids that are NOT >=30s burst markers) — every entry
 // must be excluded from the union, whatever source it came in through.
-const DENY = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../src/metadata/offensiveCds.deny.json', import.meta.url)), 'utf8'),
-) as Record<string, { name: string; reason: string }>;
+const DENY = loadJson<Record<string, { name: string; reason: string }>>(
+  new URL('../src/metadata/offensiveCds.deny.json', import.meta.url),
+);
 const DENIED: [number, string][] = Object.entries(DENY).map(([id, v]) => [Number(id), `${v.name} — ${v.reason}`]);
 
 describe('offensive-CD coverage', () => {
