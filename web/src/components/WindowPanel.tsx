@@ -22,6 +22,10 @@ export function WindowPanel({ window: w, index }: { window: OffensiveWindow; ind
         <span>{names(w.mitigation.available) || '—'}</span></div>
       <div className="win-row"><span className="win-k">Mitigation used</span>
         <span>{names(w.mitigation.used) || 'none used'}</span></div>
+      {typeof w.attackerOffenseAvailableCount === 'number' && (
+        <div className="win-row"><span className="win-k">Favor inputs</span>
+          <span>{w.attackerOffenseAvailableCount} attacker CDs ready vs {w.mitigation.available.length} defensives up</span></div>
+      )}
     </div>
   );
 }

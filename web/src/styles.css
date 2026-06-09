@@ -50,6 +50,12 @@ body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-u
 .go-band.friendly-go { background: rgba(70,192,138,.10); border-left: 2px solid rgba(70,192,138,.6); }
 .go-band.enemy-go { background: rgba(229,115,107,.13); border-left: 2px solid rgba(229,115,107,.6); }
 .go-band .go-lbl { position: absolute; top: -2px; left: 3px; font-size: 10px; color: #9aa2b1; white-space: nowrap; }
+/* favorability tint (defender perspective): 0 red … 4 green; overrides the team tint, keeps the team border */
+.go-band.go-favor-0 { background: rgba(229, 87, 76, .22); }
+.go-band.go-favor-1 { background: rgba(235, 146, 73, .18); }
+.go-band.go-favor-2 { background: rgba(233, 196, 82, .15); }
+.go-band.go-favor-3 { background: rgba(91, 139, 240, .15); }
+.go-band.go-favor-4 { background: rgba(70, 192, 138, .18); }
 .tl-lane { position: relative; height: 30px; border-bottom: 1px dashed #232833; }
 .tl-name { position: absolute; left: 0; width: 120px; height: 100%; display: flex; align-items: center; font-size: 11px; color: #9aa2b1; }
 .tl-track { position: absolute; left: 132px; right: 12px; top: 0; bottom: 0; }
