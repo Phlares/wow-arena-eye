@@ -1,20 +1,8 @@
-import type { MatchDetail, DetailTimelineEvent, OffensiveWindow } from '../api.js';
+import type { MatchDetail, DetailTimelineEvent } from '../api.js';
 import { RangeTrack } from './RangeTrack.js';
 import { GoTracks } from './GoTracks.js';
 import { fmtNum } from '../format.js';
-
-/** Defender-perspective favorability ratio for a GO band; null when the stored match predates
- *  attackerOffenseAvailableCount (no re-ingest yet). */
-export function favor(w: OffensiveWindow, ours: boolean): number | null {
-  const atk = w.attackerOffenseAvailableCount;
-  if (typeof atk !== 'number') return null;
-  const def = w.mitigation.available.length;
-  return ours ? (1 + atk) / (1 + def) : (1 + def) / (1 + atk);
-}
-/** favor → 5-stop scale index (0 red … 4 green). */
-export function favorStop(f: number): number {
-  return f >= 1.5 ? 4 : f >= 1.1 ? 3 : f > 0.9 ? 2 : f >= 0.67 ? 1 : 0;
-}
+import { favor, favorStop, pctOf } from '../favor.js';
 
 /** Per-lane: how a timeline event maps to a marker class in that lane (null = not in this lane). */
 const LANES: { key: string; label: string; pick: (e: DetailTimelineEvent, playerId?: string) => string | null }[] = [
@@ -36,7 +24,7 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
     ...detail.rangeSeries.map((r) => r.tSec),
     ...(detail.rangeTargets ?? []).map((t) => t.series.at(-1)?.tSec ?? 0),
   );
-  const pct = (t: number) => `${(t / matchEnd) * 100}%`;
+  const pct = (t: number) => pctOf(t, matchEnd);
   // Death markers get a richer hover: the ~5s of damage that preceded the death ("what killed me").
   const deathTitle = (e: DetailTimelineEvent): string => {
     const db = (detail.metrics.deathBlows ?? []).find((d) => d.victimId === e.unitId && Math.abs(d.tSec - e.tSec) < 1);

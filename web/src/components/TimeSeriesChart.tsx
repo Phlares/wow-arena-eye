@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export interface ChartPoint { tSec: number; v: number | null }
 export interface ChartSeries { id: string; label: string; color?: string; points: ChartPoint[] }
@@ -18,19 +18,21 @@ export function TimeSeriesChart({ series, thresholds = [], matchEnd, yMax, heigh
   const [hover, setHover] = useState<Hover | null>(null);
   const H = height;
   const x = (t: number) => (t / matchEnd) * W;
-  const y = (v: number) => H - (Math.min(v, yMax) / yMax) * H;
-  const yPct = (v: number) => `${(1 - Math.min(v, yMax) / yMax) * 100}%`;
+  const yFrac = (v: number) => Math.min(v, yMax) / yMax;
+  const y = (v: number) => H - yFrac(v) * H;
+  const yPct = (v: number) => `${(1 - yFrac(v)) * 100}%`;
 
-  const segsOf = (s: ChartSeries): string[] => {
+  // Polyline geometry only depends on the data/scales, not on hover — don't rebuild per mousemove.
+  const seriesSegs = useMemo(() => series.map((s) => {
     const segs: string[] = [];
     let cur: string[] = [];
     for (const p of s.points) {
       if (p.v === null) { if (cur.length) { segs.push(cur.join(' ')); cur = []; } }
-      else cur.push(`${x(p.tSec)},${y(p.v)}`);
+      else cur.push(`${(p.tSec / matchEnd) * W},${H - (Math.min(p.v, yMax) / yMax) * H}`);
     }
     if (cur.length) segs.push(cur.join(' '));
-    return segs;
-  };
+    return { s, segs };
+  }), [series, matchEnd, yMax, H]);
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>): void => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -56,7 +58,7 @@ export function TimeSeriesChart({ series, thresholds = [], matchEnd, yMax, heigh
           {thresholds.map((th) => (
             <line key={th.value} className="ts-threshold" x1={0} x2={W} y1={y(th.value)} y2={y(th.value)} strokeDasharray="4 6" />
           ))}
-          {series.map((s) => segsOf(s).map((pts, i) => (
+          {seriesSegs.map(({ s, segs }) => segs.map((pts, i) => (
             <polyline key={`${s.id}-${i}`} points={pts} fill="none" style={s.color ? { stroke: s.color } : undefined} />
           )))}
         </svg>
