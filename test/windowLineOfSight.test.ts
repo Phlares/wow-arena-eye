@@ -13,7 +13,7 @@ const player = (unitId: string, team: 'friendly'|'enemy'): UnitMetrics => ({ uni
 it('annotates a window with target↔nearest-attacker LoS', () => {
   const tracks = new Map<string, PositionTrack>([['F1', dense('F1',2,10)], ['E1', dense('E1',18,10)]]);
   const units = [player('F1','friendly'), player('E1','enemy')];
-  const w: OffensiveWindow = { attackingTeam:'enemy', defendingTeam:'friendly', startSec:10, endSec:20, openedBy:[], teamDamageTaken:0, damageByTarget:[{unitId:'F1',name:'F1',damage:5000}], damageByAttacker:[], mitigation:{available:[],used:[]}, counterPlay:{ccOnDefenders:[],threatImmuneAuras:[]} } as OffensiveWindow;
+  const w: OffensiveWindow = { attackingTeam:'enemy', defendingTeam:'friendly', startSec:10, endSec:20, openedBy:[], teamDamageTaken:0, damageByTarget:[{unitId:'F1',name:'F1',damage:5000}], damageByAttacker:[], mitigation:{available:[],used:[]}, attackerOffenseAvailableCount:0, counterPlay:{ccOnDefenders:[],threatImmuneAuras:[]} } as OffensiveWindow;
   const out = addWindowLineOfSight([w], gridPillar(), tracks, [], units);
   const los = out[0].lineOfSight!;
   expect(los.primaryTargetId).toBe('F1');
@@ -22,7 +22,7 @@ it('annotates a window with target↔nearest-attacker LoS', () => {
 });
 
 function baseWindow(over: Partial<OffensiveWindow>): OffensiveWindow {
-  return { attackingTeam: 'enemy', defendingTeam: 'friendly', startSec: 10, endSec: 20, openedBy: [], teamDamageTaken: 0, damageByTarget: [{ unitId: 'F1', name: 'F1', damage: 5000 }], damageByAttacker: [], mitigation: { available: [], used: [] }, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] }, ...over } as OffensiveWindow;
+  return { attackingTeam: 'enemy', defendingTeam: 'friendly', startSec: 10, endSec: 20, openedBy: [], teamDamageTaken: 0, damageByTarget: [{ unitId: 'F1', name: 'F1', damage: 5000 }], damageByAttacker: [], mitigation: { available: [], used: [] }, attackerOffenseAvailableCount: 0, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] }, ...over } as OffensiveWindow;
 }
 
 it('returns the window unchanged when there is no damage target', () => {

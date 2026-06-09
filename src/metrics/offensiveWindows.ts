@@ -1,6 +1,6 @@
 import { type Team, type OffensiveWindow, type CdRef, type UnitMetrics, type MitigationItem, type MitigationCategory, unitTeam, resolvePlayer } from './types.js';
 import { type AuraState, type Interval } from './auraState.js';
-import { cdsForSpec, type CdEntry } from '../metadata/cooldowns.js';
+import { cdsForSpec, offensiveCdMeta, type CdEntry } from '../metadata/cooldowns.js';
 import { ccInfo, isInterrupt, isImmunity } from '../metadata/spells.js';
 import { isAvailable, type CastEvent } from './cooldownTimeline.js';
 import { offensiveActivity } from './offensiveActivity.js';
@@ -142,6 +142,17 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
     }));
 
     const defenders = players.filter((p) => p.team === OTHER[w.team]);
+    const attackers = players.filter((p) => p.team === w.team);
+
+    // attacking team's curated offensive CDs ready at window start. Observed-cast based: a CD a
+    // player never cast in the match can't be attributed to their loadout, so it isn't counted.
+    let attackerOffenseAvailableCount = 0;
+    for (const atk of attackers) {
+      for (const [sid, msList] of castMsByUnitSpell.get(atk.unitId) ?? []) {
+        const meta = offensiveCdMeta(sid);
+        if (meta && isAvailable(msList, meta.cooldownSec * 1000, 1, w.start)) attackerOffenseAvailableCount += 1;
+      }
+    }
 
     // available: each defender's mitigation CDs that are ready at window start
     const available: MitigationItem[] = [];
@@ -200,6 +211,7 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
         .map(([unitId, damage]) => ({ unitId, name: nameOf(unitId), damage: Math.round(damage) }))
         .sort((a, b) => b.damage - a.damage),
       mitigation: { available, used },
+      attackerOffenseAvailableCount,
       counterPlay: { ccOnDefenders, threatImmuneAuras },
     };
   });

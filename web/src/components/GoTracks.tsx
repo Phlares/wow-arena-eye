@@ -1,5 +1,6 @@
 import type { GoTrack } from '../api.js';
 import { classColor } from '../classColors.js';
+import { pctOf } from '../format.js';
 
 /** Per-attacker GO tracks on the shared time axis: enemy attackers on top, yours below, each a
  *  class-colored line filled across that attacker's offensive (GO) intervals. Two lit enemy rows
@@ -7,7 +8,7 @@ import { classColor } from '../classColors.js';
 export function GoTracks({ tracks, matchEnd }: { tracks: GoTrack[]; matchEnd: number }) {
   const ts = tracks ?? [];
   const ordered = [...ts.filter((t) => t.team === 'enemy'), ...ts.filter((t) => t.team === 'friendly')];
-  const pct = (t: number) => `${(t / matchEnd) * 100}%`;
+  const pct = (t: number) => pctOf(t, matchEnd);
   return (
     <div className="go-tracks">
       {ordered.map((t) => (

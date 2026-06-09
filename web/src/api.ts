@@ -28,6 +28,8 @@ export interface OffensiveWindow {
   damageByTarget: { unitId: string; name: string; damage: number }[];
   damageByAttacker: { unitId: string; name: string; damage: number }[];
   mitigation: { available: { name: string }[]; used: { name: string }[] };
+  /** Attacking team's curated offense off cooldown at window start; absent in pre-rework blobs. */
+  attackerOffenseAvailableCount?: number;
   counterPlay?: unknown; positioning?: unknown; lineOfSight?: unknown;
 }
 export interface RosterEntry { name: string; className: string; specLabel: string; team: string; isHealer: boolean }

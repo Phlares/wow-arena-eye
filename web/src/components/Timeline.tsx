@@ -1,7 +1,8 @@
 import type { MatchDetail, DetailTimelineEvent } from '../api.js';
-import { RangeLane } from './RangeLane.js';
+import { RangeTrack } from './RangeTrack.js';
 import { GoTracks } from './GoTracks.js';
-import { fmtNum } from '../format.js';
+import { fmtNum, pctOf } from '../format.js';
+import { favor, favorStop } from '../favor.js';
 
 /** Per-lane: how a timeline event maps to a marker class in that lane (null = not in this lane). */
 const LANES: { key: string; label: string; pick: (e: DetailTimelineEvent, playerId?: string) => string | null }[] = [
@@ -23,7 +24,7 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
     ...detail.rangeSeries.map((r) => r.tSec),
     ...(detail.rangeTargets ?? []).map((t) => t.series.at(-1)?.tSec ?? 0),
   );
-  const pct = (t: number) => `${(t / matchEnd) * 100}%`;
+  const pct = (t: number) => pctOf(t, matchEnd);
   // Death markers get a richer hover: the ~5s of damage that preceded the death ("what killed me").
   const deathTitle = (e: DetailTimelineEvent): string => {
     const db = (detail.metrics.deathBlows ?? []).find((d) => d.victimId === e.unitId && Math.abs(d.tSec - e.tSec) < 1);
@@ -36,10 +37,16 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
       <div className="tl-bands">
         {wins.map((w, i) => {
           const ours = w.attackingTeam === 'friendly';
+          // Defender-perspective favorability: our relevant resources vs theirs, (1+x)/(1+y) so
+          // zero counts stay defined. Enemy go → our defensives vs their ready offense; our go →
+          // our ready offense vs their defensives. Mapped onto 5 stops (red…green).
+          const f = favor(w, ours);
+          const favorCls = f === null ? '' : ` go-favor-${favorStop(f)}`;
+          const title = `GO ${i + 1} · ${ours ? 'our offense' : 'enemy offense'}${f === null ? '' : ` · favor ${f.toFixed(1)}`}`;
           return (
-          <div key={i} data-testid={`go-band-${i}`} className={`go-band ${ours ? 'friendly-go' : 'enemy-go'}`}
+          <div key={i} data-testid={`go-band-${i}`} className={`go-band ${ours ? 'friendly-go' : 'enemy-go'}${favorCls}`}
             style={{ left: pct(w.startSec), width: `${((w.endSec - w.startSec) / matchEnd) * 100}%` }}
-            onClick={() => onSelectWindow(i)} title={`GO ${i + 1} · ${ours ? 'our offense' : 'enemy offense'}`}>
+            onClick={() => onSelectWindow(i)} title={title}>
             <span className="go-lbl">GO {i + 1}</span>
           </div>
           );
@@ -67,7 +74,7 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
         </div>
       </div>
       <GoTracks tracks={detail.goTracks} matchEnd={matchEnd} />
-      <RangeLane series={detail.rangeSeries} targets={detail.rangeTargets} matchEnd={matchEnd} />
+      <RangeTrack series={detail.rangeSeries} targets={detail.rangeTargets} matchEnd={matchEnd} />
     </div>
   );
 }

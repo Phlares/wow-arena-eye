@@ -17,4 +17,10 @@ it('shows severity and mitigation available vs used', () => {
   expect(screen.getByText(/Foe/)).toBeInTheDocument();
   expect(screen.getByText('Unending Resolve')).toBeInTheDocument();  // available mitigation
   expect(screen.getByText(/none used/i)).toBeInTheDocument();        // used is empty
+  expect(screen.queryByText(/Favor inputs/)).toBeNull();             // absent on pre-rework blobs
+});
+
+it('shows the favor inputs when offense-available data exists', () => {
+  render(<WindowPanel window={{ ...w, attackerOffenseAvailableCount: 2 }} index={0} />);
+  expect(screen.getByText(/2 attacker CDs ready vs 1 defensives up/)).toBeInTheDocument();
 });

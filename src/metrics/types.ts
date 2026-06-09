@@ -138,6 +138,9 @@ export interface OffensiveWindow {
   damageByTarget: { unitId: string; name: string; damage: number }[];
   damageByAttacker: { unitId: string; name: string; damage: number }[];
   mitigation: { available: MitigationItem[]; used: MitigationItem[] };
+  /** Curated offensive CDs the attacking team has off cooldown at window start (observed-cast
+   *  based). Pairs with mitigation.available for the defender-perspective favorability ratio. */
+  attackerOffenseAvailableCount: number;
   counterPlay: WindowCounterPlay;
   positioning?: WindowPositioning;
   lineOfSight?: WindowLineOfSight;

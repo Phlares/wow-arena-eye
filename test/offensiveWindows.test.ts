@@ -159,6 +159,21 @@ describe('computeOffensiveWindows', () => {
     expect(windows[0].openedBy[0].endSec).toBe(100); // opener interval clamped too
   });
 
+  // attackerOffenseAvailableCount: curated offensive CDs the attacking team has OFF cooldown at
+  // window start (observed-cast based — a CD we never saw cast can't be attributed to a loadout).
+  it('counts the attacking team offense available at window start', () => {
+    const auras = fakeAuras({ E1: [{ srcId: 'E1', destId: 'E1', spellId: 107574, name: 'Avatar', start: 60_000, end: 80_000 }] });
+    // Deathmark (360194, 120s cd) cast at 5s → still on cooldown at the 60s window start.
+    // Kingsbane (385627, 60s cd) first cast at 70s → ready at window start (no earlier cast).
+    const casts = new Map([['E1', [
+      { spellId: 360194, name: 'Deathmark', ms: 5_000 },
+      { spellId: 385627, name: 'Kingsbane', ms: 70_000 },
+    ]]]);
+    const windows = computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras, casts);
+    expect(windows).toHaveLength(1);
+    expect(windows[0].attackerOffenseAvailableCount).toBe(1);
+  });
+
   it('records used mitigation and enemy CC on defenders during a window', () => {
     const withCc: AuraState = {
       activeOn: () => [],
