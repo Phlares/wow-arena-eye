@@ -1,8 +1,9 @@
 import { type Team, type OffensiveWindow, type CdRef, type UnitMetrics, type MitigationItem, type MitigationCategory, unitTeam, resolvePlayer } from './types.js';
 import { type AuraState, type Interval } from './auraState.js';
-import { cdsForSpec, isOffensiveCd, type CdEntry } from '../metadata/cooldowns.js';
+import { cdsForSpec, type CdEntry } from '../metadata/cooldowns.js';
 import { ccInfo, isInterrupt, isImmunity } from '../metadata/spells.js';
 import { isAvailable, type CastEvent } from './cooldownTimeline.js';
+import { offensiveActivity } from './offensiveActivity.js';
 import { matchStartMs, matchEndMs, eventType, srcId, destId, eventTimeMs, amount, DAMAGE_EVENTS } from './eventAccess.js';
 
 const OTHER: Record<Team, Team> = { friendly: 'enemy', enemy: 'friendly', neutral: 'neutral' };
@@ -10,11 +11,6 @@ const OTHER: Record<Team, Team> = { friendly: 'enemy', enemy: 'friendly', neutra
 const AVAILABLE_CATS = new Set<MitigationCategory>(['defensive', 'external', 'trinket', 'immunity']);
 
 interface WindowAcc { dmgTotal: number; dmgByTarget: Map<string, number>; dmgBySource: Map<string, number>; }
-
-/** Offensive-CD active intervals cast by `unitId`. */
-function offensiveContribs(unitId: string, auras: AuraState): Interval[] {
-  return auras.intervalsBy(unitId).filter((iv) => isOffensiveCd(iv.spellId));
-}
 
 /** Merge overlapping intervals into windows per team, keeping all contributors.
  *  Intervals are partitioned by team first, then sorted by start within each team
@@ -56,7 +52,7 @@ export function computeOffensiveWindows(match: unknown, units: UnitMetrics[], au
 
   const contribs: { iv: Interval; team: Team }[] = [];
   for (const p of players) {
-    for (const iv of offensiveContribs(p.unitId, auras)) {
+    for (const iv of offensiveActivity(p.unitId, auras, casts)) {
       contribs.push({ iv, team: p.team });
     }
   }
