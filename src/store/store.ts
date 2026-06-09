@@ -102,3 +102,15 @@ export function upsertMatch(db: DatabaseSync, rawMatch: unknown, metrics: MatchM
     throw e;
   }
 }
+
+/** The incremental-ingest ledger: path -> size at last successful parse. */
+export function loadIngestedFileSizes(db: DatabaseSync): Map<string, number> {
+  const rows = db.prepare('SELECT path, size_bytes FROM ingest_file').all() as { path: string; size_bytes: number }[];
+  return new Map(rows.map((r) => [r.path, r.size_bytes]));
+}
+
+/** Record (or refresh) a successfully parsed log file in the ledger. */
+export function recordIngestedFile(db: DatabaseSync, path: string, sizeBytes: number): void {
+  db.prepare('INSERT INTO ingest_file (path,size_bytes,ingested_ms) VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET size_bytes=excluded.size_bytes, ingested_ms=excluded.ingested_ms')
+    .run(path, sizeBytes, Date.now());
+}
