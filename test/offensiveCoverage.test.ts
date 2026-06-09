@@ -47,10 +47,19 @@ describe('offensive-CD coverage', () => {
     }
   });
 
-  it('curated pet-summons expose a window duration', () => {
-    const darkglare = offensiveCdMeta(205180); // Summon Darkglare
-    expect(darkglare?.kind).toBe('pet-summon');
-    expect(darkglare?.windowSec).toBeGreaterThan(0);
+  it("on-use damage trinket (Gladiator's Badge) counts as offensive", () => {
+    expect(isOffensiveCd(345228)).toBe(true);
+    expect(offensiveCdMeta(345228)?.kind).toBe('buff');
+  });
+
+  it('every curated pet-summon exposes a window duration (cast path silently skips without one)', () => {
+    const curated = loadJson<Record<string, { kind: string; windowSec?: number }>>(
+      new URL('../src/metadata/offensiveCds.curated.json', import.meta.url),
+    );
+    const summons = Object.entries(curated).filter(([, v]) => v.kind === 'pet-summon');
+    expect(summons.length).toBeGreaterThan(0);
+    for (const [id, v] of summons) expect(v.windowSec, `${id} needs windowSec`).toBeGreaterThan(0);
+    expect(offensiveCdMeta(205180)?.kind).toBe('pet-summon'); // Summon Darkglare
   });
 
   it('drops curated ids that never occur in 12.x logs (verified against the 70GB live corpus)', () => {

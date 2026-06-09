@@ -45,7 +45,7 @@ export function computeMatchMetrics(match: unknown): MatchMetrics {
     coordination: computeCoordination(match, HEALER_SPEC_IDS, focusTracks),
     focusTracks,
     offensiveWindows: windowsWithLos,
-    attackerGoTracks: computeAttackerGoTracks(match, units, auras),
+    attackerGoTracks: computeAttackerGoTracks(match, units, auras, casts),
     deathBlows: computeDeathBlows(match, nameOf),
     anchors: computeAnchors(match, tracks, casts),
     positionTracks: [...tracks.values()],

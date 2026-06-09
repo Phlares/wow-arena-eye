@@ -60,5 +60,7 @@
 
   "357210": { "name": "Deep Breath", "cooldownSec": 120, "kind": "debuff" },
   "370553": { "name": "Tip the Scales", "cooldownSec": 120, "kind": "buff" },
-  "395152": { "name": "Ebon Might", "cooldownSec": 30, "kind": "buff" }
+  "395152": { "name": "Ebon Might", "cooldownSec": 30, "kind": "buff" },
+
+  "345228": { "name": "Gladiator's Badge", "cooldownSec": 120, "kind": "buff" }
 }

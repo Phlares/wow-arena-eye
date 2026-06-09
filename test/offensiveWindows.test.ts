@@ -45,6 +45,17 @@ describe('computeOffensiveWindows', () => {
     expect(computeOffensiveWindows(match, [player('E1', 'enemy', '71')], auras, new Map())).toHaveLength(0);
   });
 
+  // Pet-summon burst (Infernal 1122, curated windowSec 30) leaves no aura — the band must open
+  // from the summon cast, same as the GO tracks do.
+  it('opens a window from a pet-summon cast that leaves no aura', () => {
+    const casts = new Map([['E1', [{ spellId: 1122, name: 'Summon Infernal', ms: 10_000 }]]]);
+    const windows = computeOffensiveWindows(match, [player('E1', 'enemy', '265')], fakeAuras({}), casts);
+    expect(windows).toHaveLength(1);
+    expect(windows[0].startSec).toBe(10);
+    expect(windows[0].endSec).toBe(40);
+    expect(windows[0].openedBy[0]).toMatchObject({ spellId: 1122, unitId: 'E1', spellName: 'Summon Infernal' });
+  });
+
   // spec 71 (Arms Warrior) + Avatar (107574); spec 63 (Fire Mage) + Combustion (190319)
   // Both resolve to category 'offensive' via bySpec.
   it('merges overlapping offensive CDs from two same-team players into one window', () => {
