@@ -75,6 +75,19 @@ export async function fetchScorecard(id: string, b: BaselineQuery): Promise<Scor
   if (!r.ok) throw new Error(`/scorecard ${r.status}`);
   return r.json() as Promise<Scorecard>;
 }
+// --- metadata (read-only Settings tab) ---
+export interface MetadataView {
+  offensive: { id: number; name?: string; cooldownSec?: number; kind?: string; windowSec?: number }[];
+  denied: { id: number; name: string; reason: string }[];
+  cc: { id: number; name: string; category: string }[];
+  defensives: { id: number; cooldownSec: number; category: string }[];
+}
+export async function fetchMetadata(): Promise<MetadataView> {
+  const r = await fetch('/api/metadata');
+  if (!r.ok) throw new Error(`/api/metadata ${r.status}`);
+  return r.json() as Promise<MetadataView>;
+}
+
 export type Filters = Record<string, string>;
 
 /** A Filters object as URLSearchParams, omitting empty/nullish values. Shared by the

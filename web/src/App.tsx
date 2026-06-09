@@ -3,7 +3,8 @@ import { FilterRail } from './components/FilterRail.js';
 import { MatchTable } from './components/MatchTable.js';
 import { SummaryDrawer } from './components/SummaryDrawer.js';
 import { DetailView } from './components/DetailView.js';
-import { fetchFilters, fetchMatches, fetchMatchDetail, toParams, type FilterOptions, type Filters, type MatchDetail, type MatchesResponse, type MatchSummary } from './api.js';
+import { Settings } from './components/Settings.js';
+import { fetchFilters, fetchMatches, fetchMatchDetail, fetchMetadata, toParams, type FilterOptions, type Filters, type MatchDetail, type MatchesResponse, type MatchSummary, type MetadataView } from './api.js';
 
 function readUrlFilters(): Filters {
   const out: Filters = {};
@@ -25,6 +26,14 @@ export function App() {
   // click a sortable header: new col → desc, same col desc → asc, same col asc → cleared
   const onSort = (col: string) => setSort((s) =>
     s?.col !== col ? { col, dir: 'desc' } : s.dir === 'desc' ? { col, dir: 'asc' } : null);
+
+  // persistent tabs: matches (default) | settings (read-only tracked-spell view, fetched lazily)
+  const [tab, setTab] = useState<'matches' | 'settings'>('matches');
+  const [meta, setMeta] = useState<MetadataView | null>(null);
+  useEffect(() => {
+    if (tab !== 'settings' || meta) return;
+    void fetchMetadata().then(setMeta).catch((e: unknown) => setError(String(e)));
+  }, [tab, meta]);
 
   // per-match detail overlay (sub-project B)
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -52,8 +61,17 @@ export function App() {
 
   return (
     <div className="app">
-      <h1>Arena Match Viewer</h1>
+      <div className="app-head">
+        <h1>Arena Match Viewer</h1>
+        <nav className="tabs">
+          <button className={tab === 'matches' ? 'on' : ''} onClick={() => setTab('matches')}>Matches</button>
+          <button className={tab === 'settings' ? 'on' : ''} onClick={() => setTab('settings')}>Settings</button>
+        </nav>
+      </div>
       {error && <div className="error">{error} — is the viewer server running? (npm run viewer)</div>}
+      {tab === 'settings' ? (
+        meta ? <Settings meta={meta} /> : <div className="empty">Loading metadata…</div>
+      ) : (
       <div className="layout">
         {options && <FilterRail options={options} filters={filters} onChange={onChange} />}
         <div className="main">
@@ -63,6 +81,7 @@ export function App() {
         </div>
         <SummaryDrawer match={selected} onOpenDetail={setDetailId} />
       </div>
+      )}
       {detailId !== null && <DetailView detail={detail} error={detailErr} matchId={detailId} onClose={closeDetail} />}
     </div>
   );
