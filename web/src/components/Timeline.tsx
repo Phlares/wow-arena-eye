@@ -1,5 +1,5 @@
 import type { MatchDetail, DetailTimelineEvent } from '../api.js';
-import { RangeLane } from './RangeLane.js';
+import { RangeTrack } from './RangeTrack.js';
 import { GoTracks } from './GoTracks.js';
 import { fmtNum } from '../format.js';
 
@@ -67,7 +67,7 @@ export function Timeline({ detail, onSelectWindow }: { detail: MatchDetail; onSe
         </div>
       </div>
       <GoTracks tracks={detail.goTracks} matchEnd={matchEnd} />
-      <RangeLane series={detail.rangeSeries} targets={detail.rangeTargets} matchEnd={matchEnd} />
+      <RangeTrack series={detail.rangeSeries} targets={detail.rangeTargets} matchEnd={matchEnd} />
     </div>
   );
 }
