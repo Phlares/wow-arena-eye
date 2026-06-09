@@ -16,7 +16,7 @@ function baseWindow(over: Partial<OffensiveWindow>): OffensiveWindow {
     attackingTeam: 'enemy', defendingTeam: 'friendly', startSec: 10, endSec: 20,
     openedBy: [], teamDamageTaken: 0,
     damageByTarget: [{ unitId: 'F1', name: 'F1', damage: 5000 }],
-    mitigation: { available: [], used: [] }, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] },
+    mitigation: { available: [], used: [] }, attackerOffenseAvailableCount: 0, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] },
     ...over,
   } as OffensiveWindow;
 }

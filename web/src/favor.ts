@@ -15,6 +15,3 @@ export function favor(w: OffensiveWindow, ours: boolean): number | null {
 export function favorStop(f: number): number {
   return f >= 1.5 ? 4 : f >= 1.1 ? 3 : f > 0.9 ? 2 : f >= 0.67 ? 1 : 0;
 }
-
-/** A time as a CSS percentage of the match (shared x-positioning for lanes/bands/tracks). */
-export const pctOf = (t: number, matchEnd: number): string => `${(t / matchEnd) * 100}%`;

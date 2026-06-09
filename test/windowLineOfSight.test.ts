@@ -22,7 +22,7 @@ it('annotates a window with target↔nearest-attacker LoS', () => {
 });
 
 function baseWindow(over: Partial<OffensiveWindow>): OffensiveWindow {
-  return { attackingTeam: 'enemy', defendingTeam: 'friendly', startSec: 10, endSec: 20, openedBy: [], teamDamageTaken: 0, damageByTarget: [{ unitId: 'F1', name: 'F1', damage: 5000 }], damageByAttacker: [], mitigation: { available: [], used: [] }, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] }, ...over } as OffensiveWindow;
+  return { attackingTeam: 'enemy', defendingTeam: 'friendly', startSec: 10, endSec: 20, openedBy: [], teamDamageTaken: 0, damageByTarget: [{ unitId: 'F1', name: 'F1', damage: 5000 }], damageByAttacker: [], mitigation: { available: [], used: [] }, attackerOffenseAvailableCount: 0, counterPlay: { ccOnDefenders: [], threatImmuneAuras: [] }, ...over } as OffensiveWindow;
 }
 
 it('returns the window unchanged when there is no damage target', () => {

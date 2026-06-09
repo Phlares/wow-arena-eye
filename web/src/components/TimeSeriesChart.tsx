@@ -28,10 +28,11 @@ export function TimeSeriesChart({ series, thresholds = [], matchEnd, yMax, heigh
     let cur: string[] = [];
     for (const p of s.points) {
       if (p.v === null) { if (cur.length) { segs.push(cur.join(' ')); cur = []; } }
-      else cur.push(`${(p.tSec / matchEnd) * W},${H - (Math.min(p.v, yMax) / yMax) * H}`);
+      else cur.push(`${x(p.tSec)},${y(p.v)}`);
     }
     if (cur.length) segs.push(cur.join(' '));
     return { s, segs };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- x/y are pure functions of these deps
   }), [series, matchEnd, yMax, H]);
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>): void => {

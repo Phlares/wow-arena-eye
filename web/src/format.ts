@@ -26,3 +26,5 @@ export function fmtDuration(sec: number | null): string {
 export function fmtClock(ms: number | null): string {
   return ms === null ? '—' : new Date(ms).toLocaleString();
 }
+/** A time as a CSS percentage of the match (shared x-positioning for lanes/bands/tracks). */
+export const pctOf = (t: number, matchEnd: number): string => `${(t / matchEnd) * 100}%`;

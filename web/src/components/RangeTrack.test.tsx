@@ -31,6 +31,18 @@ it('draws the labeled range cut-offs (8/10/20/30/40 yd) as dotted lines', () => 
   expect(getByText('40')).toBeInTheDocument();
 });
 
+it('falls back to the new primary threat when a stale selection survives a match switch', () => {
+  // DetailView stays mounted across match loads, so RangeTrack keeps its selection state; unitIds
+  // from the previous match must not leave the chart blank (the old dropdown had this fallback).
+  const { container, rerender } = render(<RangeTrack targets={targets} matchEnd={1} />);
+  const nextMatch: RangeTarget[] = [
+    { unitId: 'X', name: 'NewFoe', className: 'Rogue', team: 'enemy', isHealer: false, isPrimaryThreat: true, series: [{ tSec: 0, dist: 7 }, { tSec: 1, dist: 9 }] },
+  ];
+  rerender(<RangeTrack targets={nextMatch} matchEnd={1} />);
+  expect(container.querySelectorAll('polyline').length).toBe(1); // NewFoe's path, not a blank chart
+  expect(container.querySelector('button.range-chip[aria-pressed="true"]')?.textContent).toContain('NewFoe');
+});
+
 it('falls back to the plain series when no targets exist (old stored matches)', () => {
   const { container } = render(<RangeTrack series={[{ tSec: 0, dist: 30 }, { tSec: 1, dist: 5 }]} matchEnd={1} />);
   expect(container.querySelectorAll('polyline').length).toBe(1);

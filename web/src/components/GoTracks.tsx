@@ -1,6 +1,6 @@
 import type { GoTrack } from '../api.js';
 import { classColor } from '../classColors.js';
-import { pctOf } from '../favor.js';
+import { pctOf } from '../format.js';
 
 /** Per-attacker GO tracks on the shared time axis: enemy attackers on top, yours below, each a
  *  class-colored line filled across that attacker's offensive (GO) intervals. Two lit enemy rows

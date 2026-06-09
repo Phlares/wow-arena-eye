@@ -23,18 +23,24 @@ export function RangeTrack({ targets, series, matchEnd }:
   const toggle = (id: string): void => {
     setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
+  // The component survives match switches (DetailView isn't remounted), so a selection can go
+  // stale — unitIds from the previous match. Show only ids that still exist, and when none do,
+  // fall back to the new primary threat instead of a blank chart.
+  const live = ts.filter((t) => sel.has(t.unitId));
+  const shown = live.length || !ts.length ? live : [ts[0]];
+  const isShown = (id: string): boolean => shown.some((t) => t.unitId === id);
   const toPoints = (pts: RangePoint[]): { tSec: number; v: number | null }[] =>
     pts.map((p) => ({ tSec: p.tSec, v: p.dist }));
   const charted: ChartSeries[] = ts.length
-    ? ts.filter((t) => sel.has(t.unitId)).map((t) => ({ id: t.unitId, label: t.name, color: colorOf(t), points: toPoints(t.series) }))
+    ? shown.map((t) => ({ id: t.unitId, label: t.name, color: colorOf(t), points: toPoints(t.series) }))
     : [{ id: 'primary', label: 'Primary threat', points: toPoints(series ?? []) }];
   return (
     <div className="range-track">
       <div className="range-track-head">
         <span className="range-track-title">Range (yd)</span>
         {ts.map((t) => (
-          <button key={t.unitId} className="range-chip" aria-pressed={sel.has(t.unitId)} onClick={() => toggle(t.unitId)}
-            style={sel.has(t.unitId) ? { borderColor: colorOf(t), color: colorOf(t) } : undefined}>
+          <button key={t.unitId} className="range-chip" aria-pressed={isShown(t.unitId)} onClick={() => toggle(t.unitId)}
+            style={isShown(t.unitId) ? { borderColor: colorOf(t), color: colorOf(t) } : undefined}>
             {t.name}{t.isPrimaryThreat ? ' ★' : ''}{t.isHealer ? ' ✚' : ''}
           </button>
         ))}

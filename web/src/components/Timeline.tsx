@@ -1,8 +1,8 @@
 import type { MatchDetail, DetailTimelineEvent } from '../api.js';
 import { RangeTrack } from './RangeTrack.js';
 import { GoTracks } from './GoTracks.js';
-import { fmtNum } from '../format.js';
-import { favor, favorStop, pctOf } from '../favor.js';
+import { fmtNum, pctOf } from '../format.js';
+import { favor, favorStop } from '../favor.js';
 
 /** Per-lane: how a timeline event maps to a marker class in that lane (null = not in this lane). */
 const LANES: { key: string; label: string; pick: (e: DetailTimelineEvent, playerId?: string) => string | null }[] = [
