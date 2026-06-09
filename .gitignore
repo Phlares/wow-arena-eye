@@ -18,3 +18,7 @@ vendor/**/dist/
 # web sub-package build artifacts
 web/node_modules/
 web/dist/
+
+analysis/.venv/
+analysis/**/__pycache__/
+.pytest_cache/
