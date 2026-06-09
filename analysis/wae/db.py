@@ -27,7 +27,8 @@ def load_matches(db_path: str | Path, bracket: str = "3v3", character: str | Non
     sql = (
         "SELECT match_id, start_ms, duration_sec, bracket, zone_id, result, player_name, "
         "       player_unit_id, player_spec, player_rating, player_cr, build_version "
-        "FROM match WHERE bracket = ? AND result IN ('win','loss') AND duration_sec > 0"
+        "FROM match WHERE bracket = ? AND result IN ('win','loss') AND duration_sec > 0 "
+        "AND player_unit_id IS NOT NULL"  # without it, scalar metrics can't be attributed
     )
     args: list = [bracket]
     if character:

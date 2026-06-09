@@ -134,6 +134,8 @@ def timeline_features(blob: dict, minutes: float) -> tuple[dict, Counter]:
             first_death_sec = t
             first_death_side = team.get(ev.get("unitId"))
         elif kind == "cast" and ev.get("unitId") == player and ev.get("spell"):
+            # the player's OWN GCD mix by design - pet casts (Spell Lock etc.) are captured by
+            # the rolled-up scalar metrics (interruptsLanded, casts), not the spell-mix columns
             casts_by_spell[ev["spell"]] += 1
     out[_t("process", "our_cc_on_enemy_first20s")] = float(cc_early)
     out[_t("process", "our_cc_on_enemy_first30s")] = float(cc_early_wide)
@@ -201,31 +203,36 @@ def position_features(blob: dict) -> dict:
     t_me, x_me, y_me = me
 
     def dist_series(unit_id: str) -> np.ndarray | None:
+        """Distance per player-sample, NaN-padded outside the other unit's observed span (so
+        partial tracks still contribute their overlap instead of being dropped wholesale)."""
         other = _track_interp(tracks.get(unit_id, {})) if unit_id in tracks else None
         if other is None:
             return None
         t_o, x_o, y_o = other
-        # only where the player's timeline overlaps the other unit's observed span
         mask = (t_me >= t_o[0]) & (t_me <= t_o[-1])
         if mask.sum() < 2:
             return None
+        d = np.full(len(t_me), np.nan)
         xo = np.interp(t_me[mask], t_o, x_o)
         yo = np.interp(t_me[mask], t_o, y_o)
-        return np.hypot(x_me[mask] - xo, y_me[mask] - yo)
+        d[mask] = np.hypot(x_me[mask] - xo, y_me[mask] - yo)
+        return d
 
     healer_id = next((u for u, tm in team.items() if tm == "friendly" and spec.get(u) in HEALER_SPEC_IDS and u != player), None)
     if healer_id:
         d = dist_series(healer_id)
-        if d is not None and len(d):
-            out[_t("process", "pct_time_beyond_heal_range")] = float(np.mean(d > HEAL_RANGE_YD))
-            out[_t("process", "median_dist_to_healer_yd")] = float(np.median(d))
+        if d is not None and np.isfinite(d).sum():
+            out[_t("process", "pct_time_beyond_heal_range")] = float(np.nanmean(d > HEAL_RANGE_YD))
+            out[_t("process", "median_dist_to_healer_yd")] = float(np.nanmedian(d))
 
     enemy_ids = [u for u, tm in team.items() if tm == "enemy"]
-    enemy_series = [d for d in (dist_series(u) for u in enemy_ids) if d is not None and len(d) == len(t_me)]
+    enemy_series = [d for d in (dist_series(u) for u in enemy_ids) if d is not None]
     if enemy_series:
-        nearest = np.min(np.vstack(enemy_series), axis=0)
-        out[_t("process", "median_dist_nearest_enemy_yd")] = float(np.median(nearest))
-        out[_t("process", "pct_time_in_enemy_melee")] = float(np.mean(nearest <= MELEE_YD))
+        with np.errstate(all="ignore"):
+            nearest = np.nanmin(np.vstack(enemy_series), axis=0)  # all-NaN columns stay NaN
+        if np.isfinite(nearest).sum():
+            out[_t("process", "median_dist_nearest_enemy_yd")] = float(np.nanmedian(nearest))
+            out[_t("process", "pct_time_in_enemy_melee")] = float(np.nanmean(nearest <= MELEE_YD))
     return out
 
 
@@ -251,7 +258,10 @@ def context_features(row: dict) -> dict:
         _t("context", "character"): (row.get("player_name") or "?").split("-")[0],
     }
     if row.get("start_ms"):
-        out[_t("context", "hour_of_day")] = float((row["start_ms"] // 3_600_000) % 24)
+        # local hour (matches were played on this machine) - UTC hour would phase-shift the
+        # time-of-day signal by the timezone offset
+        from datetime import datetime
+        out[_t("context", "hour_of_day")] = float(datetime.fromtimestamp(row["start_ms"] / 1000).hour)
     return out
 
 

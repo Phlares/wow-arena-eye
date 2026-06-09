@@ -9,15 +9,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 
 
-def bh_qvalues(pvals: np.ndarray) -> np.ndarray:
-    """Benjamini-Hochberg q-values (monotone step-up)."""
+def bh_qvalues(pvals: np.ndarray, n_tests: int | None = None) -> np.ndarray:
+    """Benjamini-Hochberg q-values (monotone step-up). `n_tests` lets the caller penalize by
+    the number of tests CONDUCTED when some produced no p-value (NaNs excluded upstream) —
+    correcting only over the computable subset would bias q downward."""
     p = np.asarray(pvals, dtype=float)
-    n = len(p)
+    n = n_tests if n_tests is not None else len(p)
     order = np.argsort(p)
-    ranked = p[order] * n / (np.arange(n) + 1)
+    ranked = p[order] * n / (np.arange(len(p)) + 1)
     # enforce monotonicity from the largest rank down
     ranked = np.minimum.accumulate(ranked[::-1])[::-1]
-    q = np.empty(n)
+    q = np.empty(len(p))
     q[order] = np.clip(ranked, 0, 1)
     return q
 
@@ -41,8 +43,9 @@ def mmr_adjusted_p(feature: np.ndarray, mmr: np.ndarray, y: np.ndarray) -> float
         return float("nan")
     f = (f - f.mean()) / (f.std() or 1)
     m = (m - m.mean()) / (m.std() or 1)
-    base = LogisticRegression(C=np.inf, max_iter=1000).fit(m.reshape(-1, 1), yy)
-    full = LogisticRegression(C=np.inf, max_iter=1000).fit(np.column_stack([m, f]), yy)
+    # C=1e6 = a hair of ridge so (quasi-)separation keeps coefficients finite
+    base = LogisticRegression(C=1e6, max_iter=1000).fit(m.reshape(-1, 1), yy)
+    full = LogisticRegression(C=1e6, max_iter=1000).fit(np.column_stack([m, f]), yy)
     ll_base = -log_loss(yy, base.predict_proba(m.reshape(-1, 1))[:, 1], normalize=False)
     ll_full = -log_loss(yy, full.predict_proba(np.column_stack([m, f]))[:, 1], normalize=False)
     lr = max(0.0, 2 * (ll_full - ll_base))
@@ -80,6 +83,6 @@ def screen(df: pd.DataFrame, feature_cols: list[str], tiers: dict[str, str]) -> 
     finite = ~np.isnan(adj)
     q_adj = np.full(len(out), np.nan)
     if finite.sum():
-        q_adj[finite] = bh_qvalues(adj[finite])
+        q_adj[finite] = bh_qvalues(adj[finite], n_tests=len(out))  # penalize by tests conducted
     out["q_mmr_adj"] = q_adj
     return out.sort_values("p_raw").reset_index(drop=True)
