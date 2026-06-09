@@ -20,9 +20,31 @@ const KNOWN_BURST: [number, string][] = [
   [375087, 'Dragonrage'],
 ];
 
+// Vendor SpellTag.Offensive entries that are NOT ≥30s burst markers (mobility/utility/legacy ids,
+// arena-unusable, or healing/tank variants) — denylisted so they can't pollute GO tracks/bands.
+const DENIED: [number, string][] = [
+  [36554, 'Shadowstep (mobility)'],
+  [14183, 'Premeditation (opener utility)'],
+  [207736, 'Shadowy Duel (utility)'],
+  [14177, 'Cold Blood (legacy id)'],
+  [213981, 'Cold Blood (legacy id)'],
+  [205025, 'Presence of Mind (cast utility)'],
+  [12043, 'Presence of Mind (legacy id)'],
+  [2825, 'Bloodlust (not usable in arena)'],
+  [32182, 'Heroism (not usable in arena)'],
+  [31842, 'Avenging Wrath (Holy) (healing)'],
+  [114052, 'Ascendance (Restoration) (healing)'],
+  [102558, 'Incarnation: Guardian of Ursoc (tank)'],
+  [187827, 'Metamorphosis (Vengeance) (tank)'],
+];
+
 describe('offensive-CD coverage', () => {
   it.each(KNOWN_BURST)('isOffensiveCd(%i) is true (%s)', (id) => {
     expect(isOffensiveCd(id), `${id} should be offensive`).toBe(true);
+  });
+
+  it.each(DENIED)('isOffensiveCd(%i) is false — denylisted (%s)', (id) => {
+    expect(isOffensiveCd(id), `${id} should be denylisted`).toBe(false);
   });
 
   it('curated pet-summons expose a window duration', () => {

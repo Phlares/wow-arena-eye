@@ -43,13 +43,24 @@ export function offensiveCdMeta(spellId: number | undefined): OffensiveCdMeta | 
   return spellId === undefined ? undefined : CURATED_META.get(spellId);
 }
 
-/** Union of every offensive-CD source: the MiniCC highlight list, the vendor SpellTag.Offensive
- *  set, and the curated current-retail supplement. Single source of truth for `isOffensiveCd`. */
-export const OFFENSIVE_SPELL_IDS: Set<number> = new Set<number>([
-  ...DATA.offensiveSpellIds,
-  ...VENDOR_OFFENSIVE.ids.map((e) => Number(e.id)),
-  ...CURATED_META.keys(),
-]);
+// Vendor SpellTag.Offensive ids that are NOT >=30s burst markers (mobility/utility/legacy,
+// arena-unusable, healing/tank variants). Subtracted from the union so they can't pollute
+// GO tracks/bands. Each entry carries a human-readable reason.
+const DENIED_OFFENSIVE = JSON.parse(
+  readFileSync(fileURLToPath(new URL('./offensiveCds.deny.json', import.meta.url)), 'utf8'),
+) as Record<string, { name: string; reason: string }>;
+const DENIED_IDS = new Set<number>(Object.keys(DENIED_OFFENSIVE).map(Number));
+
+/** Union of every offensive-CD source — the MiniCC highlight list, the vendor SpellTag.Offensive
+ *  set, and the curated current-retail supplement — minus the denylist of vendor false-positives.
+ *  Single source of truth for `isOffensiveCd`. */
+export const OFFENSIVE_SPELL_IDS: Set<number> = new Set<number>(
+  [
+    ...DATA.offensiveSpellIds,
+    ...VENDOR_OFFENSIVE.ids.map((e) => Number(e.id)),
+    ...CURATED_META.keys(),
+  ].filter((id) => !DENIED_IDS.has(id)),
+);
 /** PvP trinket + the two common PvP-trinket racials (Will to Survive / Will of the Forsaken). */
 export const TRINKET_SPELL_IDS: Set<number> = new Set([336126, 59752, 7744]);
 

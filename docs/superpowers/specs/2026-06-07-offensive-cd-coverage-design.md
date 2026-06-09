@@ -111,10 +111,36 @@ spell name onto each interval: `AttackerGoTrack.intervals[]` gains `spell?: stri
 renders it in the segment `title` ("Recklessness · 12–24s"). No merge — each
 offensive aura/summon is its own segment, so one spell per segment.
 
-### C. Range lane: 3× taller + labeled yardage gridlines
-`RangeLane` height ~3× (60→180). Add horizontal reference lines at 8 (melee, kept),
-10, 20, 30, 40 yd, each with a small yard label, so distances are readable at a
-glance instead of one melee line.
+### C. Range track rework (revised 2026-06-09, user direction)
+The cramped 60px lane becomes a **spacious dedicated track** built on a new
+**reusable time-series chart primitive**:
+
+- **`TimeSeriesChart` primitive** (`web/src/components/TimeSeriesChart.tsx`):
+  generic over-time graph — multiple superimposable series (null-break
+  segmentation preserved), **dotted horizontal threshold lines** with labels,
+  and a **hover tooltip** that snaps to the nearest data timestamp **at or
+  before** the cursor and shows `t` plus each visible series' value. This
+  primitive will later render DPS-over-time and other over-time metrics
+  (wowarenalogs-style), so nothing range-specific lives in it.
+- **`RangeTrack`** (replaces `RangeLane`): tall (~220px) with dotted cut-off
+  lines at **8 / 10 / 20 / 30 / 40 yd**, each labeled. The single-target
+  dropdown becomes a **multi-select** (toggle chips, one per player target +
+  the Demon Circle anchor); selected paths are **superimposed**, each in the
+  target's class color — so kiting can be read at a glance (e.g. range to my
+  healer falling while range to enemy melee grows). Default selection = the
+  primary threat. Hover shows the timestamp + every selected series' range so
+  event sequences are reconstructible.
+
+### C2. Vendor false-positive pruning (found live, 2026-06-08)
+The vendor `SpellTag.Offensive` set violates the ≥30s-burst criterion for some
+ids — Shadowstep (36554) floods the rogue GO track with mobility segments;
+also Premeditation, Shadowy Duel, legacy Cold Blood / Presence of Mind ids,
+arena-unusable Bloodlust/Heroism, and healing/tank variants (Avenging Wrath
+(Holy) 31842, Ascendance (Restoration) 114052, Incarnation: Guardian 102558,
+Metamorphosis (Vengeance) 187827). Fix: a curated **denylist**
+(`offensiveCds.deny.json`, id → reason) subtracted from the union — the vendor
+data has no cooldown durations to gate on, so an explicit list is the simplest
+honest filter.
 
 ### D. Settings tab (persistent, read-only)
 A permanent viewer tab listing **what the analysis considers**: offensive CDs

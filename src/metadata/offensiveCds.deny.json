@@ -1,0 +1,15 @@
+{
+  "36554":  { "name": "Shadowstep", "reason": "mobility, not a burst marker" },
+  "14183":  { "name": "Premeditation", "reason": "stealth opener utility" },
+  "207736": { "name": "Shadowy Duel", "reason": "utility, not burst" },
+  "14177":  { "name": "Cold Blood", "reason": "legacy id (curated 382245 is the live one)" },
+  "213981": { "name": "Cold Blood", "reason": "legacy id (curated 382245 is the live one)" },
+  "205025": { "name": "Presence of Mind", "reason": "cast utility, not a damage amp" },
+  "12043":  { "name": "Presence of Mind", "reason": "legacy id" },
+  "2825":   { "name": "Bloodlust", "reason": "not usable in rated arena" },
+  "32182":  { "name": "Heroism", "reason": "not usable in rated arena" },
+  "31842":  { "name": "Avenging Wrath (Holy)", "reason": "healing variant" },
+  "114052": { "name": "Ascendance (Restoration)", "reason": "healing variant" },
+  "102558": { "name": "Incarnation: Guardian of Ursoc", "reason": "tank variant" },
+  "187827": { "name": "Metamorphosis (Vengeance)", "reason": "tank variant" }
+}

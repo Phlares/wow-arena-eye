@@ -51,6 +51,14 @@ GO-band safety coloring.
 
 ---
 
+# Phase 1.5 — Vendor false-positive pruning (RE-INGEST) — added 2026-06-09
+
+### Task 4b: Offensive denylist
+**Files:** Create `src/metadata/offensiveCds.deny.json`; modify `src/metadata/cooldowns.ts`. Test: `test/offensiveCoverage.test.ts`.
+- [ ] Test: `isOffensiveCd(36554)` (Shadowstep) is **false**; Deathmark/Trueshot still true; every denied id has a reason string.
+- [ ] Author denylist (mobility/utility/legacy + healing/tank variants, see spec C2); subtract from `OFFENSIVE_SPELL_IDS` at load.
+- [ ] PASS; tsc; re-ingest; commit `fix(metadata): denylist vendor offensive false-positives (Shadowstep et al.)`.
+
 # Phase 2 — Pet-summon cast path + trinkets (RE-INGEST)
 
 ### Task 5: Pet-summon go intervals (cast-based)
@@ -71,11 +79,17 @@ GO-band safety coloring.
 
 # Phase 3 — Range polish + GO-band safety coloring (RE-INGEST for E)
 
-### Task 7: Range lane 3× + yardage gridlines
-**Files:** `web/src/components/RangeLane.tsx`, `web/src/styles.css`. Test: `RangeLane.test.tsx`.
-- [ ] Test: gridlines render at 10/20/30/40 with yard labels; melee-ref kept.
-- [ ] Implement: H 60→180; map yard refs `[8,10,20,30,40]` to `<line>`+`<text>`; keep polyline logic.
-- [ ] PASS; tsc; commit `feat(web): taller range lane with labeled yardage gridlines`.
+### Task 7a: TimeSeriesChart primitive (revised 2026-06-09 — see spec C)
+**Files:** Create `web/src/components/TimeSeriesChart.tsx`. Test: `TimeSeriesChart.test.tsx`.
+- [ ] Test: renders N superimposed series (null-break segmentation); dotted threshold lines (`stroke-dasharray`) with labels; mousemove → tooltip shows nearest-at-or-before timestamp + each series' value; mouseleave hides it.
+- [ ] Implement generic `{ series: {id,label,color,points:{tSec,v|null}[]}[], thresholds: {value,label}[], matchEnd, yMax, height, unit }`. Nothing range-specific (reused later for DPS-over-time).
+- [ ] PASS; tsc; commit `feat(web): TimeSeriesChart primitive (thresholds + multi-series + hover readout)`.
+
+### Task 7b: RangeTrack multi-select rework (replaces RangeLane)
+**Files:** Create `web/src/components/RangeTrack.tsx`; modify `Timeline.tsx`, `web/src/styles.css`; delete `RangeLane.tsx`. Test: `RangeTrack.test.tsx`.
+- [ ] Test: chips per target (+anchor); default = primary threat; toggling adds/removes a superimposed class-colored path; dotted cut-offs at 8/10/20/30/40 yd labeled; tall (~220).
+- [ ] Implement on top of TimeSeriesChart; remove RangeLane.
+- [ ] PASS; tsc; commit `feat(web): RangeTrack — spacious multi-select superimposed range chart`.
 
 ### Task 8: attackerOffenseAvailableCount per window
 **Files:** `src/metrics/types.ts` (OffensiveWindow gains `attackerOffenseAvailableCount: number`), `src/metrics/offensiveWindows.ts`. Test: `test/offensiveWindows.test.ts`.
