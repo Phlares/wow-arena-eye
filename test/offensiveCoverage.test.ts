@@ -47,6 +47,11 @@ describe('offensive-CD coverage', () => {
     }
   });
 
+  it("on-use damage trinket (Gladiator's Badge) counts as offensive", () => {
+    expect(isOffensiveCd(345228)).toBe(true);
+    expect(offensiveCdMeta(345228)?.kind).toBe('buff');
+  });
+
   it('curated pet-summons expose a window duration', () => {
     const darkglare = offensiveCdMeta(205180); // Summon Darkglare
     expect(darkglare?.kind).toBe('pet-summon');
