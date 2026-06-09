@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { isOffensiveCd, offensiveCdMeta } from '../src/metadata/cooldowns.js';
 
@@ -8,8 +10,8 @@ const KNOWN_BURST: [number, string][] = [
   [360194, 'Deathmark'],
   [51271, 'Pillar of Frost'],
   [191427, 'Metamorphosis'],
-  [113860, 'Dark Soul: Misery'],
-  [113858, 'Dark Soul: Instability'],
+  [386997, 'Soul Rot'],
+  [442726, 'Malevolence'],
   [288613, 'Trueshot'],
   [190319, 'Combustion'],
   [31884, 'Avenging Wrath'],
@@ -20,23 +22,12 @@ const KNOWN_BURST: [number, string][] = [
   [375087, 'Dragonrage'],
 ];
 
-// Vendor SpellTag.Offensive entries that are NOT ≥30s burst markers (mobility/utility/legacy ids,
-// arena-unusable, or healing/tank variants) — denylisted so they can't pollute GO tracks/bands.
-const DENIED: [number, string][] = [
-  [36554, 'Shadowstep (mobility)'],
-  [14183, 'Premeditation (opener utility)'],
-  [207736, 'Shadowy Duel (utility)'],
-  [14177, 'Cold Blood (legacy id)'],
-  [213981, 'Cold Blood (legacy id)'],
-  [205025, 'Presence of Mind (cast utility)'],
-  [12043, 'Presence of Mind (legacy id)'],
-  [2825, 'Bloodlust (not usable in arena)'],
-  [32182, 'Heroism (not usable in arena)'],
-  [31842, 'Avenging Wrath (Holy) (healing)'],
-  [114052, 'Ascendance (Restoration) (healing)'],
-  [102558, 'Incarnation: Guardian of Ursoc (tank)'],
-  [187827, 'Metamorphosis (Vengeance) (tank)'],
-];
+// The denylist (vendor SpellTag.Offensive ids that are NOT >=30s burst markers) — every entry
+// must be excluded from the union, whatever source it came in through.
+const DENY = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../src/metadata/offensiveCds.deny.json', import.meta.url)), 'utf8'),
+) as Record<string, { name: string; reason: string }>;
+const DENIED: [number, string][] = Object.entries(DENY).map(([id, v]) => [Number(id), `${v.name} — ${v.reason}`]);
 
 describe('offensive-CD coverage', () => {
   it.each(KNOWN_BURST)('isOffensiveCd(%i) is true (%s)', (id) => {
@@ -47,10 +38,28 @@ describe('offensive-CD coverage', () => {
     expect(isOffensiveCd(id), `${id} should be denylisted`).toBe(false);
   });
 
+  it('Shadowstep (the false-positive that motivated the denylist) stays excluded', () => {
+    expect(isOffensiveCd(36554)).toBe(false);
+  });
+
+  it('every denylist entry carries a human-readable reason', () => {
+    for (const [id, v] of Object.entries(DENY)) {
+      expect(v.reason, `${id} needs a reason`).toBeTruthy();
+    }
+  });
+
   it('curated pet-summons expose a window duration', () => {
     const darkglare = offensiveCdMeta(205180); // Summon Darkglare
     expect(darkglare?.kind).toBe('pet-summon');
     expect(darkglare?.windowSec).toBeGreaterThan(0);
+  });
+
+  it('drops curated ids that never occur in 12.x logs (verified against the 70GB live corpus)', () => {
+    // Sepsis, Nether Portal, Serenity: removed from the game; Dark Soul / Meta cast id: vendor
+    // legacy ids that no longer fire — none should claim curated (cooldown/kind) metadata.
+    for (const stale of [385408, 267217, 152173, 113860, 113858, 191427]) {
+      expect(offensiveCdMeta(stale), `${stale} should not be curated`).toBeUndefined();
+    }
   });
 
   it('returns undefined meta for an unknown spell', () => {
