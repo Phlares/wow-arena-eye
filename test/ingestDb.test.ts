@@ -26,4 +26,13 @@ describe('ingestLogsIntoDb', () => {
     const sizes = loadIngestedFileSizes(db);
     expect(sizes.get(FIXTURE)).toBe(statSync(FIXTURE).size);
   });
+
+  it('does NOT ledger a file when any of its matches failed to store (so it retries next run)', async () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db);
+    db.exec('DROP TABLE match'); // force upsertMatch to throw while parseLogFile still succeeds
+    const summary = await ingestLogsIntoDb(db, [FIXTURE], [], undefined);
+    expect(summary.skipped).toBe(1);
+    expect(loadIngestedFileSizes(db).has(FIXTURE)).toBe(false);
+  });
 });

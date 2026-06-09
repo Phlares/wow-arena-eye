@@ -21,7 +21,11 @@ export async function ingestLogsIntoDb(
   const summary: IngestSummary = { files: files.length, ingested: 0, skipped: 0, noPlayer: 0, noSidecar: 0 };
   for (const f of files) {
     let res;
-    try { res = await parseLogFile(f); } catch (e) { console.error('skip file', f, String(e)); continue; }
+    let sizeAtParse: number;
+    // Size is taken BEFORE parsing: a live log can grow mid-parse, and ledgering the post-parse
+    // size would mark the unseen tail as ingested (the next run would skip it as "unchanged").
+    try { sizeAtParse = statSync(f).size; res = await parseLogFile(f); } catch (e) { console.error('skip file', f, String(e)); continue; }
+    const skippedBefore = summary.skipped;
     // Best-effort: a header-read failure costs only the build version, never the whole file.
     let buildVersion: string | undefined;
     try { buildVersion = readBuildVersion(f) ?? undefined; } catch (e) { console.error('build version unreadable', f, String(e)); }
@@ -44,8 +48,12 @@ export async function ingestLogsIntoDb(
         summary.ingested += 1;
       } catch (e) { console.error('skip match in', f, String(e)); summary.skipped += 1; }
     }
-    // Ledger the file only after a successful parse, so a crashed run re-parses it next time.
-    try { recordIngestedFile(db, f, statSync(f).size); } catch (e) { console.error('ledger failed for', f, String(e)); }
+    // Ledger only fully-stored files: a match-level failure leaves the file unledgered so the
+    // next run retries it (a permanently-bad match keeps one file re-parsing, with the error
+    // printed each run — preferable to silently never retrying).
+    if (summary.skipped === skippedBefore) {
+      try { recordIngestedFile(db, f, sizeAtParse); } catch (e) { console.error('ledger failed for', f, String(e)); }
+    }
   }
   return summary;
 }
@@ -86,7 +94,7 @@ export function selectIngestFiles(
 ): IngestSelection {
   const seasonByFile = new Map(files.map((f) => [f, seasonOf(opts.versionOf(f))]));
   const wanted = lastNSeasons(seasonByFile.values(), opts.seasonsBack);
-  const inSeason = files.filter((f) => { const s = seasonByFile.get(f); return s === null || wanted.has(s as string); });
+  const inSeason = files.filter((f) => { const s = seasonByFile.get(f) ?? null; return s === null || wanted.has(s); });
   const fresh = opts.force
     ? inSeason
     : inSeason.filter((f) => opts.ingestedSizes.get(f) !== opts.sizeOf(f));
