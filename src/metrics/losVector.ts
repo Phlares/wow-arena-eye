@@ -12,8 +12,9 @@ export function segmentsIntersect(p1: Pt, p2: Pt, p3: Pt, p4: Pt): boolean {
   const d1 = cross(p3, p4, p1), d2 = cross(p3, p4, p2);
   const d3 = cross(p1, p2, p3), d4 = cross(p1, p2, p4);
   if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+  const EPS = 1e-9; // float-safe collinearity (exact ===0 misses touching after world transforms)
   const on = (a: Pt, b: Pt, p: Pt): boolean =>
-    cross(a, b, p) === 0 &&
+    Math.abs(cross(a, b, p)) < EPS &&
     Math.min(a.x, b.x) <= p.x && p.x <= Math.max(a.x, b.x) &&
     Math.min(a.y, b.y) <= p.y && p.y <= Math.max(a.y, b.y);
   return on(p3, p4, p1) || on(p3, p4, p2) || on(p1, p2, p3) || on(p1, p2, p4);
