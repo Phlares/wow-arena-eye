@@ -19,6 +19,21 @@ def spec_table() -> dict[str, dict[str, str]]:
 
 HEALER_SPEC_IDS = {"65", "105", "256", "257", "264", "270", "1468"}  # mirrors src/metrics/registry.ts
 
+_GRID_CACHE: dict[str, dict | None] = {}
+
+
+def arenas_table() -> dict[str, str]:
+    """zoneId -> arena display name."""
+    return json.loads((REPO_ROOT / "src/metadata/arenas.json").read_text(encoding="utf8"))
+
+
+def load_occupancy(zone_id: str) -> dict | None:
+    """The committed occupancy void-ness grid for a zone, or None. Cached."""
+    if zone_id not in _GRID_CACHE:
+        path = REPO_ROOT / "src/metadata/occupancy" / f"{zone_id}.json"
+        _GRID_CACHE[zone_id] = json.loads(path.read_text(encoding="utf8")) if path.exists() else None
+    return _GRID_CACHE[zone_id]
+
 
 def load_matches(db_path: str | Path, bracket: str = "3v3", character: str | None = None) -> list[dict]:
     """Ranked-match rows (newest season only is assumed ingested), oldest first."""

@@ -18,7 +18,10 @@ from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-CATEGORICAL = ["map_id", "character", "ally_healer_class", "enemy_healer_class"]
+CATEGORICAL = ["map_id", "character", "ally_healer_class", "enemy_healer_class", "my_main_target_class"]
+# string columns screened categorically (win-rate + Fisher) but kept OUT of the models
+# (opener_pattern cardinality would just become noise one-hots)
+NON_MODEL_STRINGS = ["opener_pattern", "map_name"]
 N_SPLITS = 5
 PERM_REPEATS = 8
 RNG = 7
@@ -49,7 +52,8 @@ def run_models(df: pd.DataFrame, feature_cols: list[str], tiers: dict[str, str],
     """CV one scope ('full' | 'process'). Returns AUC/Brier per model + permutation
     importance (held-out folds only, GBM) aggregated as mean +/- std."""
     keep_tiers = {"process", "context"} if scope == "process" else {"process", "context", "outcome"}
-    numeric = [c for c in feature_cols if tiers.get(c, "process") in keep_tiers and c not in CATEGORICAL]
+    numeric = [c for c in feature_cols
+               if tiers.get(c, "process") in keep_tiers and c not in CATEGORICAL and c not in NON_MODEL_STRINGS]
     categorical = [c for c in CATEGORICAL if c in df.columns and tiers.get(c, "context") in keep_tiers]
     X = df[numeric + categorical]
     y = df["win"].to_numpy()
