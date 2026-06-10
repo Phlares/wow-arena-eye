@@ -127,6 +127,72 @@ def dr_cc_features(blob: dict, minutes: float) -> dict:
     return out
 
 
+EDGE_PROXIMITY_FRAC = 0.15   # "near the edge" = within 15% of the half-extent of a bound
+PLAYABLE_VOIDNESS_MAX = 0.5  # mirrors lineOfSight.ts CLEAR_MAX: below this a cell is open floor
+HALF_SPLIT_START_SEC = 10.0  # team start centroids = mean position over the first N seconds
+
+
+def _start_centroid(tracks: dict, unit_ids: list[str]) -> np.ndarray | None:
+    """Mean early position of a team - the anchor for the own-half/enemy-half split."""
+    pts = []
+    for u in unit_ids:
+        for smp in (tracks.get(u) or {}).get("samples", []):
+            if smp["tSec"] <= HALF_SPLIT_START_SEC:
+                pts.append((smp["x"], smp["y"]))
+    return np.asarray(pts, dtype=float).mean(axis=0) if pts else None
+
+
+def map_position_features(blob: dict, grid: dict | None) -> dict:
+    """A.2 transseasonal map-position features, map-normalized so they compare across
+    arenas AND seasons (mechanics-free: distance/area/side only).
+
+    - center_dist_frac_mean: time-mean dist to arena center / half-diagonal (grid bounds)
+    - edge_proximity_frac:   fraction of time within EDGE_PROXIMITY_FRAC of a bounds edge
+    - own_half_time_frac:    fraction of time on my team's side of the perpendicular
+                             bisector of the two teams' start centroids (grid-free)
+    - map_area_coverage_frac: convex hull of my track / playable (non-void) area
+    """
+    out: dict = {}
+    team, _spec = _team_maps(blob)
+    player = blob.get("playerUnitId")
+    tracks = {tr.get("unitId"): tr for tr in blob.get("positionTracks", [])}
+    me = _track_interp(tracks.get(player, {})) if player in tracks else None
+    if me is None:
+        return out
+    _t_me, x_me, y_me = me
+    pts = np.column_stack([x_me, y_me])
+
+    own = _start_centroid(tracks, [u for u, tm in team.items() if tm == "friendly"])
+    foe = _start_centroid(tracks, [u for u, tm in team.items() if tm == "enemy"])
+    if own is not None and foe is not None and np.hypot(*(foe - own)) > 1.0:
+        mid = (own + foe) / 2.0
+        normal = foe - own
+        out[_t("process", "own_half_time_frac")] = float(np.mean((pts - mid) @ normal < 0))
+
+    if not grid:
+        return out
+    b = grid["bounds"]
+    cx, cy = (b["minX"] + b["maxX"]) / 2.0, (b["minY"] + b["maxY"]) / 2.0
+    hx, hy = (b["maxX"] - b["minX"]) / 2.0, (b["maxY"] - b["minY"]) / 2.0
+    if hx <= 0 or hy <= 0:
+        return out
+    out[_t("process", "center_dist_frac_mean")] = float(
+        np.mean(np.hypot(x_me - cx, y_me - cy)) / np.hypot(hx, hy))
+    # per-axis normalized distance to the nearest bound; near-edge if the minimum < threshold
+    edge = np.minimum((hx - np.abs(x_me - cx)) / hx, (hy - np.abs(y_me - cy)) / hy)
+    out[_t("process", "edge_proximity_frac")] = float(np.mean(edge < EDGE_PROXIMITY_FRAC))
+
+    playable = sum(1 for v in grid["voidness"] if v < PLAYABLE_VOIDNESS_MAX) * grid["cellSize"] ** 2
+    if playable > 0 and len(pts) >= 3:
+        from scipy.spatial import ConvexHull, QhullError
+        try:
+            out[_t("process", "map_area_coverage_frac")] = float(
+                min(1.0, ConvexHull(pts).volume / playable))
+        except QhullError:
+            pass  # degenerate (collinear) track - no hull, no feature
+    return out
+
+
 def voidness_at(grid: dict, x: float, y: float) -> float:
     """Mirror of lineOfSight.ts voidnessAt over the committed occupancy grids."""
     b = grid["bounds"]

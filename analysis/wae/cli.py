@@ -70,9 +70,12 @@ def run(db_path: str, bracket: str, character: str | None, out_dir: Path) -> Non
         "MMR-adjusted q controls for opponent caliber via a 2-variable logit (the user's caliber-shifts-conditions point).",
         "Solo Shuffle is absent from the store (parser emits standard arena matches only).",
         "Precognition instance-counts-before-60s need a new persisted metric (uptime seconds only today).",
+        "Spell-mix, opener, and comp findings are SEASONAL (12.0-only by design of the season-gated "
+        "ingest); transseasonal_features lists the mechanics-free subset expected to survive season changes.",
     ]
     report.write_reports(out_dir, label, df, screened, results, clusters, spell_cols, caveats,
-                         cat_screened=cat_screened, death_atlas=death_atlas)
+                         cat_screened=cat_screened, death_atlas=death_atlas,
+                         transseasonal=features.TRANSSEASONAL)
     df.to_csv(out_dir / f"features-{label}.csv", index=False)
     print(f"[wae] wrote {out_dir}/influence-{label}.md (+.json, features csv, death atlas)")
 

@@ -56,6 +56,25 @@ SCALAR_METRICS: dict[str, bool] = {
 
 TIERS: dict[str, str] = {}
 
+# Mechanics-free features (distance/time/cadence only - no spell mix, no comp, no
+# season-specific tuning) that stay comparable when the season changes. Surfaced in
+# influence.json so the coach can prefer them across season boundaries; everything
+# spell-mix / opener / comp shaped is SEASONAL by design of the season-gated ingest.
+TRANSSEASONAL: set[str] = {
+    # activity ratios
+    "casts_per_min", "distanceMoved_per_min", "timeStationarySec_per_min",
+    # time-in-CC and GO cadence
+    "ccReceived.timeSec_per_min", "ccDone.timeSec_per_min",
+    "our_go_per_min", "enemy_go_per_min",
+    # range discipline (game-constant ranges: 8yd melee / 40yd heal)
+    "pct_time_beyond_heal_range", "median_dist_to_healer_yd",
+    "median_dist_nearest_enemy_yd", "pct_time_in_enemy_melee",
+    "spacing.meleeRangeSec_per_min", "spacing.isolatedSec_per_min",
+    # map-position (map-normalized via occupancy bounds - features2.map_position_features)
+    "center_dist_frac_mean", "edge_proximity_frac",
+    "own_half_time_frac", "map_area_coverage_frac",
+}
+
 
 def _t(tier: str, name: str) -> str:
     TIERS[name] = tier
@@ -293,6 +312,7 @@ def derive(row: dict, metrics: dict[str, float], blob: dict, spec_table: dict,
     feats.update(features2.enemy_pressure_features(blob))
     feats.update(features2.opener_features(blob))
     feats.update(features2.dr_cc_features(blob, minutes))
+    feats.update(features2.map_position_features(blob, grid))
     death_feats, atlas = features2.death_context(blob, grid)
     feats.update(death_feats)
     return feats, casts_by_spell, atlas
