@@ -12,6 +12,7 @@
     "view": "tsx src/cli/view.ts",
     "build-occupancy": "tsx scripts/build-occupancy.mjs",
     "fit-occluders": "tsx scripts/fit-occluders.mjs",
+    "edit-occluders": "node scripts/edit-occluders.mjs",
     "compare-los": "tsx scripts/compare-los.mjs",
     "view-occupancy": "node scripts/view-occupancy.mjs",
     "ingest-db": "node --experimental-sqlite --import tsx src/cli/ingest-db.ts",
