@@ -30,16 +30,16 @@ def _blob(tracks):
     }
 
 
-# 100x100 map, fully playable (all cells open), center (50, 50)
+# 100x100 map, fully playable (all cells open), center (50, 50), 2yd cells (real grids use 2)
 GRID = {
     "bounds": {"minX": 0.0, "minY": 0.0, "maxX": 100.0, "maxY": 100.0},
-    "cellSize": 10.0, "cols": 10, "rows": 10,
-    "voidness": [0.0] * 100,
+    "cellSize": 2.0, "cols": 50, "rows": 50,
+    "voidness": [0.0] * 2500,
 }
 
 
 def test_center_dist_and_edge_proximity():
-    # I sit exactly at the center the whole match: center dist 0, never near an edge.
+    # I sit exactly at the center the whole match: center dist 0, never near a wall.
     me = [s(t, 50.0, 50.0) for t in range(0, 60, 2)]
     enemy = [s(t, 80.0, 50.0) for t in range(0, 60, 2)]
     blob = _blob({"P": ("friendly", me), "E": ("enemy", enemy)})
@@ -49,13 +49,27 @@ def test_center_dist_and_edge_proximity():
 
 
 def test_edge_hugger_flags_high_edge_proximity():
-    # Parked 2yd from the x=0 wall: normalized edge distance 2/50 = 0.04 < 0.15.
+    # Parked 2yd from the map boundary (non-playable space): inside the 6yd edge zone.
+    # Bounding-box edges are NOT the measure - walls/voids are; here the boundary is the
+    # only non-playable space.
     me = [s(t, 2.0, 50.0) for t in range(0, 60, 2)]
     enemy = [s(t, 80.0, 50.0) for t in range(0, 60, 2)]
     out = map_position_features(_blob({"P": ("friendly", me), "E": ("enemy", enemy)}), GRID)
     assert out["edge_proximity_frac"] == pytest.approx(1.0)
     # 48yd from center, half-diagonal = sqrt(50^2+50^2) ≈ 70.7 → ~0.679
     assert out["center_dist_frac_mean"] == pytest.approx(48.0 / np.hypot(50.0, 50.0), abs=1e-3)
+
+
+def test_pillar_hugger_flags_edge_proximity_at_interior_voids():
+    # A 10x10yd pillar (void) in the middle-left; I camp 2yd from its face at x=32.
+    grid = {**GRID, "voidness": list(GRID["voidness"])}
+    for row in range(20, 25):
+        for col in range(10, 15):       # cells x=[20,30), y=[40,50)
+            grid["voidness"][row * 50 + col] = 1.0
+    me = [s(t, 32.0, 45.0) for t in range(0, 60, 2)]
+    enemy = [s(t, 80.0, 50.0) for t in range(0, 60, 2)]
+    out = map_position_features(_blob({"P": ("friendly", me), "E": ("enemy", enemy)}), grid)
+    assert out["edge_proximity_frac"] == pytest.approx(1.0)
 
 
 def test_own_half_time_frac_uses_starting_positions():

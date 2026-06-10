@@ -127,9 +127,21 @@ def dr_cc_features(blob: dict, minutes: float) -> dict:
     return out
 
 
-EDGE_PROXIMITY_FRAC = 0.15   # "near the edge" = within 15% of the half-extent of a bound
+EDGE_DIST_YD = 6.0           # "hugging" = within this of non-playable space (wall/pillar/void)
 PLAYABLE_VOIDNESS_MAX = 0.5  # mirrors lineOfSight.ts CLEAR_MAX: below this a cell is open floor
 HALF_SPLIT_START_SEC = 10.0  # team start centroids = mean position over the first N seconds
+
+
+def _wall_distance_yd(grid: dict) -> np.ndarray:
+    """Per-cell distance (yd) to the nearest non-playable cell (wall/pillar/void), with
+    everything outside the grid counted as non-playable. Arena bounds are NOT rectangles -
+    the voidness mask, not the bounding box, defines where the walls are."""
+    from scipy.ndimage import distance_transform_edt
+    playable = (np.asarray(grid["voidness"], dtype=float).reshape(grid["rows"], grid["cols"])
+                < PLAYABLE_VOIDNESS_MAX)
+    padded = np.zeros((grid["rows"] + 2, grid["cols"] + 2), dtype=bool)
+    padded[1:-1, 1:-1] = playable
+    return distance_transform_edt(padded)[1:-1, 1:-1] * grid["cellSize"]
 
 
 def _start_centroid(tracks: dict, unit_ids: list[str]) -> np.ndarray | None:
@@ -147,7 +159,9 @@ def map_position_features(blob: dict, grid: dict | None) -> dict:
     arenas AND seasons (mechanics-free: distance/area/side only).
 
     - center_dist_frac_mean: time-mean dist to arena center / half-diagonal (grid bounds)
-    - edge_proximity_frac:   fraction of time within EDGE_PROXIMITY_FRAC of a bounds edge
+    - edge_proximity_frac:   fraction of time within EDGE_DIST_YD of non-playable space
+                             (walls/pillars/voids via the voidness mask - not the bounding
+                             box, which arena shapes rarely fill)
     - own_half_time_frac:    fraction of time on my team's side of the perpendicular
                              bisector of the two teams' start centroids (grid-free)
     - map_area_coverage_frac: convex hull of my track / playable (non-void) area
@@ -178,9 +192,10 @@ def map_position_features(blob: dict, grid: dict | None) -> dict:
         return out
     out[_t("process", "center_dist_frac_mean")] = float(
         np.mean(np.hypot(x_me - cx, y_me - cy)) / np.hypot(hx, hy))
-    # per-axis normalized distance to the nearest bound; near-edge if the minimum < threshold
-    edge = np.minimum((hx - np.abs(x_me - cx)) / hx, (hy - np.abs(y_me - cy)) / hy)
-    out[_t("process", "edge_proximity_frac")] = float(np.mean(edge < EDGE_PROXIMITY_FRAC))
+    wall = _wall_distance_yd(grid)
+    col = np.clip(((x_me - b["minX"]) // grid["cellSize"]).astype(int), 0, grid["cols"] - 1)
+    row = np.clip(((y_me - b["minY"]) // grid["cellSize"]).astype(int), 0, grid["rows"] - 1)
+    out[_t("process", "edge_proximity_frac")] = float(np.mean(wall[row, col] < EDGE_DIST_YD))
 
     playable = sum(1 for v in grid["voidness"] if v < PLAYABLE_VOIDNESS_MAX) * grid["cellSize"] ** 2
     if playable > 0 and len(pts) >= 3:
