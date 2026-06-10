@@ -72,7 +72,8 @@ def pair_screen(df: pd.DataFrame, pairs: list[tuple[str, str]]) -> pd.DataFrame:
         p = lr_interaction_p(y, mmr, a, b)
         if np.isnan(p):
             continue
-        mask = ~(np.isnan(a) | np.isnan(b) | np.isnan(y))
+        # same rows the LR test used (incl. the mmr requirement) so cell n's sum to n
+        mask = ~(np.isnan(a) | np.isnan(b) | np.isnan(mmr) | np.isnan(y))
         rows.append({"feature_a": fa, "feature_b": fb, "n": int(mask.sum()), "p": p,
                      "cells": median_2x2(y[mask], a[mask], b[mask])})
     out = pd.DataFrame(rows)
