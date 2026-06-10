@@ -30,10 +30,12 @@ describe('buildPositionTracks', () => {
   });
 });
 
-describe('buildPositionTracks — passive-target gap-filling', () => {
-  it('injects an inferred sample at the attacker position when a melee swing hits a target', () => {
-    // Target T has no observed samples of its own; attacker A melee-swings it.
-    // SWING_DAMAGE carries the ATTACKER's actor position (advancedActorPositionX/Y).
+describe('buildPositionTracks — no swing-derived injection', () => {
+  // Position attribution happens upstream in perUnit via the advanced infoGUID
+  // (advancedActorId): SWING_DAMAGE samples the attacker, SWING_DAMAGE_LANDED samples the
+  // target — both exactly. Injecting the attacker's position onto the target here would
+  // only add duplicate, ≤melee-range-off samples next to the exact ones.
+  it('does not inject samples from swing events; tracks are copied as-is', () => {
     const units: UnitMetrics[] = [
       { ...unit({}), unitId: 'T', team: 'enemy', track: [] } as unknown as UnitMetrics,
       { ...unit({}), unitId: 'A', team: 'friendly', track: [{ tSec: 0, x: 50, y: 50 }] } as unknown as UnitMetrics,
@@ -44,34 +46,8 @@ describe('buildPositionTracks — passive-target gap-filling', () => {
         { event: 'SWING_DAMAGE', srcUnitId: 'A', destUnitId: 'T', advancedActorPositionX: 50, advancedActorPositionY: 50, amount: 1000, timestamp: 2000 },
       ],
     };
-    const tr = buildPositionTracks(units, match).get('T')!;
-    expect(tr.samples).toHaveLength(1);
-    expect(tr.samples[0]).toMatchObject({ tSec: 2, x: 50, y: 50, inferred: true });
-    expect(units[0].track).toHaveLength(0);
-  });
-
-  it('keeps samples sorted after injecting inferred ones', () => {
-    const units: UnitMetrics[] = [
-      { ...unit({}), unitId: 'T', team: 'enemy', track: [{ tSec: 0, x: 1, y: 1 }, { tSec: 4, x: 2, y: 2 }] } as unknown as UnitMetrics,
-      { ...unit({}), unitId: 'A', team: 'friendly', track: [] } as unknown as UnitMetrics,
-    ];
-    const match = { events: [{ timestamp: 0 }, { event: 'SWING_DAMAGE_LANDED', srcUnitId: 'A', destUnitId: 'T', advancedActorPositionX: 9, advancedActorPositionY: 9, amount: 5, timestamp: 2000 }] };
-    const tr = buildPositionTracks(units, match).get('T')!;
-    expect(tr.samples.map((s) => s.tSec)).toEqual([0, 2, 4]); // inferred (tSec 2) slotted in order
-    expect(tr.samples[1].inferred).toBe(true);
-  });
-
-  it('skips swings with no position or an unknown target (no throw, no phantom track)', () => {
-    const units: UnitMetrics[] = [unit({ unitId: 'A', team: 'friendly', track: [{ tSec: 0, x: 1, y: 1 }] })];
-    const match = {
-      events: [
-        { timestamp: 0 },
-        { event: 'SWING_DAMAGE', srcUnitId: 'A', destUnitId: 'A', amount: 1 },              // no position → skipped
-        { event: 'SWING_DAMAGE', srcUnitId: 'A', destUnitId: 'GHOST', advancedActorPositionX: 5, advancedActorPositionY: 5, timestamp: 2000 }, // unknown target → skipped
-      ],
-    };
     const tracks = buildPositionTracks(units, match);
-    expect(tracks.has('GHOST')).toBe(false);          // no phantom track created
-    expect(tracks.get('A')!.samples).toHaveLength(1); // unchanged (no inferred sample added to A)
+    expect(tracks.get('T')!.samples).toHaveLength(0); // nothing injected
+    expect(tracks.get('A')!.samples).toHaveLength(1); // observed copied untouched
   });
 });

@@ -1,5 +1,5 @@
 import type { Sample, PositionTrack, PositionQuery, UnitMetrics } from './types.js';
-import { matchStartMs, eventType, destId, eventTimeMs, position } from './eventAccess.js';
+import { matchStartMs } from './eventAccess.js';
 import { collectCasts, type CastEvent } from './cooldownTimeline.js';
 import { isMobility } from '../metadata/repositioning.js';
 
@@ -84,8 +84,10 @@ export function distanceAt(a: PositionTrack, b: PositionTrack, tSec: number): nu
 }
 
 /** Build the enriched position-track store: each unit's OBSERVED samples (copied, not mutated)
- *  plus mobility-cast break times (tSec) and inferred melee-derived samples. `casts` defaults to
- *  a fresh scan but callers that already have the cast map (computeMatchMetrics) should pass it. */
+ *  plus mobility-cast break times (tSec). Samples are attributed upstream (perUnit) via the
+ *  advanced infoGUID, which already gives passive targets exact samples from the _DAMAGE/_HEAL
+ *  events they receive — no melee-derived gap-filling needed. `casts` defaults to a fresh scan
+ *  but callers that already have the cast map (computeMatchMetrics) should pass it. */
 export function buildPositionTracks(units: UnitMetrics[], match: unknown, casts: Map<string, CastEvent[]> = collectCasts(match)): Map<string, PositionTrack> {
   const m = match as { events?: unknown[] };
   const events = Array.isArray(m.events) ? m.events : [];
@@ -100,21 +102,6 @@ export function buildPositionTracks(units: UnitMetrics[], match: unknown, casts:
     const tr = tracks.get(uid);
     if (!tr) continue;
     for (const c of list) if (isMobility(c.spellId)) tr.breaks.push((c.ms - startMs) / 1000);
-  }
-
-  // Passive-target gap-filling: a melee swing on a unit constrains it to ≈ the attacker's
-  // position. position(ev) is the attacker's (actor) position; attribute it to the target,
-  // tagged inferred so it is never confused with an observed sample.
-  for (const ev of events) {
-    const t = eventType(ev);
-    if (t !== 'SWING_DAMAGE' && t !== 'SWING_DAMAGE_LANDED') continue;
-    const d = destId(ev);
-    const ms = eventTimeMs(ev);
-    const p = position(ev);
-    if (!d || ms === undefined || !p) continue;
-    const tr = tracks.get(d);
-    if (!tr) continue;
-    tr.samples.push({ tSec: (ms - startMs) / 1000, x: p.x, y: p.y, inferred: true });
   }
 
   for (const tr of tracks.values()) {
