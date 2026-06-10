@@ -50,6 +50,8 @@ SCALAR_METRICS: dict[str, bool] = {
     "timeStationarySec": True,
     "defensivesUsed": True,
     "defensivesIntoBurst": False,
+    "ccDone.count": True,
+    "ccReceived.count": True,
 }
 
 TIERS: dict[str, str] = {}
@@ -265,8 +267,11 @@ def context_features(row: dict) -> dict:
     return out
 
 
-def derive(row: dict, metrics: dict[str, float], blob: dict, spec_table: dict) -> tuple[dict, Counter]:
-    """All features for one match + the per-spell cast counter (assembled corpus-wide later)."""
+def derive(row: dict, metrics: dict[str, float], blob: dict, spec_table: dict,
+           grid: dict | None = None) -> tuple[dict, Counter, list[dict]]:
+    """All features for one match + the per-spell cast counter (assembled corpus-wide later)
+    + this match's death-atlas entries (my deaths with position/voidness/healer-dist)."""
+    from . import features2  # late import: features2 imports helpers from this module
     minutes = (row.get("duration_sec") or 0) / 60.0
     feats: dict = {"match_id": row["match_id"], "win": 1.0 if row["result"] == "win" else 0.0,
                    "session_id": row["session_id"]}
@@ -278,7 +283,13 @@ def derive(row: dict, metrics: dict[str, float], blob: dict, spec_table: dict) -
     feats.update(go_window_features(blob, minutes))
     feats.update(position_features(blob))
     feats.update(coordination_features(blob, minutes))
-    return feats, casts_by_spell
+    feats.update(features2.targeting_features(blob, spec_table))
+    feats.update(features2.enemy_pressure_features(blob))
+    feats.update(features2.opener_features(blob))
+    feats.update(features2.dr_cc_features(blob, minutes))
+    death_feats, atlas = features2.death_context(blob, grid)
+    feats.update(death_feats)
+    return feats, casts_by_spell, atlas
 
 
 def add_spell_rate_columns(rows: list[dict], casts: list[Counter], durations: list[float],
