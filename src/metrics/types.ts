@@ -3,16 +3,16 @@ export type Team = 'friendly' | 'enemy' | 'neutral';
 
 export interface SpellTally { spellName: string; count: number; }
 
-export interface Sample { tSec: number; x: number; y: number; facing?: number; hpPct?: number; inferred?: boolean; }
+export interface Sample { tSec: number; x: number; y: number; facing?: number; hpPct?: number; }
 
-/** A unit's enriched position time series: observed + inferred samples (sorted by tSec),
- *  plus mobility-cast break times (tSec) where interpolation must not cross a teleport. */
+/** A unit's observed position time series (sorted by tSec), plus mobility-cast break
+ *  times (tSec) where interpolation must not cross a teleport. */
 export interface PositionTrack { unitId: string; samples: Sample[]; breaks: number[]; }
 
 /** Result of a position query. `position` is undefined when genuinely unknowable
  *  (mid-teleport, beyond MAX_GAP_SEC of any sample); `lastKnown` always carries up to
  *  the 3 most recent real samples (with timestamps) so inference can decide for itself. */
-export interface PositionQuery { position?: Sample; inferred: boolean; lastKnown: Sample[]; }
+export interface PositionQuery { position?: Sample; lastKnown: Sample[]; }
 
 /** Per-player whole-match spacing summary (derived; raw tracks remain on MatchMetrics). */
 export interface SpacingSummary { meleeRangeSec: number; isolatedSec: number; }

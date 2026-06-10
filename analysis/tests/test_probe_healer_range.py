@@ -46,15 +46,12 @@ def test_probe_flags_outranged_window_and_reports_metric_coverage():
     # Healer parked at x=0 the whole time.
     healer = [s(t, 0.0) for t in range(0, 16)]
     blob = _blob(me, healer, [(10.0, "P", "Demonic Gateway")])
-    out = probe_match(blob)
-    assert out["n_casts"] == 1
-    (c,) = out["casts"]
+    (c,) = probe_match(blob)["casts"]
     # raw-sample truth: the whole +1..+5s window sits 50yd from the healer
     assert c["max_dist"] == 50.0
     assert c["frac_beyond"] == 1.0
     # the current metric samples on MY track timeline: 5 of my samples fall in the window
     assert c["metric_samples_in_window"] == 5
-    assert out["n_outranged"] == 1
 
 
 def test_probe_reports_uncovered_window_when_my_track_is_silent():
@@ -82,7 +79,7 @@ def test_teleport_jump_times_finds_unbreaked_jumps():
 
 def test_probe_none_when_no_healer_or_no_gateways():
     blob = _blob([s(0, 0), s(1, 0)], [s(0, 0), s(1, 0)], [(1.0, "P", "Corruption")])
-    assert probe_match(blob)["n_casts"] == 0
+    assert probe_match(blob)["casts"] == []
     no_healer = _blob([s(0, 0)], [], [(1.0, "P", "Demonic Gateway")])
     no_healer["teams"][0]["players"] = [no_healer["teams"][0]["players"][0]]
     no_healer["positionTracks"] = [no_healer["positionTracks"][0]]

@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { Subject } from 'rxjs';
 import { stringToLogLine, logLineToCombatEvent } from '@wowarenalogs/parser';
-import { srcId, position, eventType } from './eventAccess.js';
+import { advancedUnitId, position, eventType } from './eventAccess.js';
 
 export interface XY {
   x: number;
@@ -49,8 +49,10 @@ export async function harvestPositions(
       return;
     }
     if (!zone) return;
-    const s = srcId(ev);
-    if (!s || !s.startsWith('Player-')) return;
+    // The advanced block (and thus the position) describes the infoGUID unit, not the
+    // event source — gate on the unit the position actually belongs to.
+    const u = advancedUnitId(ev);
+    if (!u || !u.startsWith('Player-')) return;
     const p = position(ev);
     if (!p) return;
     const arr = into.get(zone) ?? [];

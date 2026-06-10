@@ -20,9 +20,19 @@ describe('harvestPositions', () => {
     expect(m.get('1825')).toEqual([{ x: 972.96, y: -299.03 }]);
   });
 
-  it('excludes non-player (pet/NPC) sources', async () => {
+  it('excludes non-player (pet/NPC) advanced units', async () => {
     const m = await harvestPositions([START, CAST_PET, END]);
     expect(m.get('1825') ?? []).toEqual([]);
+  });
+
+  it('gates by the advanced unit, not the event source', async () => {
+    // src = creature, but the advanced block (and thus the position) describes the PLAYER
+    // (e.g. a creature melee landing on a player). The position is the player's — keep it.
+    // .replace with a string only swaps the FIRST occurrence: the source GUID, not the
+    // advanced infoGUID later in the line.
+    const creatureSrc = CAST_PLAYER.replace('Player-1427-0E06AA75', 'Creature-0-1427-2222-3333-4444-0000000001');
+    const m = await harvestPositions([START, creatureSrc, END]);
+    expect(m.get('1825')).toEqual([{ x: 972.96, y: -299.03 }]);
   });
 
   it('excludes positions outside any active match', async () => {

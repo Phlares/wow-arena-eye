@@ -39,10 +39,6 @@ describe('distance primitive (base)', () => {
     expect(distanceAt(a, empty, 1)).toBeUndefined();
   });
 
-  it('marks inferred when a contributing sample is inferred', () => {
-    const t = track([{ tSec: 0, x: 0, y: 0, inferred: true }, { tSec: 2, x: 10, y: 0 }]);
-    expect(resolvePosition(t, 1).inferred).toBe(true);
-  });
 });
 
 describe('mobility-aware interpolation', () => {

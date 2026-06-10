@@ -20,17 +20,17 @@ function lastKnownBefore(samples: Sample[], t: number): Sample[] {
 export function resolvePosition(track: PositionTrack, tSec: number): PositionQuery {
   const s = track.samples;
   const lastKnown = lastKnownBefore(s, tSec);
-  if (s.length === 0) return { position: undefined, inferred: false, lastKnown };
+  if (s.length === 0) return { position: undefined, lastKnown };
 
   // Before first / after last: clamp to the endpoint only within MAX_GAP_SEC.
   if (tSec <= s[0].tSec) {
     const ok = s[0].tSec - tSec <= MAX_GAP_SEC;
-    return { position: ok ? { ...s[0], tSec } : undefined, inferred: ok ? !!s[0].inferred : false, lastKnown };
+    return { position: ok ? { ...s[0], tSec } : undefined, lastKnown };
   }
   const last = s[s.length - 1];
   if (tSec >= last.tSec) {
     const ok = tSec - last.tSec <= MAX_GAP_SEC;
-    return { position: ok ? { ...last, tSec } : undefined, inferred: ok ? !!last.inferred : false, lastKnown };
+    return { position: ok ? { ...last, tSec } : undefined, lastKnown };
   }
 
   // Bracket: greatest sample ≤ tSec at index lo, next sample at lo+1.
@@ -46,7 +46,7 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
   }
   const a = s[lo];
   const b = s[lo + 1] ?? a;
-  if (a.tSec === b.tSec) return { position: { ...a, tSec }, inferred: !!a.inferred, lastKnown };
+  if (a.tSec === b.tSec) return { position: { ...a, tSec }, lastKnown };
 
   // Mobility break inside the current bracket → never lerp across the teleport.
   // The first break suffices: brackets span adjacent samples, and the transit return is
@@ -56,18 +56,18 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
     if (tSec <= tb - PRE_CAST_VALID_SEC) {
       // pre-cast: hold the last observed pre-sample, still subject to the gap guard
       const ok = tSec - a.tSec <= MAX_GAP_SEC;
-      return { position: ok ? { ...a, tSec } : undefined, inferred: ok ? !!a.inferred : false, lastKnown };
+      return { position: ok ? { ...a, tSec } : undefined, lastKnown };
     }
     // transit (Tc-0.5 .. landing sample b): genuinely unknown
-    return { position: undefined, inferred: false, lastKnown };
+    return { position: undefined, lastKnown };
   }
 
-  if (b.tSec - a.tSec > MAX_GAP_SEC) return { position: undefined, inferred: false, lastKnown };
+  if (b.tSec - a.tSec > MAX_GAP_SEC) return { position: undefined, lastKnown };
   const f = (tSec - a.tSec) / (b.tSec - a.tSec);
   // Lerp x/y; hpPct is step-held (take the lower bracket), NOT smoothed — same deliberate
   // choice as sampleAt.ts (HP should not be interpolated).
   const position: Sample = { tSec, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, facing: a.facing, hpPct: a.hpPct };
-  return { position, inferred: !!a.inferred || !!b.inferred, lastKnown };
+  return { position, lastKnown };
 }
 
 /** Convenience: just the resolved Sample (or undefined). */

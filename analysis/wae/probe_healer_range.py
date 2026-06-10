@@ -80,15 +80,10 @@ def probe_match(blob: dict, offsets: tuple[float, ...] = WINDOW_OFFSETS,
             "metric_samples_in_window": int(in_win.sum()),
         }
 
-    casts = [w for tc in gateway_cast_times(blob) if (w := window(tc)) is not None]
-    traversals = [w for tc in teleport_jump_times(tracks.get(player, {}))
-                  if (w := window(tc)) is not None]
     return {
-        "n_casts": len(casts),
-        "n_outranged": sum(1 for c in casts if c["max_dist"] > range_yd),
-        "casts": casts,
-        "traversals": traversals,
-        "n_traversals_outranged": sum(1 for c in traversals if c["max_dist"] > range_yd),
+        "casts": [w for tc in gateway_cast_times(blob) if (w := window(tc)) is not None],
+        "traversals": [w for tc in teleport_jump_times(tracks.get(player, {}))
+                       if (w := window(tc)) is not None],
     }
 
 
@@ -106,34 +101,28 @@ def main() -> None:
     rows = load_matches(args.db, character=args.character)
     assign_sessions(rows)
     agg = Counter()
-    stats = {"casts": {"max": [], "cover": []}, "traversals": {"max": [], "cover": []}}
+    windows = {"casts": [], "traversals": []}
     for _mid, blob in iter_blobs(args.db, [r["match_id"] for r in rows]):
         out = probe_match(blob)
         if out is None:
             agg["no_tracks"] += 1
             continue
         agg["matches"] += 1
-        agg["casts"] += out["n_casts"]
-        agg["outranged"] += out["n_outranged"]
-        agg["traversals"] += len(out["traversals"])
-        agg["traversals_outranged"] += out["n_traversals_outranged"]
-        for kind in ("casts", "traversals"):
-            for c in out[kind]:
-                stats[kind]["max"].append(c["max_dist"])
-                stats[kind]["cover"].append(c["metric_samples_in_window"])
+        for kind in windows:
+            windows[kind].extend(out[kind])
 
     print(f"matches probed: {agg['matches']} (no usable tracks: {agg['no_tracks']})")
     for kind, label in (("casts", "gateway PLACEMENT casts"),
                         ("traversals", "teleport TRAVERSALS (unbreaked >15yd jumps)")):
-        n = agg["casts"] if kind == "casts" else agg["traversals"]
-        n_out = agg["outranged"] if kind == "casts" else agg["traversals_outranged"]
-        print(f"\n{label}: {n}")
-        if not n:
+        ws = windows[kind]
+        print(f"\n{label}: {len(ws)}")
+        if not ws:
             continue
-        md = np.asarray(stats[kind]["max"])
-        cv = np.asarray(stats[kind]["cover"])
+        md = np.asarray([w["max_dist"] for w in ws])
+        cv = np.asarray([w["metric_samples_in_window"] for w in ws])
+        n_out = int((md > HEAL_RANGE_YD).sum())
         print(f"  +1..+5s window exceeds {HEAL_RANGE_YD:.0f}yd (raw samples): "
-              f"{n_out} ({100 * n_out / n:.1f}%)")
+              f"{n_out} ({100 * n_out / len(ws):.1f}%)")
         print(f"  max dist in window: median {np.median(md):.1f}yd, p90 {np.percentile(md, 90):.1f}yd")
         print(f"  metric samples inside the window: median {np.median(cv):.0f}, "
               f"zero-coverage: {(cv == 0).sum()} ({100 * (cv == 0).mean():.1f}%)")
