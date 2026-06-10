@@ -141,15 +141,19 @@ def _wall_geometry(grid: dict) -> tuple[np.ndarray, float]:
     the voidness mask, not the bounding box, defines where the walls are.
 
     Memoized on the grid dict itself (one EDT per zone per process - db.load_occupancy
-    hands out one dict per zone), so the cache lives and dies with the grid object."""
-    if "_wall_geometry" not in grid:
+    hands out one dict per zone), so the cache lives and dies with the grid object. The
+    memo records WHICH voidness it was computed from: a shallow-copied grid with a new
+    voidness (tests do this) must not inherit the copy-source's geometry."""
+    memo = grid.get("_wall_geometry")
+    if memo is None or memo[0] is not grid["voidness"]:
         playable = (np.asarray(grid["voidness"], dtype=float).reshape(grid["rows"], grid["cols"])
                     < PLAYABLE_VOIDNESS_MAX)
         padded = np.zeros((grid["rows"] + 2, grid["cols"] + 2), dtype=bool)
         padded[1:-1, 1:-1] = playable
         wall_yd = distance_transform_edt(padded)[1:-1, 1:-1] * grid["cellSize"]
-        grid["_wall_geometry"] = (wall_yd, float(playable.sum()) * grid["cellSize"] ** 2)
-    return grid["_wall_geometry"]
+        memo = (grid["voidness"], wall_yd, float(playable.sum()) * grid["cellSize"] ** 2)
+        grid["_wall_geometry"] = memo
+    return memo[1], memo[2]
 
 
 def _start_centroid(tracks: dict, unit_ids: list[str]) -> np.ndarray | None:
