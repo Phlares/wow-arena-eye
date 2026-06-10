@@ -159,10 +159,10 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
             md.append("|---|---|---|---|---|---|---|")
             for _, r in survivors.iterrows():
                 c = r["cells"]
-                def cell(k):
-                    return f"{c[k]['wr']:.0%} (n{c[k]['n']})" if c[k]["wr"] is not None else "—"
-                md.append(f"| {r['feature_a']} × {r['feature_b']} | {r['n']} | {r['q']:.3f} | "
-                          f"{cell('lo_lo')} | {cell('lo_hi')} | {cell('hi_lo')} | {cell('hi_hi')} |")
+                cells = " | ".join(
+                    f"{c[k]['wr']:.0%} (n{c[k]['n']})" if c[k]["wr"] is not None else "—"
+                    for k in ("lo_lo", "lo_hi", "hi_lo", "hi_hi"))
+                md.append(f"| {r['feature_a']} × {r['feature_b']} | {r['n']} | {r['q']:.3f} | {cells} |")
             md.append("")
         if gbm_h2 is not None and not gbm_h2.empty:
             md.append("*GBM-side (Friedman H², top model features — which pairs the model "

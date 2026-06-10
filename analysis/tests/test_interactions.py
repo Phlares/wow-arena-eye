@@ -99,3 +99,12 @@ def test_friedman_h_ranks_interacting_pair_highest():
     assert {top["feature_a"], top["feature_b"]} == {"A", "B"}
     others = h.iloc[1:]["h2"].max()
     assert top["h2"] > others * 2
+
+
+def test_friedman_h_handles_integer_columns():
+    # a NaN-free count column comes out of pandas as int64; partial_dependence
+    # rejects integer data, so friedman_h must cast to float
+    df = DF.copy()
+    df["K"] = RNG.integers(0, 12, N)
+    h = friedman_h(df, ["A", "B", "K"], df["win"].to_numpy())
+    assert len(h) == 3

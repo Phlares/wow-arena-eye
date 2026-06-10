@@ -15,21 +15,17 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.inspection import partial_dependence
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import log_loss
-from scipy import stats
 
-from .screen import bh_qvalues
+from .model import GBM_PARAMS, RNG
+from .screen import bh_qvalues, lr_test_p
 
 MIN_N = 60          # a pair needs this many complete rows to be testable
 H_TOP_K = 10        # GBM pairs screened = C(H_TOP_K, 2)
 H_GRID = 16         # partial-dependence grid resolution per axis
 
-
-def _fit_ll(X: np.ndarray, y: np.ndarray) -> float:
-    """Log-likelihood of a barely-ridged logit (same C=1e6 convention as screen.py)."""
-    clf = LogisticRegression(C=1e6, max_iter=2000).fit(X, y)
-    return -log_loss(y, clf.predict_proba(X)[:, 1], normalize=False)
+KITING_METRICS = ("distanceMoved_per_min", "timeStationarySec_per_min",
+                  "pct_time_in_enemy_melee", "median_dist_nearest_enemy_yd",
+                  "center_dist_frac_mean", "edge_proximity_frac", "map_area_coverage_frac")
 
 
 def lr_interaction_p(y: np.ndarray, mmr: np.ndarray, a: np.ndarray, b: np.ndarray) -> float:
@@ -44,9 +40,8 @@ def lr_interaction_p(y: np.ndarray, mmr: np.ndarray, a: np.ndarray, b: np.ndarra
     aa = (aa - aa.mean()) / aa.std()
     bb = (bb - bb.mean()) / bb.std()
     mm = (mm - mm.mean()) / (mm.std() or 1)
-    base = _fit_ll(np.column_stack([mm, aa, bb]), yy)
-    full = _fit_ll(np.column_stack([mm, aa, bb, aa * bb]), yy)
-    return float(stats.chi2.sf(max(0.0, 2 * (full - base)), df=1))
+    base = np.column_stack([mm, aa, bb])
+    return lr_test_p(base, np.column_stack([base, aa * bb]), yy)
 
 
 def median_2x2(y: np.ndarray, a: np.ndarray, b: np.ndarray) -> dict:
@@ -88,11 +83,7 @@ def pair_screen(df: pd.DataFrame, pairs: list[tuple[str, str]]) -> pd.DataFrame:
 
 
 def candidate_pairs(df: pd.DataFrame, screen_df: pd.DataFrame, top_k: int = 25,
-                    kiting: tuple[str, ...] = ("distanceMoved_per_min", "timeStationarySec_per_min",
-                                               "pct_time_in_enemy_melee", "median_dist_nearest_enemy_yd",
-                                               "center_dist_frac_mean", "edge_proximity_frac",
-                                               "map_area_coverage_frac"),
-                    min_map_n: int = 80) -> tuple[list[tuple[str, str]], pd.DataFrame]:
+                    min_group_n: int = 80) -> tuple[list[tuple[str, str]], pd.DataFrame]:
     """The pair list: top-K process features all-pairs, plus the user-named candidates
     (duration x character, MMR-band x top-K, map x kiting, enemy-healer x kill-target).
     Categorical sides become 0/1 indicator columns added to a COPY of df (returned)."""
@@ -111,15 +102,15 @@ def candidate_pairs(df: pd.DataFrame, screen_df: pd.DataFrame, top_k: int = 25,
 
     if "map_name" in d.columns:
         for m, n in d["map_name"].value_counts().items():
-            if n < min_map_n:
+            if n < min_group_n:
                 continue
             col = f"map_is__{m.replace(' ', '_')}"
             d[col] = (d["map_name"] == m).astype(float)
-            pairs += [(col, k) for k in kiting if k in d.columns]
+            pairs += [(col, k) for k in KITING_METRICS if k in d.columns]
 
     if "enemy_healer_class" in d.columns and "my_main_target_is_healer" in d.columns:
         for cls, n in d["enemy_healer_class"].value_counts().items():
-            if n < min_map_n or cls == "none":
+            if n < min_group_n or cls == "none":
                 continue
             col = f"enemy_healer_is__{cls.replace(' ', '_')}"
             d[col] = (d["enemy_healer_class"] == cls).astype(float)
@@ -139,11 +130,11 @@ def friedman_h(df: pd.DataFrame, features: list[str], y: np.ndarray) -> pd.DataF
     """Friedman's H^2 per feature pair on a GBM fit to `features`: the fraction of the
     joint partial dependence's variance not explained by the two univariate PDs.
     H^2 = sum((PD_jk - PD_j - PD_k)^2) / sum(PD_jk^2), all PDs centered."""
-    X = df[features].apply(pd.to_numeric, errors="coerce")
-    med = X.median()
-    X = X.fillna(med)
-    gbm = HistGradientBoostingClassifier(max_depth=3, learning_rate=0.06, max_iter=250,
-                                         l2_regularization=1.0, random_state=7).fit(X, y)
+    # float throughout: a NaN-free count column would otherwise stay int64, which
+    # partial_dependence rejects outright
+    X = df[features].apply(pd.to_numeric, errors="coerce").astype(float)
+    X = X.fillna(X.median())
+    gbm = HistGradientBoostingClassifier(**GBM_PARAMS, random_state=RNG).fit(X, y)
 
     def centered_pd(idx: tuple[int, ...]) -> np.ndarray:
         pd_ = partial_dependence(gbm, X, [idx], grid_resolution=H_GRID, kind="average")
@@ -156,10 +147,8 @@ def friedman_h(df: pd.DataFrame, features: list[str], y: np.ndarray) -> pd.DataF
         for j in range(i + 1, len(features)):
             joint = centered_pd((i, j))
             additive = uni[i][:, None] + uni[j][None, :]
-            if joint.shape != additive.shape:   # grid clipped on low-cardinality feature
-                gi = joint.shape[0]
-                gj = joint.shape[1]
-                additive = uni[i][:gi, None] + uni[j][None, :gj]
+            if joint.shape != additive.shape:
+                continue  # per-feature grids should agree between calls; if not, skip honestly
             denom = float((joint ** 2).sum())
             h2 = float(((joint - additive) ** 2).sum() / denom) if denom > 0 else 0.0
             rows.append({"feature_a": features[i], "feature_b": features[j], "h2": round(h2, 4)})

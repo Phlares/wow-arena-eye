@@ -65,8 +65,8 @@ def run(db_path: str, bracket: str, character: str | None, out_dir: Path) -> Non
 
     pairs, df_int = interactions.candidate_pairs(df, screened)
     inter = interactions.pair_screen(df_int, pairs)
-    print(f"[wae] interaction screen: {len(pairs)} pairs, "
-          f"{int((inter['q'] <= 0.10).sum()) if not inter.empty else 0} survive q<=0.10")
+    n_survive = int((inter["q"] <= 0.10).sum()) if not inter.empty else 0
+    print(f"[wae] interaction screen: {len(pairs)} pairs, {n_survive} survive q<=0.10")
     proc_perm = next(r for r in results if r["scope"] == "process")["permutation_importance"]
     h_feats = [r["feature"] for r in proc_perm
                if r["feature"] in numeric_cols][:interactions.H_TOP_K]

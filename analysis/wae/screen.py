@@ -32,6 +32,17 @@ def rank_biserial(wins: np.ndarray, losses: np.ndarray) -> float:
     return float(2 * u / (len(wins) * len(losses)) - 1)
 
 
+def lr_test_p(X_base: np.ndarray, X_full: np.ndarray, y: np.ndarray) -> float:
+    """Likelihood-ratio p for nested logits: logit(y ~ X_base) vs logit(y ~ X_full),
+    deviance difference ~ chi2(df = added columns). Columns should be pre-standardized.
+    C=1e6 = a hair of ridge so (quasi-)separation keeps coefficients finite."""
+    def ll(X: np.ndarray) -> float:
+        clf = LogisticRegression(C=1e6, max_iter=2000).fit(X, y)
+        return -log_loss(y, clf.predict_proba(X)[:, 1], normalize=False)
+    lr = max(0.0, 2 * (ll(X_full) - ll(X_base)))
+    return float(stats.chi2.sf(lr, df=X_full.shape[1] - X_base.shape[1]))
+
+
 def mmr_adjusted_p(feature: np.ndarray, mmr: np.ndarray, y: np.ndarray) -> float:
     """Likelihood-ratio test for the feature on top of MMR: logit(y ~ mmr) vs
     logit(y ~ mmr + feature). Deviance difference ~ chi2(1)."""
@@ -43,13 +54,7 @@ def mmr_adjusted_p(feature: np.ndarray, mmr: np.ndarray, y: np.ndarray) -> float
         return float("nan")
     f = (f - f.mean()) / (f.std() or 1)
     m = (m - m.mean()) / (m.std() or 1)
-    # C=1e6 = a hair of ridge so (quasi-)separation keeps coefficients finite
-    base = LogisticRegression(C=1e6, max_iter=1000).fit(m.reshape(-1, 1), yy)
-    full = LogisticRegression(C=1e6, max_iter=1000).fit(np.column_stack([m, f]), yy)
-    ll_base = -log_loss(yy, base.predict_proba(m.reshape(-1, 1))[:, 1], normalize=False)
-    ll_full = -log_loss(yy, full.predict_proba(np.column_stack([m, f]))[:, 1], normalize=False)
-    lr = max(0.0, 2 * (ll_full - ll_base))
-    return float(stats.chi2.sf(lr, df=1))
+    return lr_test_p(m.reshape(-1, 1), np.column_stack([m, f]), yy)
 
 
 def screen(df: pd.DataFrame, feature_cols: list[str], tiers: dict[str, str]) -> pd.DataFrame:
