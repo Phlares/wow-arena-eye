@@ -11,6 +11,8 @@
     "ingest": "tsx src/cli/ingest.ts",
     "view": "tsx src/cli/view.ts",
     "build-occupancy": "tsx scripts/build-occupancy.mjs",
+    "fit-occluders": "tsx scripts/fit-occluders.mjs",
+    "compare-los": "tsx scripts/compare-los.mjs",
     "view-occupancy": "node scripts/view-occupancy.mjs",
     "ingest-db": "node --experimental-sqlite --import tsx src/cli/ingest-db.ts",
     "scorecard": "node --experimental-sqlite --import tsx src/cli/scorecard.ts",

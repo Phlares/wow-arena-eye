@@ -15,14 +15,34 @@ const NAMES = {
 };
 
 const occDir = fileURLToPath(new URL('../src/metadata/occupancy/', import.meta.url));
+const fitDir = fileURLToPath(new URL('../src/metadata/occluders/', import.meta.url));
+const artDir = fileURLToPath(new URL('../vendor/wowarenalogs/assets/arena_maps/', import.meta.url));
+
+// world bounds of the vendored replay map art (zoneMetadata.ts): image left edge = world maxX
+// (the replay renders x NEGATED at 5px/yd), top edge = world minY.
+const zoneMetaSrc = readFileSync(
+  fileURLToPath(new URL('../vendor/wowarenalogs/packages/shared/src/data/zoneMetadata.ts', import.meta.url)), 'utf8');
+const zoneMeta = {};
+for (const m of zoneMetaSrc.matchAll(/id:\s*'(\d+)'[\s\S]*?minX:\s*(-?\d+\.?\d*)[\s\S]*?minY:\s*(-?\d+\.?\d*)[\s\S]*?maxX:\s*(-?\d+\.?\d*)[\s\S]*?maxY:\s*(-?\d+\.?\d*)/g)) {
+  zoneMeta[m[1]] = { minX: +m[2], minY: +m[3], maxX: +m[4], maxY: +m[5] };
+}
+
 const grids = readdirSync(occDir)
   .filter((f) => f.endsWith('.json'))
   .map((f) => {
     const g = JSON.parse(readFileSync(join(occDir, f), 'utf8'));
+    const fitPath = join(fitDir, f);
+    const fit = existsSync(fitPath) ? JSON.parse(readFileSync(fitPath, 'utf8')) : null;
+    const artPath = join(artDir, `${g.zoneId}.png`);
+    const art = existsSync(artPath) && zoneMeta[g.zoneId]
+      ? { dataUri: `data:image/png;base64,${readFileSync(artPath).toString('base64')}`, ...zoneMeta[g.zoneId] }
+      : null;
     return {
       zoneId: g.zoneId, name: NAMES[g.zoneId] ?? `zone ${g.zoneId}`,
       cols: g.cols, rows: g.rows, cellSize: g.cellSize, coverage: g.coverage,
-      sampleCount: g.sampleCount, isZAxisMap: g.isZAxisMap,
+      sampleCount: g.sampleCount, isZAxisMap: g.isZAxisMap, bounds: g.bounds,
+      polys: fit ? [...fit.walls, ...fit.pillars] : [],
+      art,
       // quantize void-ness to 0..255 to keep the inlined payload small
       v: g.voidness.map((x) => Math.round(Math.max(0, Math.min(1, x)) * 255)),
     };
@@ -66,6 +86,9 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
     <span class="k"><span class="sw" style="background:#11202e"></span>floor/exterior</span>
     <span class="k"><span class="sw" style="background:#caa12a"></span>likely-blocked</span>
     <span class="k"><span class="sw" style="background:#d83a2a"></span>blocked (occluder)</span>
+    <span class="k"><span class="sw" style="background:transparent;border:2px solid #4ade80"></span>fitted occluder polygon</span>
+    <label class="scale"><input id="showArt" type="checkbox" checked> map art underlay</label>
+    <label class="scale"><input id="showPolys" type="checkbox" checked> fitted polygons</label>
     <span style="margin-left:auto"><label class="scale">cell size <input id="scale" type="range" min="3" max="14" value="7"> <span id="scaleVal">7</span>px</label></span>
   </div>
 </header>
@@ -78,6 +101,7 @@ function color(v){
   if (v < 0.85){ const t=(v-0.5)/0.35; return [29+(202-29)*t, 111+(161-111)*t, 111+(42-111)*t]; } // teal -> amber
   const t=(v-0.85)/0.15; return [202+(216-202)*t, 161+(58-161)*t, 42+(42-42)*t];           // amber -> red (blocked)
 }
+const artImages = new Map(); // zoneId -> HTMLImageElement (decoded once)
 function draw(card, g, px){
   const cv = card.querySelector('canvas');
   cv.width = g.cols*px; cv.height = g.rows*px;
@@ -92,6 +116,38 @@ function draw(card, g, px){
     }
   }
   ctx.putImageData(img,0,0);
+  const pxPerYd = px / g.cellSize;
+  const toCx = (wx)=> (wx - g.bounds.minX) * pxPerYd;
+  const toCy = (wy)=> (wy - g.bounds.minY) * pxPerYd;
+  // map-art underlay (vendored replay PNG): its world x runs maxX -> minX left-to-right,
+  // so draw it horizontally mirrored into its world rectangle.
+  if (document.getElementById('showArt').checked && g.art){
+    const a = g.art;
+    const im = artImages.get(g.zoneId);
+    if (!im){
+      const el = new Image();
+      el.onload = ()=> redraw();
+      el.src = a.dataUri;
+      artImages.set(g.zoneId, el);
+    } else if (im.complete){
+      const w = (a.maxX - a.minX) * pxPerYd, h = (a.maxY - a.minY) * pxPerYd;
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      ctx.translate(toCx(a.maxX), toCy(a.minY));
+      ctx.scale(-1, 1);
+      ctx.drawImage(im, 0, 0, w, h);
+      ctx.restore();
+    }
+  }
+  if (document.getElementById('showPolys').checked){
+    ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2;
+    for (const poly of g.polys){
+      ctx.beginPath();
+      poly.forEach((p, i)=> i ? ctx.lineTo(toCx(p.x), toCy(p.y)) : ctx.moveTo(toCx(p.x), toCy(p.y)));
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
 }
 const cards = [];
 const host = document.getElementById('grid');
@@ -108,6 +164,8 @@ for (const g of GRIDS){
 const slider = document.getElementById('scale'), out = document.getElementById('scaleVal');
 function redraw(){ const px=+slider.value; out.textContent=px; for (const [card,g] of cards) draw(card,g,px); }
 slider.addEventListener('input', redraw);
+document.getElementById('showArt').addEventListener('change', redraw);
+document.getElementById('showPolys').addEventListener('change', redraw);
 redraw();
 </script></body></html>`;
 
