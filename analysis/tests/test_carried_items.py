@@ -39,6 +39,14 @@ def test_comp_archetypes_ranged_enemy():
     assert out["enemy_melee_count"] == 0.0
 
 
+def test_archetypes_agree_with_healer_spec_ids():
+    # two hand-maintained registries overlap on healers; this is the sync guard
+    from wae.db import HEALER_SPEC_IDS
+    from wae.features2 import ARCHETYPES
+
+    assert {s for s, a in ARCHETYPES.items() if a == "healer"} == HEALER_SPEC_IDS
+
+
 def test_midgame_bigrams_skips_opener_and_counts_pairs():
     casts = [(2, "Agony"), (4, "Corruption"), (10, "Haunt"),          # opener window
              (20, "Agony"), (22, "Corruption"), (25, "Agony"), (27, "Corruption")]

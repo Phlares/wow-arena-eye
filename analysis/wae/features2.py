@@ -3,6 +3,8 @@ DR, death context (user-directed second pass, 2026-06-09), and transseasonal map
 features (A.2, 2026-06-10)."""
 from __future__ import annotations
 
+from collections import Counter
+
 import numpy as np
 from scipy.ndimage import distance_transform_edt
 from scipy.spatial import ConvexHull, QhullError
@@ -99,18 +101,25 @@ def enemy_pressure_features(blob: dict) -> dict:
     return out
 
 
+def _player_casts(blob: dict) -> list[tuple[float, str]]:
+    """The recording player's (tSec, spell) casts, time-sorted. Logs occasionally
+    double-emit a cast at the same second - exact duplicates are dropped so sequence
+    features aren't "X > X > Y"."""
+    player = blob.get("playerUnitId")
+    casts = [(ev.get("tSec", 0), ev.get("spell")) for ev in blob.get("timeline", [])
+             if ev.get("kind") == "cast" and ev.get("unitId") == player and ev.get("spell")]
+    # stable sort on time ONLY: same-second casts keep log order (opener_pattern depends on it)
+    casts.sort(key=lambda c: c[0])
+    return [c for i, c in enumerate(casts) if i == 0 or c != casts[i - 1]]
+
+
 def opener_features(blob: dict) -> dict:
     """The shape of MY opener: ramp speed and first-CC timing, plus the first-N spell
     pattern as a categorical (screened by win rate, not as a numeric)."""
     out: dict = {}
     player = blob.get("playerUnitId")
     team, _ = _team_maps(blob)
-    my_casts = [(ev.get("tSec", 0), ev.get("spell")) for ev in blob.get("timeline", [])
-                if ev.get("kind") == "cast" and ev.get("unitId") == player and ev.get("spell")]
-    my_casts.sort(key=lambda c: c[0])
-    # logs occasionally double-emit a cast at the same second - dedup exact (tSec, spell) pairs
-    # so the opener pattern isn't "X > X > Y"
-    my_casts = [c for i, c in enumerate(my_casts) if i == 0 or c != my_casts[i - 1]]
+    my_casts = _player_casts(blob)
     if my_casts:
         out[_t("process", "opener_pattern")] = " > ".join(s for _, s in my_casts[:OPENER_SPELLS])
         out[_t("process", "my_casts_first15s")] = float(sum(1 for t, _ in my_casts if t <= 15))
@@ -272,17 +281,10 @@ def comp_archetype_features(blob: dict) -> dict:
     return out
 
 
-def midgame_bigrams(blob: dict, start_sec: float = MIDGAME_START_SEC):
+def midgame_bigrams(blob: dict, start_sec: float = MIDGAME_START_SEC) -> Counter:
     """Counter of consecutive-cast bigrams (A, B) for the recording player's casts after
     the opener window - the SEQUENCE shape beyond openers (seasonal by nature)."""
-    from collections import Counter
-
-    player = blob.get("playerUnitId")
-    casts = sorted((ev.get("tSec", 0), ev.get("spell")) for ev in blob.get("timeline", [])
-                   if ev.get("kind") == "cast" and ev.get("unitId") == player and ev.get("spell"))
-    mid = [(t, s) for t, s in casts if t > start_sec]
-    # dedup same-second double-emits like opener_features does
-    mid = [c for i, c in enumerate(mid) if i == 0 or c != mid[i - 1]]
+    mid = [(t, s) for t, s in _player_casts(blob) if t > start_sec]
     return Counter((a[1], b[1]) for a, b in zip(mid, mid[1:]))
 
 
