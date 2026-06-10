@@ -1,4 +1,4 @@
-"""A.2 transseasonal map-position features: map-normalized via occupancy-grid bounds,
+﻿"""A.2 transseasonal map-position features: map-normalized via occupancy-grid bounds,
 mechanics-free so they stay comparable across seasons."""
 import numpy as np
 import pytest
@@ -8,6 +8,11 @@ from wae.features2 import map_position_features
 
 def s(t, x, y):
     return {"tSec": t, "x": x, "y": y}
+
+
+def _parked(x, y=50.0, duration=60):
+    """A unit standing still at (x, y) with samples every 2s."""
+    return [s(t, x, y) for t in range(0, duration, 2)]
 
 
 def _blob(tracks):
@@ -40,8 +45,8 @@ GRID = {
 
 def test_center_dist_and_edge_proximity():
     # I sit exactly at the center the whole match: center dist 0, never near a wall.
-    me = [s(t, 50.0, 50.0) for t in range(0, 60, 2)]
-    enemy = [s(t, 80.0, 50.0) for t in range(0, 60, 2)]
+    me = _parked(50.0)
+    enemy = _parked(80.0)
     blob = _blob({"P": ("friendly", me), "E": ("enemy", enemy)})
     out = map_position_features(blob, GRID)
     assert out["center_dist_frac_mean"] == pytest.approx(0.0)
@@ -52,11 +57,11 @@ def test_edge_hugger_flags_high_edge_proximity():
     # Parked 2yd from the map boundary (non-playable space): inside the 6yd edge zone.
     # Bounding-box edges are NOT the measure - walls/voids are; here the boundary is the
     # only non-playable space.
-    me = [s(t, 2.0, 50.0) for t in range(0, 60, 2)]
-    enemy = [s(t, 80.0, 50.0) for t in range(0, 60, 2)]
+    me = _parked(2.0)
+    enemy = _parked(80.0)
     out = map_position_features(_blob({"P": ("friendly", me), "E": ("enemy", enemy)}), GRID)
     assert out["edge_proximity_frac"] == pytest.approx(1.0)
-    # 48yd from center, half-diagonal = sqrt(50^2+50^2) ≈ 70.7 → ~0.679
+    # 48yd from center, half-diagonal = sqrt(50^2+50^2) = ~70.7 -> ~0.679
     assert out["center_dist_frac_mean"] == pytest.approx(48.0 / np.hypot(50.0, 50.0), abs=1e-3)
 
 
@@ -66,18 +71,18 @@ def test_pillar_hugger_flags_edge_proximity_at_interior_voids():
     for row in range(20, 25):
         for col in range(10, 15):       # cells x=[20,30), y=[40,50)
             grid["voidness"][row * 50 + col] = 1.0
-    me = [s(t, 32.0, 45.0) for t in range(0, 60, 2)]
-    enemy = [s(t, 80.0, 50.0) for t in range(0, 60, 2)]
+    me = _parked(32.0, 45.0)
+    enemy = _parked(80.0)
     out = map_position_features(_blob({"P": ("friendly", me), "E": ("enemy", enemy)}), grid)
     assert out["edge_proximity_frac"] == pytest.approx(1.0)
 
 
 def test_own_half_time_frac_uses_starting_positions():
-    # My team starts left (x≈10), enemy right (x≈90) → boundary at x=50.
+    # My team starts left (x~10), enemy right (x~90) -> boundary at x=50.
     # I spend the first half of my samples at x=20 (own half), second half at x=80 (enemy half).
     me = [s(t, 20.0, 50.0) for t in range(0, 30, 2)] + [s(t, 80.0, 50.0) for t in range(30, 60, 2)]
-    ally = [s(t, 10.0, 40.0) for t in range(0, 60, 2)]
-    enemy = [s(t, 90.0, 50.0) for t in range(0, 60, 2)]
+    ally = _parked(10.0, 40.0)
+    enemy = _parked(90.0)
     out = map_position_features(
         _blob({"P": ("friendly", me), "A": ("friendly", ally), "E": ("enemy", enemy)}), GRID)
     assert out["own_half_time_frac"] == pytest.approx(0.5, abs=0.05)
@@ -86,14 +91,14 @@ def test_own_half_time_frac_uses_starting_positions():
 def test_area_coverage_of_a_quadrant():
     # My hull is the square (0,0)-(50,50) = 2500 of 10000 playable -> 0.25.
     me = [s(0, 0.0, 0.0), s(10, 50.0, 0.0), s(20, 50.0, 50.0), s(30, 0.0, 50.0), s(40, 0.0, 0.0)]
-    enemy = [s(t, 80.0, 80.0) for t in range(0, 60, 2)]
+    enemy = _parked(80.0, 80.0)
     out = map_position_features(_blob({"P": ("friendly", me), "E": ("enemy", enemy)}), GRID)
     assert out["map_area_coverage_frac"] == pytest.approx(0.25, abs=0.01)
 
 
 def test_no_grid_yields_only_grid_free_features():
-    me = [s(t, 20.0, 50.0) for t in range(0, 60, 2)]
-    enemy = [s(t, 90.0, 50.0) for t in range(0, 60, 2)]
+    me = _parked(20.0)
+    enemy = _parked(90.0)
     out = map_position_features(_blob({"P": ("friendly", me), "E": ("enemy", enemy)}), None)
     assert "center_dist_frac_mean" not in out
     assert "map_area_coverage_frac" not in out
@@ -133,3 +138,4 @@ def test_transseasonal_registry_contains_map_features():
               "own_half_time_frac", "map_area_coverage_frac",
               "casts_per_min", "distanceMoved_per_min", "timeStationarySec_per_min"):
         assert f in TRANSSEASONAL
+

@@ -60,6 +60,9 @@ TIERS: dict[str, str] = {}
 # season-specific tuning) that stay comparable when the season changes. Surfaced in
 # influence.json so the coach can prefer them across season boundaries; everything
 # spell-mix / opener / comp shaped is SEASONAL by design of the season-gated ingest.
+# Hand-maintained name registry: report.py drops names that aren't real df columns, so a
+# stale entry degrades silently rather than erroring. If this grows, tag at the _t() call
+# site instead (_t(tier, name, transseasonal=True)).
 TRANSSEASONAL: set[str] = {
     # activity ratios
     "casts_per_min", "distanceMoved_per_min", "timeStationarySec_per_min",

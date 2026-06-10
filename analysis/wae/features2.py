@@ -1,8 +1,11 @@
 """V2 foundry: targeting choice, enemy pressure distribution, opener shape, CC sent into
-DR, and death context (user-directed second pass, 2026-06-09)."""
+DR, death context (user-directed second pass, 2026-06-09), and transseasonal map-position
+features (A.2, 2026-06-10)."""
 from __future__ import annotations
 
 import numpy as np
+from scipy.ndimage import distance_transform_edt
+from scipy.spatial import ConvexHull, QhullError
 
 from .db import HEALER_SPEC_IDS
 from .features import _t, _team_maps, _track_interp, friendly_healer_id
@@ -132,16 +135,24 @@ PLAYABLE_VOIDNESS_MAX = 0.5  # mirrors lineOfSight.ts CLEAR_MAX: below this a ce
 HALF_SPLIT_START_SEC = 10.0  # team start centroids = mean position over the first N seconds
 
 
-def _wall_distance_yd(grid: dict) -> np.ndarray:
-    """Per-cell distance (yd) to the nearest non-playable cell (wall/pillar/void), with
-    everything outside the grid counted as non-playable. Arena bounds are NOT rectangles -
+# keyed by id(grid): db.load_occupancy caches one grid dict per zone for the process
+# lifetime, so the id is stable and one EDT per zone serves the whole corpus
+_WALL_CACHE: dict[int, tuple[np.ndarray, float]] = {}
+
+
+def _wall_geometry(grid: dict) -> tuple[np.ndarray, float]:
+    """(per-cell distance in yd to the nearest non-playable cell, playable area in yd^2).
+    Everything outside the grid counts as non-playable. Arena bounds are NOT rectangles -
     the voidness mask, not the bounding box, defines where the walls are."""
-    from scipy.ndimage import distance_transform_edt
-    playable = (np.asarray(grid["voidness"], dtype=float).reshape(grid["rows"], grid["cols"])
-                < PLAYABLE_VOIDNESS_MAX)
-    padded = np.zeros((grid["rows"] + 2, grid["cols"] + 2), dtype=bool)
-    padded[1:-1, 1:-1] = playable
-    return distance_transform_edt(padded)[1:-1, 1:-1] * grid["cellSize"]
+    key = id(grid)
+    if key not in _WALL_CACHE:
+        playable = (np.asarray(grid["voidness"], dtype=float).reshape(grid["rows"], grid["cols"])
+                    < PLAYABLE_VOIDNESS_MAX)
+        padded = np.zeros((grid["rows"] + 2, grid["cols"] + 2), dtype=bool)
+        padded[1:-1, 1:-1] = playable
+        wall_yd = distance_transform_edt(padded)[1:-1, 1:-1] * grid["cellSize"]
+        _WALL_CACHE[key] = (wall_yd, float(playable.sum()) * grid["cellSize"] ** 2)
+    return _WALL_CACHE[key]
 
 
 def _start_centroid(tracks: dict, unit_ids: list[str]) -> np.ndarray | None:
@@ -192,14 +203,12 @@ def map_position_features(blob: dict, grid: dict | None) -> dict:
         return out
     out[_t("process", "center_dist_frac_mean")] = float(
         np.mean(np.hypot(x_me - cx, y_me - cy)) / np.hypot(hx, hy))
-    wall = _wall_distance_yd(grid)
+    wall, playable = _wall_geometry(grid)
     col = np.clip(((x_me - b["minX"]) // grid["cellSize"]).astype(int), 0, grid["cols"] - 1)
     row = np.clip(((y_me - b["minY"]) // grid["cellSize"]).astype(int), 0, grid["rows"] - 1)
     out[_t("process", "edge_proximity_frac")] = float(np.mean(wall[row, col] < EDGE_DIST_YD))
 
-    playable = sum(1 for v in grid["voidness"] if v < PLAYABLE_VOIDNESS_MAX) * grid["cellSize"] ** 2
     if playable > 0 and len(pts) >= 3:
-        from scipy.spatial import ConvexHull, QhullError
         try:
             out[_t("process", "map_area_coverage_frac")] = float(
                 min(1.0, ConvexHull(pts).volume / playable))
