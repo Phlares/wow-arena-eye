@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import categorical, db, features, model, report, screen
+from . import categorical, db, features, interactions, model, report, screen
 
 META_COLS = {"match_id", "win", "session_id"}
 CATEGORICAL_SCREEN_COLS = ["map_name", "ally_healer_class", "enemy_healer_class",
@@ -63,6 +63,15 @@ def run(db_path: str, bracket: str, character: str | None, out_dir: Path) -> Non
     results = [model.run_models(df, feature_cols, features.TIERS, scope) for scope in ("process", "full")]
     clusters = model.correlation_clusters(df, numeric_cols)
 
+    pairs, df_int = interactions.candidate_pairs(df, screened)
+    inter = interactions.pair_screen(df_int, pairs)
+    print(f"[wae] interaction screen: {len(pairs)} pairs, "
+          f"{int((inter['q'] <= 0.10).sum()) if not inter.empty else 0} survive q<=0.10")
+    proc_perm = next(r for r in results if r["scope"] == "process")["permutation_importance"]
+    h_feats = [r["feature"] for r in proc_perm
+               if r["feature"] in numeric_cols][:interactions.H_TOP_K]
+    gbm_h2 = interactions.friedman_h(df, h_feats, df["win"].to_numpy()) if len(h_feats) >= 2 else None
+
     caveats = [
         f"n={len(df)}: only medium+ effects are detectable; absence of significance is not absence of effect.",
         "Correlation is not causation - process features can be confounded by game state (winning enables 'good' behavior).",
@@ -75,7 +84,8 @@ def run(db_path: str, bracket: str, character: str | None, out_dir: Path) -> Non
     ]
     report.write_reports(out_dir, label, df, screened, results, clusters, spell_cols, caveats,
                          cat_screened=cat_screened, death_atlas=death_atlas,
-                         transseasonal=features.TRANSSEASONAL)
+                         transseasonal=features.TRANSSEASONAL,
+                         interactions=inter, gbm_h2=gbm_h2)
     df.to_csv(out_dir / f"features-{label}.csv", index=False)
     print(f"[wae] wrote {out_dir}/influence-{label}.md (+.json, features csv, death atlas)")
 
