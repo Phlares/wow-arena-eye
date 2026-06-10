@@ -1,1 +1,1 @@
-{"zoneId":"2759","threshold":0.85,"walls":[],"pillars":[[{"x":474,"y":352},{"x":474,"y":358},{"x":470,"y":358},{"x":470,"y":354}]],"source":"occupancy-fit","isZAxisMap":true,"generated":"2026-06-10"}
+{"zoneId":"2759","threshold":0.85,"walls":[],"pillars":[[{"x":474,"y":352},{"x":474,"y":358},{"x":470,"y":358},{"x":470,"y":354}]],"manual":[],"slopes":[],"source":"occupancy-fit","isZAxisMap":true,"generated":"2026-06-10"}
