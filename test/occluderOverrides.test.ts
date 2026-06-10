@@ -54,4 +54,15 @@ describe('finalizeOccluders', () => {
     expect(out.manual).toEqual([]);
     expect(out.slopes).toEqual([]);
   });
+
+  it('clamps out-of-range height levels from hand-edited JSON', () => {
+    const fitted = { zoneId: 'T', threshold: 0.85, walls: [], pillars: [] };
+    const out = finalizeOccluders(fitted, {
+      remove: [],
+      add: [{ heightLevel: 9 as never, points: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }] }],
+      slopes: [{ fromHeight: -2 as never, toHeight: 3, points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }],
+    });
+    expect(out.manual[0].heightYd).toBe(20);   // clamped to top level
+    expect(out.slopes[0].fromHeightYd).toBe(0); // clamped to ground
+  });
 });

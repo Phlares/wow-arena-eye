@@ -92,6 +92,7 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
   <button id="export">⬇ Export overrides JSON</button>
   <label><input id="import" type="file" accept=".json" style="display:none"><button onclick="document.getElementById('import').click()">⬆ Import</button></label>
   <button id="clearZone" class="danger">Clear this zone</button>
+  <button id="loadRepo" title="Discard local edits and reload the committed src/metadata/occluderOverrides.json snapshot">↻ Load repo version</button>
   <span id="status"></span>
 </header>
 <div class="legend">
@@ -106,7 +107,8 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 const ZONES = ${JSON.stringify(zones)};
 const LS_KEY = 'wae-occluder-overrides';
 const HEIGHT_YD = [0,3,8,20];
-let overrides = ${JSON.stringify(existingOverrides)};
+const REPO_OVERRIDES = ${JSON.stringify(existingOverrides)};  // snapshot baked at build time
+let overrides = REPO_OVERRIDES;
 try { const saved = JSON.parse(localStorage.getItem(LS_KEY)); if (saved && saved.zones) overrides = saved; } catch {}
 const save = () => { localStorage.setItem(LS_KEY, JSON.stringify(overrides)); flash('saved locally'); };
 const zoneOv = (id) => (overrides.zones[id] ??= { add: [], remove: [], slopes: [] });
@@ -217,9 +219,10 @@ function inPoly(p,pts){
 }
 function hitTest(w){
   const ov = zoneOv(zone.zoneId);
+  const tol = 8 / pxPerYd();  // ~8 screen px regardless of zoom
   for (let i=0;i<ov.slopes.length;i++){
     const pts=ov.slopes[i].points;
-    for (let j=0;j<pts.length-1;j++) if (distToSeg(w,pts[j],pts[j+1]) < 2) return {kind:'slopes',index:i};
+    for (let j=0;j<pts.length-1;j++) if (distToSeg(w,pts[j],pts[j+1]) < tol) return {kind:'slopes',index:i};
   }
   for (let i=0;i<ov.add.length;i++) if (inPoly(w, ov.add[i].points)) return {kind:'add',index:i};
   for (let i=0;i<ov.remove.length;i++) if (inPoly(w, ov.remove[i].points)) return {kind:'remove',index:i};
@@ -270,6 +273,10 @@ for (const id of ['showArt','showHeat','showFit','scale']) document.getElementBy
 document.getElementById('clearZone').addEventListener('click', ()=>{
   if (!confirm('Clear all corrections for '+zone.name+'?')) return;
   overrides.zones[zone.zoneId] = { add:[], remove:[], slopes:[] }; save(); draw();
+});
+document.getElementById('loadRepo').addEventListener('click', ()=>{
+  if (!confirm('Discard local (unsaved-to-repo) edits and load the committed overrides snapshot?')) return;
+  overrides = JSON.parse(JSON.stringify(REPO_OVERRIDES)); save(); draw(); flash('repo snapshot loaded');
 });
 document.getElementById('export').addEventListener('click', ()=>{
   const blob = new Blob([JSON.stringify(overrides, null, 1)], {type:'application/json'});

@@ -42,15 +42,22 @@ export function applyRemoveRegions(grid: OccluderGrid, overrides: ZoneOverrides 
   return { ...grid, voidness };
 }
 
-/** Attach the hand-painted additions/slopes (heights resolved to yards) to a fitted result. */
+/** A height LEVEL from (possibly hand-edited) JSON resolved to yards, clamped to the table. */
+function heightYd(level: number): number {
+  return HEIGHT_LEVELS_YD[Math.max(0, Math.min(HEIGHT_LEVELS_YD.length - 1, Math.round(level) || 0))];
+}
+
+/** Attach the hand-painted additions/slopes (heights resolved to yards) to a fitted result.
+ *  NOTE: remove regions act on CELL CENTERS — a painted region smaller than one grid cell
+ *  (~2yd) may cover no center and silently do nothing; paint at least a full cell. */
 export function finalizeOccluders(fitted: FittedOccluders, overrides: ZoneOverrides | undefined): FinalOccluders {
   return {
     ...fitted,
     manual: (overrides?.add ?? []).map((a) => ({
-      heightYd: HEIGHT_LEVELS_YD[a.heightLevel], points: a.points, ...(a.label ? { label: a.label } : {}),
+      heightYd: heightYd(a.heightLevel), points: a.points, ...(a.label ? { label: a.label } : {}),
     })),
     slopes: (overrides?.slopes ?? []).map((s) => ({
-      fromHeightYd: HEIGHT_LEVELS_YD[s.fromHeight], toHeightYd: HEIGHT_LEVELS_YD[s.toHeight],
+      fromHeightYd: heightYd(s.fromHeight), toHeightYd: heightYd(s.toHeight),
       points: s.points, ...(s.label ? { label: s.label } : {}),
     })),
   };
