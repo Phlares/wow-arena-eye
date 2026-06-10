@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from .db import HEALER_SPEC_IDS
-from .features import _t, _team_maps, _track_interp
+from .features import _t, _team_maps, _track_interp, friendly_healer_id
 
 DR_WINDOW_SEC = 18.0   # cast-to-cast approximation of "sent into diminishing returns"
 OPENER_SPELLS = 3      # first-N player casts define the opener pattern
@@ -22,7 +22,9 @@ def targeting_features(blob: dict, spec_table: dict) -> dict:
     mine = next((tr for tr in ft.get("tracks", []) if tr.get("attacker") == player), None)
     if not mine:
         return out
-    ticks = [t for t in mine.get("ticks", []) if t]
+    # only PLAYER targets count - a pet can win a damage tick (e.g. bursting a Mindbender)
+    # but "main target choice" is about which player I committed to
+    ticks = [t for t in mine.get("ticks", []) if t and t in team]
     if not ticks:
         return out
     counts: dict[str, int] = {}
@@ -53,13 +55,17 @@ def enemy_pressure_features(blob: dict) -> dict:
             names[p.get("name")] = p.get("unitId")
     enemy = next((c for c in blob.get("coordination", []) if c.get("team") == "enemy"), None)
     tp = (enemy or {}).get("summary", {}).get("targetPriority", [])
-    rows = [(names.get(e.get("name")), e.get("damageTaken", 0)) for e in tp if e.get("name") in names]
-    total = sum(d for _, d in rows)
+    dmg: dict[str, float] = {}  # aggregate per unitId - a name can appear more than once
+    for e in tp:
+        u = names.get(e.get("name"))
+        if u is not None:
+            dmg[u] = dmg.get(u, 0.0) + (e.get("damageTaken", 0) or 0)
+    total = sum(dmg.values())
     if total <= 0:
         return out
-    shares = {u: d / total for u, d in rows}
+    shares = {u: d / total for u, d in dmg.items()}
     out[_t("context", "enemy_dmg_share_on_me")] = shares.get(player, 0.0)
-    healer = next((u for u, tm in team.items() if tm == "friendly" and str(spec.get(u)) in HEALER_SPEC_IDS and u != player), None)
+    healer = friendly_healer_id(team, spec, player)
     if healer:
         out[_t("context", "enemy_dmg_share_on_our_healer")] = shares.get(healer, 0.0)
     out[_t("context", "enemy_dmg_concentration")] = float(sum(s * s for s in shares.values()))
@@ -75,6 +81,9 @@ def opener_features(blob: dict) -> dict:
     my_casts = [(ev.get("tSec", 0), ev.get("spell")) for ev in blob.get("timeline", [])
                 if ev.get("kind") == "cast" and ev.get("unitId") == player and ev.get("spell")]
     my_casts.sort(key=lambda c: c[0])
+    # logs occasionally double-emit a cast at the same second - dedup exact (tSec, spell) pairs
+    # so the opener pattern isn't "X > X > Y"
+    my_casts = [c for i, c in enumerate(my_casts) if i == 0 or c != my_casts[i - 1]]
     if my_casts:
         out[_t("process", "opener_pattern")] = " > ".join(s for _, s in my_casts[:OPENER_SPELLS])
         out[_t("process", "my_casts_first15s")] = float(sum(1 for t, _ in my_casts if t <= 15))
@@ -147,9 +156,9 @@ def death_context(blob: dict, grid: dict | None) -> tuple[dict, list[dict]]:
     if me is None:
         return out, atlas
     t_me, x_me, y_me = me
-    healer = next((u for u, tm in team.items() if tm == "friendly" and str(spec.get(u)) in HEALER_SPEC_IDS and u != player), None)
+    healer = friendly_healer_id(team, spec, player)
     heal = _track_interp(tracks.get(healer, {})) if healer and healer in tracks else None
-    for i, td in enumerate(my_death_times):
+    for td in my_death_times:
         if not (t_me[0] <= td <= t_me[-1]):
             continue
         x = float(np.interp(td, t_me, x_me))
@@ -161,10 +170,10 @@ def death_context(blob: dict, grid: dict | None) -> tuple[dict, list[dict]]:
             hx = float(np.interp(td, heal[0], heal[1]))
             hy = float(np.interp(td, heal[0], heal[2]))
             entry["healer_dist_yd"] = round(float(np.hypot(x - hx, y - hy)), 1)
-        atlas.append(entry)
-        if i == 0:
+        if not atlas:  # per-match features come from the first RESOLVABLE death
             if "voidness" in entry:
                 out[_t("outcome", "my_death_voidness")] = entry["voidness"]
             if "healer_dist_yd" in entry:
                 out[_t("outcome", "my_death_dist_to_healer_yd")] = entry["healer_dist_yd"]
+        atlas.append(entry)
     return out, atlas

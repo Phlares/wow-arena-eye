@@ -63,7 +63,7 @@ def _t(tier: str, name: str) -> str:
 
 
 def _team_maps(blob: dict) -> tuple[dict[str, str], dict[str, str]]:
-    """unitId -> team and unitId -> spec for PLAYERS, from the blob's team groups."""
+    """unitId -> team and unitId -> spec (always str) for PLAYERS, from the blob's team groups."""
     team, spec = {}, {}
     for tg in blob.get("teams", []):
         for pg in tg.get("players", []):
@@ -71,6 +71,12 @@ def _team_maps(blob: dict) -> tuple[dict[str, str], dict[str, str]]:
             team[p.get("unitId")] = p.get("team")
             spec[p.get("unitId")] = str(p.get("spec"))
     return team, spec
+
+
+def friendly_healer_id(team: dict[str, str], spec: dict[str, str], player: str | None) -> str | None:
+    """The (first) friendly healer-spec player that isn't the recorder."""
+    return next((u for u, tm in team.items()
+                 if tm == "friendly" and spec.get(u) in HEALER_SPEC_IDS and u != player), None)
 
 
 def scalar_features(metrics: dict[str, float], minutes: float) -> dict[str, float]:
@@ -220,7 +226,7 @@ def position_features(blob: dict) -> dict:
         d[mask] = np.hypot(x_me[mask] - xo, y_me[mask] - yo)
         return d
 
-    healer_id = next((u for u, tm in team.items() if tm == "friendly" and spec.get(u) in HEALER_SPEC_IDS and u != player), None)
+    healer_id = friendly_healer_id(team, spec, player)
     if healer_id:
         d = dist_series(healer_id)
         if d is not None and np.isfinite(d).sum():
