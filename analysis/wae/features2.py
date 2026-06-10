@@ -135,24 +135,21 @@ PLAYABLE_VOIDNESS_MAX = 0.5  # mirrors lineOfSight.ts CLEAR_MAX: below this a ce
 HALF_SPLIT_START_SEC = 10.0  # team start centroids = mean position over the first N seconds
 
 
-# keyed by id(grid): db.load_occupancy caches one grid dict per zone for the process
-# lifetime, so the id is stable and one EDT per zone serves the whole corpus
-_WALL_CACHE: dict[int, tuple[np.ndarray, float]] = {}
-
-
 def _wall_geometry(grid: dict) -> tuple[np.ndarray, float]:
     """(per-cell distance in yd to the nearest non-playable cell, playable area in yd^2).
     Everything outside the grid counts as non-playable. Arena bounds are NOT rectangles -
-    the voidness mask, not the bounding box, defines where the walls are."""
-    key = id(grid)
-    if key not in _WALL_CACHE:
+    the voidness mask, not the bounding box, defines where the walls are.
+
+    Memoized on the grid dict itself (one EDT per zone per process - db.load_occupancy
+    hands out one dict per zone), so the cache lives and dies with the grid object."""
+    if "_wall_geometry" not in grid:
         playable = (np.asarray(grid["voidness"], dtype=float).reshape(grid["rows"], grid["cols"])
                     < PLAYABLE_VOIDNESS_MAX)
         padded = np.zeros((grid["rows"] + 2, grid["cols"] + 2), dtype=bool)
         padded[1:-1, 1:-1] = playable
         wall_yd = distance_transform_edt(padded)[1:-1, 1:-1] * grid["cellSize"]
-        _WALL_CACHE[key] = (wall_yd, float(playable.sum()) * grid["cellSize"] ** 2)
-    return _WALL_CACHE[key]
+        grid["_wall_geometry"] = (wall_yd, float(playable.sum()) * grid["cellSize"] ** 2)
+    return grid["_wall_geometry"]
 
 
 def _start_centroid(tracks: dict, unit_ids: list[str]) -> np.ndarray | None:
