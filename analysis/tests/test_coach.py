@@ -66,7 +66,8 @@ def test_build_pack_shape():
         {"attackingTeam": "friendly", "startSec": 60, "endSec": 75, "teamDamageTaken": 0},
     ], "timeline": [{"kind": "death", "tSec": 44, "unitId": "P"}],
         "playerUnitId": "P",
-        "teams": [{"team": "friendly", "players": [{"player": {"unitId": "P", "spec": "265"}}]}]}
+        "teams": [{"team": "friendly",
+                   "players": [{"player": {"unitId": "P", "team": "friendly", "spec": "265"}}]}]}
     pack = build_pack(feats, blob, influence, row={"result": "win", "duration_sec": 240,
                                                    "player_rating": 2400})
     assert pack["match"]["match_id"] == "abc123"

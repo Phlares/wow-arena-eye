@@ -2,7 +2,7 @@
 no LLM: places one match's feature vector against the corpus win/loss anchors, attaches
 matchup priors and the GO story, and emits a single JSON. The agent layer (Claude
 sub-agent today, local model on the 3090 later) is a thin persona over this pack, which
-keeps the model swappable.
+keeps the model swappable - the canonical persona prompt lives in coach_prompt.md.
 
 Run: .venv\\Scripts\\python -m wae.coach [--match latest|<match_id>] [--character X]
      [--influence pooled|phlares|phluglishph]
@@ -13,9 +13,12 @@ from __future__ import annotations
 import json
 import numpy as np
 
-LOSS_TERRITORY_PCT = 0.25   # beyond the win-dist quartile, in the losing direction
+from .features import _team_maps
+
+# editorial threshold for the narrative flag: beyond the win-dist quartile, in the
+# losing direction. The agent layer reads the flag; restyle coaching by changing this.
+LOSS_TERRITORY_PCT = 0.25
 TOP_CORRELATES = 10
-MAX_PLACED_FEATURES = 40    # the anchors block already caps at 40; keep the pack lean
 
 
 def anchor_placement(value: float, anchor: dict, rank_biserial: float) -> dict:
@@ -23,6 +26,8 @@ def anchor_placement(value: float, anchor: dict, rank_biserial: float) -> dict:
     over the anchor quantiles), plus the loss-territory flag: beyond the win-dist
     quartile in the direction the screen associates with LOSING."""
     q = anchor["quantiles"]
+    # clamp to [0.05, 0.95]: values outside the anchor quantile span read as "far in the
+    # tail", never a false-precision 0 or 1
     pct_win = float(np.interp(value, anchor["win_q"], q, left=0.05, right=0.95))
     pct_loss = float(np.interp(value, anchor["loss_q"], q, left=0.05, right=0.95))
     if rank_biserial >= 0:   # winners run this HIGH -> low percentile = loss territory
@@ -52,10 +57,7 @@ def _go_summary(blob: dict, feats: dict) -> dict:
     wins = blob.get("offensiveWindows", [])
     enemy = [w for w in wins if w.get("attackingTeam") == "enemy"]
     ours = [w for w in wins if w.get("attackingTeam") == "friendly"]
-    team = {}
-    for tg in blob.get("teams", []):
-        for pg in tg.get("players", []):
-            team[pg.get("player", {}).get("unitId")] = tg.get("team")
+    team, _spec = _team_maps(blob)
     my_team_deaths = [ev.get("tSec", 0) for ev in blob.get("timeline", [])
                       if ev.get("kind") == "death" and team.get(ev.get("unitId")) == "friendly"]
     lethal = sum(1 for w in enemy
@@ -82,7 +84,7 @@ def build_pack(feats: dict, blob: dict, influence: dict, row: dict) -> dict:
     anchors = influence.get("anchors", {})
 
     placed: dict = {}
-    for feat, anchor in list(anchors.items())[:MAX_PLACED_FEATURES]:
+    for feat, anchor in anchors.items():   # the influence anchors block is already capped
         v = feats.get(feat)
         if v is None or (isinstance(v, float) and np.isnan(v)):
             continue
