@@ -104,6 +104,40 @@ def test_build_pack_shape():
     assert pack["top_correlates"][0]["feature"] == "casts_per_min"
 
 
+def test_vs_this_comp_placement():
+    influence = {
+        "anchors": ANCHORS, "screen": SCREEN, "categorical": [],
+        "interactions": {"pairs": [], "gbm_h2": []},
+        "anchors_by_enemy_archetype": {
+            "2melee+healer": {"n": 113, "win_rate": 0.41,
+                              # vs melee, winners cast LESS (turtling reads differently)
+                              "anchors": {"casts_per_min": {
+                                  "win_q": [10.0, 15.0, 20.0, 25.0, 30.0],
+                                  "loss_q": [20.0, 25.0, 30.0, 35.0, 40.0],
+                                  "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]}}},
+        },
+    }
+    feats = {"match_id": "abc", "casts_per_min": 21.0,
+             "enemy_comp_archetype": "2melee+healer"}
+    blob = {"teams": [], "timeline": [], "offensiveWindows": []}
+    pack = build_pack(feats, blob, influence, row={"result": "loss", "duration_sec": 200,
+                                                   "player_rating": 2400})
+    placed = pack["features"]["casts_per_min"]
+    # global placement says 21/min is low-in-wins; the comp slice says it's mid-pack
+    assert placed["loss_territory"] is True
+    vs = placed["vs_this_comp"]
+    assert vs["comp_n"] == 113
+    assert vs["loss_territory"] is False
+    assert 0.4 < vs["pct_in_win"] < 0.7
+
+    # a different archetype (or none) -> no vs_this_comp block, never a wrong-slice one
+    feats2 = {"match_id": "abc", "casts_per_min": 21.0,
+              "enemy_comp_archetype": "2ranged+healer"}
+    pack2 = build_pack(feats2, blob, influence, row={"result": "loss", "duration_sec": 200,
+                                                     "player_rating": 2400})
+    assert "vs_this_comp" not in pack2["features"]["casts_per_min"]
+
+
 def test_targeting_priors_picks_this_matchs_comp():
     crosstab = [
         {"variable": "enemy_comp_archetype", "level": "2melee+healer", "n": 113,

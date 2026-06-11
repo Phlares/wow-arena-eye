@@ -11,6 +11,20 @@ import pandas as pd
 
 ANCHOR_QUANTILES = [0.1, 0.25, 0.5, 0.75, 0.9]
 
+# features whose MEANING shifts with the enemy comp (melee uptime vs a melee comp is
+# pressure on me; vs casters it can be access to a kill target) - these get per-archetype
+# anchors so the coach places them against same-comp history, not the global pool
+COMP_SENSITIVE_FEATURES = [
+    "pct_time_in_enemy_melee", "median_dist_nearest_enemy_yd",
+    "spacing_meleeRangeSec_per_min", "spacing_isolatedSec_per_min",
+    "median_dist_to_healer_yd", "pct_time_beyond_heal_range",
+    "distanceMoved_per_min", "timeStationarySec_per_min",
+    "center_dist_frac_mean", "edge_proximity_frac", "own_half_time_frac",
+    "map_area_coverage_frac", "damageDone_per_min", "my_time_on_enemy_healer_frac",
+    "our_go_per_min", "enemy_go_per_min",
+]
+ARCHETYPE_ANCHOR_MIN_N = 50   # the sufficiency verdict's categorical-slice floor
+
 
 def anchors_for(df: pd.DataFrame, features: list[str]) -> dict:
     """Per-feature win/loss distribution quantiles - the coach's context anchors."""
@@ -26,6 +40,27 @@ def anchors_for(df: pd.DataFrame, features: list[str]) -> dict:
             "loss_q": [round(float(q), 3) for q in np.quantile(loss, ANCHOR_QUANTILES)],
             "quantiles": ANCHOR_QUANTILES,
         }
+    return out
+
+
+def anchors_by_archetype(df: pd.DataFrame, features: list[str] = COMP_SENSITIVE_FEATURES,
+                         min_n: int = ARCHETYPE_ANCHOR_MIN_N) -> dict:
+    """Comp-conditioned anchors: anchors_for over each enemy_comp_archetype slice with
+    n >= min_n (anchors_for's own >=15-win/>=15-loss per-feature gate still applies).
+    Archetypes whose slice yields no anchors are omitted - the pack never places a
+    feature against an anchor the data couldn't support."""
+    if "enemy_comp_archetype" not in df.columns:
+        return {}
+    out: dict = {}
+    cols = [f for f in features if f in df.columns]
+    for archetype, sub in df.groupby(df["enemy_comp_archetype"].fillna("none").astype(str)):
+        if archetype == "none" or len(sub) < min_n:
+            continue
+        anchors = anchors_for(sub, cols)
+        if anchors:
+            out[archetype] = {"n": int(len(sub)),
+                              "win_rate": round(float(sub["win"].mean()), 4),
+                              "anchors": anchors}
     return out
 
 
@@ -67,7 +102,11 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
     out_dir.mkdir(parents=True, exist_ok=True)
     y = df["win"]
     sig = screen_df[screen_df["q_raw"] <= 0.10]
+    # comp-sensitive features are always anchored, significant or not - without a global
+    # anchor the pack can't place them, and vs_this_comp placement hangs off that entry
     top_anchor_feats = list(sig["feature"].head(40))
+    top_anchor_feats += [f for f in COMP_SENSITIVE_FEATURES
+                         if f in df.columns and f not in top_anchor_feats]
     atlas_summary = death_atlas_summary(death_atlas or [])
     ts = transseasonal or set()
 
@@ -87,6 +126,7 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
         "models": model_results,
         "correlation_clusters": clusters,
         "anchors": anchors_for(df, top_anchor_feats),
+        "anchors_by_enemy_archetype": anchors_by_archetype(df),
         "death_atlas_summary": atlas_summary,
         "interactions": {
             "pairs": interactions.to_dict(orient="records") if interactions is not None and not interactions.empty else [],

@@ -109,6 +109,8 @@ def build_pack(feats: dict, blob: dict, influence: dict, row: dict) -> dict:
     influence payload (anchors/screen/categorical/atlas/caveats), and the store row."""
     screen_by_feat = {r["feature"]: r for r in influence.get("screen", [])}
     anchors = influence.get("anchors", {})
+    comp_block = influence.get("anchors_by_enemy_archetype", {}).get(
+        feats.get("enemy_comp_archetype")) or {}
 
     placed: dict = {}
     for feat, anchor in anchors.items():   # the influence anchors block is already capped
@@ -123,6 +125,12 @@ def build_pack(feats: dict, blob: dict, influence: dict, row: dict) -> dict:
             "transseasonal": bool(rec.get("transseasonal", False)),
             **anchor_placement(float(v), anchor, rec.get("rank_biserial", 0.0)),
         }
+        comp_anchor = comp_block.get("anchors", {}).get(feat)
+        if comp_anchor:   # same-comp placement next to the global one; the persona prefers
+            placed[feat]["vs_this_comp"] = {   # it for comp-sensitive (positional) reads
+                **anchor_placement(float(v), comp_anchor, rec.get("rank_biserial", 0.0)),
+                "comp_n": comp_block.get("n"),
+            }
 
     levels = {var: feats.get(var) for var in
               ("enemy_healer_class", "my_main_target_class", "map_name", "opener_pattern",
