@@ -316,9 +316,29 @@ def derive(row: dict, metrics: dict[str, float], blob: dict, spec_table: dict,
     feats.update(features2.opener_features(blob))
     feats.update(features2.dr_cc_features(blob, minutes))
     feats.update(features2.map_position_features(blob, grid))
+    feats.update(features2.comp_archetype_features(blob))
     death_feats, atlas = features2.death_context(blob, grid)
     feats.update(death_feats)
     return feats, casts_by_spell, atlas
+
+
+def add_bigram_rate_columns(rows: list[dict], bigrams: list[Counter], durations: list[float],
+                            min_presence: float = 0.2, top_k: int = 15) -> list[tuple[str, str]]:
+    """Per-bigram casts/min columns for the corpus's common mid-game cast transitions
+    (the A.4 'spell SEQUENCE beyond openers' item; seasonal by nature). Mirrors
+    add_spell_rate_columns: presence-gated, capped at top_k."""
+    n = len(rows)
+    presence = Counter()
+    for c in bigrams:
+        for bg in c:
+            presence[bg] += 1
+    keep = [bg for bg, k in presence.most_common() if k / max(n, 1) >= min_presence][:top_k]
+    for row, counter, dur in zip(rows, bigrams, durations):
+        minutes = (dur or 0) / 60.0
+        for bg in keep:
+            col = _t("process", f"midgame_per_min__{bg[0].replace(' ', '_')}>{bg[1].replace(' ', '_')}")
+            row[col] = (counter.get(bg, 0) / minutes) if minutes > 0 else math.nan
+    return keep
 
 
 def add_spell_rate_columns(rows: list[dict], casts: list[Counter], durations: list[float],

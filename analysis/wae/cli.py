@@ -10,11 +10,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import categorical, db, features, interactions, model, report, screen
+from . import categorical, db, features, features2, interactions, model, report, screen
 
 META_COLS = {"match_id", "win", "session_id"}
 CATEGORICAL_SCREEN_COLS = ["map_name", "ally_healer_class", "enemy_healer_class",
-                           "my_main_target_class", "opener_pattern"]
+                           "my_main_target_class", "opener_pattern",
+                           "ally_comp_archetype", "enemy_comp_archetype"]
 
 
 def build_frame(db_path: str, bracket: str, character: str | None) -> tuple[pd.DataFrame, list[str], list[dict]]:
@@ -27,6 +28,7 @@ def build_frame(db_path: str, bracket: str, character: str | None) -> tuple[pd.D
     arenas = db.arenas_table()
     feats: list[dict] = []
     cast_counters = []
+    bigram_counters = []
     durations = []
     death_atlas: list[dict] = []
     by_id = {r["match_id"]: r for r in rows}
@@ -38,11 +40,13 @@ def build_frame(db_path: str, bracket: str, character: str | None) -> tuple[pd.D
         f["map_name"] = arenas.get(zone, zone)
         feats.append(f)
         cast_counters.append(casts)
+        bigram_counters.append(features2.midgame_bigrams(blob))
         durations.append(row.get("duration_sec") or 0)
         for entry in atlas:
             death_atlas.append({**entry, "match_id": match_id, "zone_id": zone,
                                 "map_name": arenas.get(zone, zone), "win": row["result"] == "win"})
     spell_cols_kept = features.add_spell_rate_columns(feats, cast_counters, durations)
+    features.add_bigram_rate_columns(feats, bigram_counters, durations)
     df = pd.DataFrame(feats)
     # presence flags are only written when true - absent means "that class wasn't there", not unknown
     flag_cols = [c for c in df.columns if c.startswith("enemy_has_")]
@@ -82,10 +86,36 @@ def run(db_path: str, bracket: str, character: str | None, out_dir: Path) -> Non
         "Spell-mix, opener, and comp findings are SEASONAL (12.0-only by design of the season-gated "
         "ingest); transseasonal_features lists the mechanics-free subset expected to survive season changes.",
     ]
+    # section-B verdict from the 2026-06-10 handoff, parameterized by the run's n
+    data_sufficiency = {
+        "n": len(df),
+        "sufficient_now": [
+            "percentile anchors per feature",
+            "top-~30 robust correlates (medium+ effects)",
+            "calibrated logistic win-probability (see Calibration section)",
+            "categorical matchup tables down to ~50-game slices (enemy healer class, "
+            "main-target class, maps)",
+        ],
+        "marginal": [
+            "interaction mining (a handful of survivors, not a matrix)",
+            "per-map x per-matchup combined slices (<30 games - anchors only, no significance)",
+        ],
+        "not_sufficient": [
+            "deep/sequence models",
+            "per-enemy-comp (exact 3-spec) models",
+            "causal claims - frame suggestions as correlations",
+        ],
+        "growth_note": "~40-60 matches/week of play -> interaction power improves "
+                       "meaningfully by ~1.5-2k matches; everything re-runs cheaply.",
+        "coaching_ceiling": "descriptive-contextual coach (place the match against history, "
+                            "name the deviating features, cite matchup priors) - solid and "
+                            "honest. Prescriptive 'do X next time' requires causal care.",
+    }
     report.write_reports(out_dir, label, df, screened, results, clusters, spell_cols, caveats,
                          cat_screened=cat_screened, death_atlas=death_atlas,
                          transseasonal=features.TRANSSEASONAL,
-                         interactions=inter, gbm_h2=gbm_h2)
+                         interactions=inter, gbm_h2=gbm_h2,
+                         data_sufficiency=data_sufficiency)
     df.to_csv(out_dir / f"features-{label}.csv", index=False)
     print(f"[wae] wrote {out_dir}/influence-{label}.md (+.json, features csv, death atlas)")
 

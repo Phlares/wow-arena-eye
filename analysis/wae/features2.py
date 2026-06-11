@@ -3,6 +3,8 @@ DR, death context (user-directed second pass, 2026-06-09), and transseasonal map
 features (A.2, 2026-06-10)."""
 from __future__ import annotations
 
+from collections import Counter
+
 import numpy as np
 from scipy.ndimage import distance_transform_edt
 from scipy.spatial import ConvexHull, QhullError
@@ -13,6 +15,30 @@ from .features import _t, _team_maps, _track_interp, friendly_healer_id
 DR_WINDOW_SEC = 18.0   # cast-to-cast approximation of "sent into diminishing returns"
 OPENER_SPELLS = 3      # first-N player casts define the opener pattern
 DOT_SPELLS = {"Agony", "Corruption", "Unstable Affliction", "Vile Taint", "Siphon Life", "Haunt"}
+MIDGAME_START_SEC = 15.0  # casts after this feed the mid-game n-grams (opener ends per my_casts_first15s)
+
+# specId -> arena archetype. Hand-maintained like HEALER_SPEC_IDS; tanks kept distinct
+# (rare in arena, but folding them into melee would mislabel the comp).
+ARCHETYPES: dict[str, str] = {
+    # ranged casters
+    "62": "ranged", "63": "ranged", "64": "ranged",          # Mage
+    "102": "ranged", "258": "ranged", "262": "ranged",       # Balance, Shadow, Ele
+    "265": "ranged", "266": "ranged", "267": "ranged",       # Warlock
+    "253": "ranged", "254": "ranged",                        # BM, MM
+    "1467": "ranged", "1473": "ranged",                      # Dev, Aug Evoker
+    # melee
+    "70": "melee", "71": "melee", "72": "melee",             # Ret, Arms, Fury
+    "103": "melee", "251": "melee", "252": "melee",          # Feral, Frost/Unholy DK
+    "255": "melee",                                          # Survival
+    "259": "melee", "260": "melee", "261": "melee",          # Rogue
+    "263": "melee", "269": "melee",                          # Enh, WW
+    "577": "melee", "1480": "melee",                         # Havoc, Devourer DH
+    # healers
+    "65": "healer", "105": "healer", "256": "healer", "257": "healer",
+    "264": "healer", "270": "healer", "1468": "healer",
+    # tanks
+    "66": "tank", "73": "tank", "104": "tank", "250": "tank", "268": "tank", "581": "tank",
+}
 
 
 def targeting_features(blob: dict, spec_table: dict) -> dict:
@@ -75,18 +101,25 @@ def enemy_pressure_features(blob: dict) -> dict:
     return out
 
 
+def _player_casts(blob: dict) -> list[tuple[float, str]]:
+    """The recording player's (tSec, spell) casts, time-sorted. Logs occasionally
+    double-emit a cast at the same second - exact duplicates are dropped so sequence
+    features aren't "X > X > Y"."""
+    player = blob.get("playerUnitId")
+    casts = [(ev.get("tSec", 0), ev.get("spell")) for ev in blob.get("timeline", [])
+             if ev.get("kind") == "cast" and ev.get("unitId") == player and ev.get("spell")]
+    # stable sort on time ONLY: same-second casts keep log order (opener_pattern depends on it)
+    casts.sort(key=lambda c: c[0])
+    return [c for i, c in enumerate(casts) if i == 0 or c != casts[i - 1]]
+
+
 def opener_features(blob: dict) -> dict:
     """The shape of MY opener: ramp speed and first-CC timing, plus the first-N spell
     pattern as a categorical (screened by win rate, not as a numeric)."""
     out: dict = {}
     player = blob.get("playerUnitId")
     team, _ = _team_maps(blob)
-    my_casts = [(ev.get("tSec", 0), ev.get("spell")) for ev in blob.get("timeline", [])
-                if ev.get("kind") == "cast" and ev.get("unitId") == player and ev.get("spell")]
-    my_casts.sort(key=lambda c: c[0])
-    # logs occasionally double-emit a cast at the same second - dedup exact (tSec, spell) pairs
-    # so the opener pattern isn't "X > X > Y"
-    my_casts = [c for i, c in enumerate(my_casts) if i == 0 or c != my_casts[i - 1]]
+    my_casts = _player_casts(blob)
     if my_casts:
         out[_t("process", "opener_pattern")] = " > ".join(s for _, s in my_casts[:OPENER_SPELLS])
         out[_t("process", "my_casts_first15s")] = float(sum(1 for t, _ in my_casts if t <= 15))
@@ -216,6 +249,43 @@ def map_position_features(blob: dict, grid: dict | None) -> dict:
         except QhullError:
             pass  # degenerate (collinear) track - no hull, no feature
     return out
+
+
+_ARCHETYPE_ORDER = ("melee", "ranged", "tank", "unknown", "healer")  # damage first, healer last
+
+
+def _comp_label(archetypes: list[str]) -> str:
+    """'2melee+healer' style label: counted, damage-roles-first, deterministic."""
+    counts = {a: archetypes.count(a) for a in _ARCHETYPE_ORDER if a in archetypes}
+    return "+".join(f"{n if n > 1 else ''}{a}" for a, n in counts.items())
+
+
+def comp_archetype_features(blob: dict) -> dict:
+    """Queue-time comp shape by ARCHETYPE (melee/ranged/healer/tank) - coarser than class,
+    so slices stay big enough to screen. Ally label excludes the recorder."""
+    out: dict = {}
+    player = blob.get("playerUnitId")
+    sides: dict[str, list[str]] = {"friendly": [], "enemy": []}
+    for tg in blob.get("teams", []):
+        for pg in tg.get("players", []):
+            p = pg.get("player", {})
+            if p.get("unitId") == player:
+                continue
+            sides.setdefault(tg.get("team"), []).append(
+                ARCHETYPES.get(str(p.get("spec")), "unknown"))
+    if sides["friendly"]:
+        out[_t("context", "ally_comp_archetype")] = _comp_label(sides["friendly"])
+    if sides["enemy"]:
+        out[_t("context", "enemy_comp_archetype")] = _comp_label(sides["enemy"])
+        out[_t("context", "enemy_melee_count")] = float(sides["enemy"].count("melee"))
+    return out
+
+
+def midgame_bigrams(blob: dict, start_sec: float = MIDGAME_START_SEC) -> Counter:
+    """Counter of consecutive-cast bigrams (A, B) for the recording player's casts after
+    the opener window - the SEQUENCE shape beyond openers (seasonal by nature)."""
+    mid = [(t, s) for t, s in _player_casts(blob) if t > start_sec]
+    return Counter((a[1], b[1]) for a, b in zip(mid, mid[1:]))
 
 
 def voidness_at(grid: dict, x: float, y: float) -> float:
