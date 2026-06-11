@@ -58,24 +58,40 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
                   model_results: list[dict], clusters: list[list[str]],
                   spell_cols: list[str], caveats: list[str],
                   cat_screened: pd.DataFrame | None = None,
-                  death_atlas: list[dict] | None = None) -> None:
+                  death_atlas: list[dict] | None = None,
+                  transseasonal: set[str] | None = None,
+                  interactions: pd.DataFrame | None = None,
+                  gbm_h2: pd.DataFrame | None = None,
+                  data_sufficiency: dict | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     y = df["win"]
     sig = screen_df[screen_df["q_raw"] <= 0.10]
     top_anchor_feats = list(sig["feature"].head(40))
     atlas_summary = death_atlas_summary(death_atlas or [])
+    ts = transseasonal or set()
+
+    screen_records = screen_df.round(4).to_dict(orient="records")
+    for rec in screen_records:
+        rec["transseasonal"] = rec["feature"] in ts
 
     payload = {
         "generated": datetime.now(timezone.utc).isoformat(),
         "label": label,
         "n_matches": int(len(df)),
         "win_rate": round(float(y.mean()), 4),
-        "screen": screen_df.round(4).to_dict(orient="records"),
+        # mechanics-free features the coach can trust across season boundaries
+        "transseasonal_features": sorted(t for t in ts if t in df.columns),
+        "screen": screen_records,
         "categorical": cat_screened.to_dict(orient="records") if cat_screened is not None and not cat_screened.empty else [],
         "models": model_results,
         "correlation_clusters": clusters,
         "anchors": anchors_for(df, top_anchor_feats),
         "death_atlas_summary": atlas_summary,
+        "interactions": {
+            "pairs": interactions.to_dict(orient="records") if interactions is not None and not interactions.empty else [],
+            "gbm_h2": gbm_h2.to_dict(orient="records") if gbm_h2 is not None and not gbm_h2.empty else [],
+        },
+        "data_sufficiency": data_sufficiency or {},
         "caveats": caveats,
     }
     (out_dir / f"influence-{label}.json").write_text(json.dumps(payload, indent=1), encoding="utf8")
@@ -94,6 +110,17 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
                       f"{m['auc_mean']:.3f} ± {m['auc_std']:.3f} | {m['brier_mean']:.3f} |")
     md.append("\nAUC 0.5 = coin flip. The gap between *full* and *process* scope is how much "
               "of the predictability is just outcome restatement (deaths etc.).\n")
+
+    proc_logit = next((r["models"].get("logistic_en") for r in model_results
+                       if r["scope"] == "process"), None)
+    if proc_logit and proc_logit.get("calibration"):
+        md.append("## Calibration (process-scope logistic, CV held-out predictions)\n")
+        md.append("*Honest win-probability requires predicted ≈ observed per bin.*\n")
+        md.append("| predicted (bin mean) | observed win rate | n |")
+        md.append("|---|---|---|")
+        for b in proc_logit["calibration"]:
+            md.append(f"| {b['pred_mean']:.2f} | {b['obs_rate']:.2f} | {b['n']} |")
+        md.append("")
 
     for tier, title in [("process", "Coachable correlates (process tier)"),
                         ("context", "Context correlates (map/comp/MMR/duration)"),
@@ -132,6 +159,30 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
                       f"{'' if r['pct_beyond_heal_range'] is None else f'{r['pct_beyond_heal_range']:.0%}'} |")
         md.append("")
 
+    if interactions is not None and not interactions.empty:
+        md.append("## Interaction mining (pairwise A×B on top of MMR + A + B)\n")
+        survivors = interactions[interactions["q"] <= 0.10]
+        if survivors.empty:
+            md.append(f"*No pair survived the q ≤ 0.10 FDR gate over {len(interactions)} "
+                      "tested pairs — at this n, expect a handful of survivors at best.*\n")
+        else:
+            md.append("*Cells are median-split win rates: a-side_b-side. Read 'hi_lo' as "
+                      "high A AND low B.*\n")
+            md.append("| pair | n | q | lo_lo | lo_hi | hi_lo | hi_hi |")
+            md.append("|---|---|---|---|---|---|---|")
+            for _, r in survivors.iterrows():
+                c = r["cells"]
+                cells = " | ".join(
+                    f"{c[k]['wr']:.0%} (n{c[k]['n']})" if c[k]["wr"] is not None else "—"
+                    for k in ("lo_lo", "lo_hi", "hi_lo", "hi_hi"))
+                md.append(f"| {r['feature_a']} × {r['feature_b']} | {r['n']} | {r['q']:.3f} | {cells} |")
+            md.append("")
+        if gbm_h2 is not None and not gbm_h2.empty:
+            md.append("*GBM-side (Friedman H², top model features — which pairs the model "
+                      "actually uses jointly):* " +
+                      "; ".join(f"{r['feature_a']} × {r['feature_b']} ({r['h2']:.2f})"
+                                for _, r in gbm_h2.head(5).iterrows()) + "\n")
+
     proc = next((r for r in model_results if r["scope"] == "process"), None)
     if proc:
         md.append("## Top model importances (process scope, held-out permutation)\n")
@@ -150,6 +201,18 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
     if spell_cols:
         md.append(f"## Spell-mix columns screened ({len(spell_cols)})\n")
         md.append(", ".join(s.replace("casts_per_min__", "") for s in spell_cols) + "\n")
+
+    if data_sufficiency:
+        md.append("## Data sufficiency (what this n can and cannot support)\n")
+        for key, title in [("sufficient_now", "Sufficient NOW"), ("marginal", "Marginal"),
+                           ("not_sufficient", "NOT sufficient")]:
+            items = data_sufficiency.get(key) or []
+            if items:
+                md.append(f"**{title}:** " + "; ".join(items) + "\n")
+        if data_sufficiency.get("growth_note"):
+            md.append(f"*Growth:* {data_sufficiency['growth_note']}\n")
+        if data_sufficiency.get("coaching_ceiling"):
+            md.append(f"*Coaching ceiling today:* {data_sufficiency['coaching_ceiling']}\n")
 
     md.append("## Caveats\n")
     for c in caveats:

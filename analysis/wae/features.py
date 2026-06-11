@@ -56,6 +56,28 @@ SCALAR_METRICS: dict[str, bool] = {
 
 TIERS: dict[str, str] = {}
 
+# Mechanics-free features (distance/time/cadence only - no spell mix, no comp, no
+# season-specific tuning) that stay comparable when the season changes. Surfaced in
+# influence.json so the coach can prefer them across season boundaries; everything
+# spell-mix / opener / comp shaped is SEASONAL by design of the season-gated ingest.
+# Hand-maintained name registry: report.py drops names that aren't real df columns, so a
+# stale entry degrades silently rather than erroring. If this grows, tag at the _t() call
+# site instead (_t(tier, name, transseasonal=True)).
+TRANSSEASONAL: set[str] = {
+    # activity ratios
+    "casts_per_min", "distanceMoved_per_min", "timeStationarySec_per_min",
+    # time-in-CC and GO cadence
+    "ccReceived.timeSec_per_min", "ccDone.timeSec_per_min",
+    "our_go_per_min", "enemy_go_per_min",
+    # range discipline (game-constant ranges: 8yd melee / 40yd heal)
+    "pct_time_beyond_heal_range", "median_dist_to_healer_yd",
+    "median_dist_nearest_enemy_yd", "pct_time_in_enemy_melee",
+    "spacing.meleeRangeSec_per_min", "spacing.isolatedSec_per_min",
+    # map-position (map-normalized via occupancy bounds - features2.map_position_features)
+    "center_dist_frac_mean", "edge_proximity_frac",
+    "own_half_time_frac", "map_area_coverage_frac",
+}
+
 
 def _t(tier: str, name: str) -> str:
     TIERS[name] = tier
@@ -293,9 +315,30 @@ def derive(row: dict, metrics: dict[str, float], blob: dict, spec_table: dict,
     feats.update(features2.enemy_pressure_features(blob))
     feats.update(features2.opener_features(blob))
     feats.update(features2.dr_cc_features(blob, minutes))
+    feats.update(features2.map_position_features(blob, grid))
+    feats.update(features2.comp_archetype_features(blob))
     death_feats, atlas = features2.death_context(blob, grid)
     feats.update(death_feats)
     return feats, casts_by_spell, atlas
+
+
+def add_bigram_rate_columns(rows: list[dict], bigrams: list[Counter], durations: list[float],
+                            min_presence: float = 0.2, top_k: int = 15) -> list[tuple[str, str]]:
+    """Per-bigram casts/min columns for the corpus's common mid-game cast transitions
+    (the A.4 'spell SEQUENCE beyond openers' item; seasonal by nature). Mirrors
+    add_spell_rate_columns: presence-gated, capped at top_k."""
+    n = len(rows)
+    presence = Counter()
+    for c in bigrams:
+        for bg in c:
+            presence[bg] += 1
+    keep = [bg for bg, k in presence.most_common() if k / max(n, 1) >= min_presence][:top_k]
+    for row, counter, dur in zip(rows, bigrams, durations):
+        minutes = (dur or 0) / 60.0
+        for bg in keep:
+            col = _t("process", f"midgame_per_min__{bg[0].replace(' ', '_')}>{bg[1].replace(' ', '_')}")
+            row[col] = (counter.get(bg, 0) / minutes) if minutes > 0 else math.nan
+    return keep
 
 
 def add_spell_rate_columns(rows: list[dict], casts: list[Counter], durations: list[float],

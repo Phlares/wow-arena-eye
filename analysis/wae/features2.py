@@ -1,8 +1,13 @@
 """V2 foundry: targeting choice, enemy pressure distribution, opener shape, CC sent into
-DR, and death context (user-directed second pass, 2026-06-09)."""
+DR, death context (user-directed second pass, 2026-06-09), and transseasonal map-position
+features (A.2, 2026-06-10)."""
 from __future__ import annotations
 
+from collections import Counter
+
 import numpy as np
+from scipy.ndimage import distance_transform_edt
+from scipy.spatial import ConvexHull, QhullError
 
 from .db import HEALER_SPEC_IDS
 from .features import _t, _team_maps, _track_interp, friendly_healer_id
@@ -10,6 +15,30 @@ from .features import _t, _team_maps, _track_interp, friendly_healer_id
 DR_WINDOW_SEC = 18.0   # cast-to-cast approximation of "sent into diminishing returns"
 OPENER_SPELLS = 3      # first-N player casts define the opener pattern
 DOT_SPELLS = {"Agony", "Corruption", "Unstable Affliction", "Vile Taint", "Siphon Life", "Haunt"}
+MIDGAME_START_SEC = 15.0  # casts after this feed the mid-game n-grams (opener ends per my_casts_first15s)
+
+# specId -> arena archetype. Hand-maintained like HEALER_SPEC_IDS; tanks kept distinct
+# (rare in arena, but folding them into melee would mislabel the comp).
+ARCHETYPES: dict[str, str] = {
+    # ranged casters
+    "62": "ranged", "63": "ranged", "64": "ranged",          # Mage
+    "102": "ranged", "258": "ranged", "262": "ranged",       # Balance, Shadow, Ele
+    "265": "ranged", "266": "ranged", "267": "ranged",       # Warlock
+    "253": "ranged", "254": "ranged",                        # BM, MM
+    "1467": "ranged", "1473": "ranged",                      # Dev, Aug Evoker
+    # melee
+    "70": "melee", "71": "melee", "72": "melee",             # Ret, Arms, Fury
+    "103": "melee", "251": "melee", "252": "melee",          # Feral, Frost/Unholy DK
+    "255": "melee",                                          # Survival
+    "259": "melee", "260": "melee", "261": "melee",          # Rogue
+    "263": "melee", "269": "melee",                          # Enh, WW
+    "577": "melee", "1480": "melee",                         # Havoc, Devourer DH
+    # healers
+    "65": "healer", "105": "healer", "256": "healer", "257": "healer",
+    "264": "healer", "270": "healer", "1468": "healer",
+    # tanks
+    "66": "tank", "73": "tank", "104": "tank", "250": "tank", "268": "tank", "581": "tank",
+}
 
 
 def targeting_features(blob: dict, spec_table: dict) -> dict:
@@ -72,18 +101,25 @@ def enemy_pressure_features(blob: dict) -> dict:
     return out
 
 
+def _player_casts(blob: dict) -> list[tuple[float, str]]:
+    """The recording player's (tSec, spell) casts, time-sorted. Logs occasionally
+    double-emit a cast at the same second - exact duplicates are dropped so sequence
+    features aren't "X > X > Y"."""
+    player = blob.get("playerUnitId")
+    casts = [(ev.get("tSec", 0), ev.get("spell")) for ev in blob.get("timeline", [])
+             if ev.get("kind") == "cast" and ev.get("unitId") == player and ev.get("spell")]
+    # stable sort on time ONLY: same-second casts keep log order (opener_pattern depends on it)
+    casts.sort(key=lambda c: c[0])
+    return [c for i, c in enumerate(casts) if i == 0 or c != casts[i - 1]]
+
+
 def opener_features(blob: dict) -> dict:
     """The shape of MY opener: ramp speed and first-CC timing, plus the first-N spell
     pattern as a categorical (screened by win rate, not as a numeric)."""
     out: dict = {}
     player = blob.get("playerUnitId")
     team, _ = _team_maps(blob)
-    my_casts = [(ev.get("tSec", 0), ev.get("spell")) for ev in blob.get("timeline", [])
-                if ev.get("kind") == "cast" and ev.get("unitId") == player and ev.get("spell")]
-    my_casts.sort(key=lambda c: c[0])
-    # logs occasionally double-emit a cast at the same second - dedup exact (tSec, spell) pairs
-    # so the opener pattern isn't "X > X > Y"
-    my_casts = [c for i, c in enumerate(my_casts) if i == 0 or c != my_casts[i - 1]]
+    my_casts = _player_casts(blob)
     if my_casts:
         out[_t("process", "opener_pattern")] = " > ".join(s for _, s in my_casts[:OPENER_SPELLS])
         out[_t("process", "my_casts_first15s")] = float(sum(1 for t, _ in my_casts if t <= 15))
@@ -125,6 +161,131 @@ def dr_cc_features(blob: dict, minutes: float) -> dict:
     if total:
         out[_t("process", "our_drd_cc_frac")] = drd / total
     return out
+
+
+EDGE_DIST_YD = 6.0           # "hugging" = within this of non-playable space (wall/pillar/void)
+PLAYABLE_VOIDNESS_MAX = 0.5  # mirrors lineOfSight.ts CLEAR_MAX: below this a cell is open floor
+HALF_SPLIT_START_SEC = 10.0  # team start centroids = mean position over the first N seconds
+
+
+def _wall_geometry(grid: dict) -> tuple[np.ndarray, float]:
+    """(per-cell distance in yd to the nearest non-playable cell, playable area in yd^2).
+    Everything outside the grid counts as non-playable. Arena bounds are NOT rectangles -
+    the voidness mask, not the bounding box, defines where the walls are.
+
+    Memoized on the grid dict itself (one EDT per zone per process - db.load_occupancy
+    hands out one dict per zone), so the cache lives and dies with the grid object. The
+    memo records WHICH voidness it was computed from: a shallow-copied grid with a new
+    voidness (tests do this) must not inherit the copy-source's geometry."""
+    memo = grid.get("_wall_geometry")
+    if memo is None or memo[0] is not grid["voidness"]:
+        playable = (np.asarray(grid["voidness"], dtype=float).reshape(grid["rows"], grid["cols"])
+                    < PLAYABLE_VOIDNESS_MAX)
+        padded = np.zeros((grid["rows"] + 2, grid["cols"] + 2), dtype=bool)
+        padded[1:-1, 1:-1] = playable
+        wall_yd = distance_transform_edt(padded)[1:-1, 1:-1] * grid["cellSize"]
+        memo = (grid["voidness"], wall_yd, float(playable.sum()) * grid["cellSize"] ** 2)
+        grid["_wall_geometry"] = memo
+    return memo[1], memo[2]
+
+
+def _start_centroid(tracks: dict, unit_ids: list[str]) -> np.ndarray | None:
+    """Mean early position of a team - the anchor for the own-half/enemy-half split."""
+    pts = []
+    for u in unit_ids:
+        for smp in (tracks.get(u) or {}).get("samples", []):
+            if smp["tSec"] <= HALF_SPLIT_START_SEC:
+                pts.append((smp["x"], smp["y"]))
+    return np.asarray(pts, dtype=float).mean(axis=0) if pts else None
+
+
+def map_position_features(blob: dict, grid: dict | None) -> dict:
+    """A.2 transseasonal map-position features, map-normalized so they compare across
+    arenas AND seasons (mechanics-free: distance/area/side only).
+
+    - center_dist_frac_mean: time-mean dist to arena center / half-diagonal (grid bounds)
+    - edge_proximity_frac:   fraction of time within EDGE_DIST_YD of non-playable space
+                             (walls/pillars/voids via the voidness mask - not the bounding
+                             box, which arena shapes rarely fill)
+    - own_half_time_frac:    fraction of time on my team's side of the perpendicular
+                             bisector of the two teams' start centroids (grid-free)
+    - map_area_coverage_frac: convex hull of my track / playable (non-void) area
+    """
+    out: dict = {}
+    team, _spec = _team_maps(blob)
+    player = blob.get("playerUnitId")
+    tracks = {tr.get("unitId"): tr for tr in blob.get("positionTracks", [])}
+    me = _track_interp(tracks.get(player, {})) if player in tracks else None
+    if me is None:
+        return out
+    _t_me, x_me, y_me = me
+    pts = np.column_stack([x_me, y_me])
+
+    own = _start_centroid(tracks, [u for u, tm in team.items() if tm == "friendly"])
+    foe = _start_centroid(tracks, [u for u, tm in team.items() if tm == "enemy"])
+    if own is not None and foe is not None and np.hypot(*(foe - own)) > 1.0:
+        mid = (own + foe) / 2.0
+        normal = foe - own
+        out[_t("process", "own_half_time_frac")] = float(np.mean((pts - mid) @ normal < 0))
+
+    if not grid:
+        return out
+    b = grid["bounds"]
+    cx, cy = (b["minX"] + b["maxX"]) / 2.0, (b["minY"] + b["maxY"]) / 2.0
+    hx, hy = (b["maxX"] - b["minX"]) / 2.0, (b["maxY"] - b["minY"]) / 2.0
+    if hx <= 0 or hy <= 0:
+        return out
+    out[_t("process", "center_dist_frac_mean")] = float(
+        np.mean(np.hypot(x_me - cx, y_me - cy)) / np.hypot(hx, hy))
+    wall, playable = _wall_geometry(grid)
+    col = np.clip(((x_me - b["minX"]) // grid["cellSize"]).astype(int), 0, grid["cols"] - 1)
+    row = np.clip(((y_me - b["minY"]) // grid["cellSize"]).astype(int), 0, grid["rows"] - 1)
+    out[_t("process", "edge_proximity_frac")] = float(np.mean(wall[row, col] < EDGE_DIST_YD))
+
+    if playable > 0 and len(pts) >= 3:
+        try:
+            out[_t("process", "map_area_coverage_frac")] = float(
+                min(1.0, ConvexHull(pts).volume / playable))
+        except QhullError:
+            pass  # degenerate (collinear) track - no hull, no feature
+    return out
+
+
+_ARCHETYPE_ORDER = ("melee", "ranged", "tank", "unknown", "healer")  # damage first, healer last
+
+
+def _comp_label(archetypes: list[str]) -> str:
+    """'2melee+healer' style label: counted, damage-roles-first, deterministic."""
+    counts = {a: archetypes.count(a) for a in _ARCHETYPE_ORDER if a in archetypes}
+    return "+".join(f"{n if n > 1 else ''}{a}" for a, n in counts.items())
+
+
+def comp_archetype_features(blob: dict) -> dict:
+    """Queue-time comp shape by ARCHETYPE (melee/ranged/healer/tank) - coarser than class,
+    so slices stay big enough to screen. Ally label excludes the recorder."""
+    out: dict = {}
+    player = blob.get("playerUnitId")
+    sides: dict[str, list[str]] = {"friendly": [], "enemy": []}
+    for tg in blob.get("teams", []):
+        for pg in tg.get("players", []):
+            p = pg.get("player", {})
+            if p.get("unitId") == player:
+                continue
+            sides.setdefault(tg.get("team"), []).append(
+                ARCHETYPES.get(str(p.get("spec")), "unknown"))
+    if sides["friendly"]:
+        out[_t("context", "ally_comp_archetype")] = _comp_label(sides["friendly"])
+    if sides["enemy"]:
+        out[_t("context", "enemy_comp_archetype")] = _comp_label(sides["enemy"])
+        out[_t("context", "enemy_melee_count")] = float(sides["enemy"].count("melee"))
+    return out
+
+
+def midgame_bigrams(blob: dict, start_sec: float = MIDGAME_START_SEC) -> Counter:
+    """Counter of consecutive-cast bigrams (A, B) for the recording player's casts after
+    the opener window - the SEQUENCE shape beyond openers (seasonal by nature)."""
+    mid = [(t, s) for t, s in _player_casts(blob) if t > start_sec]
+    return Counter((a[1], b[1]) for a, b in zip(mid, mid[1:]))
 
 
 def voidness_at(grid: dict, x: float, y: float) -> float:

@@ -18,13 +18,17 @@ from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-CATEGORICAL = ["map_id", "character", "ally_healer_class", "enemy_healer_class", "my_main_target_class"]
+CATEGORICAL = ["map_id", "character", "ally_healer_class", "enemy_healer_class", "my_main_target_class",
+               "ally_comp_archetype", "enemy_comp_archetype"]
 # string columns screened categorically (win-rate + Fisher) but kept OUT of the models
 # (opener_pattern cardinality would just become noise one-hots)
 NON_MODEL_STRINGS = ["opener_pattern", "map_name"]
 N_SPLITS = 5
 PERM_REPEATS = 8
 RNG = 7
+# shared with interactions.friedman_h - the H2 screen must rank pairs on the SAME model
+# family it reports importances for, or the two silently diverge when tuned
+GBM_PARAMS = dict(max_depth=3, learning_rate=0.06, max_iter=250, l2_regularization=1.0)
 
 
 def _pipelines(numeric: list[str], categorical: list[str]) -> dict[str, Pipeline]:
@@ -40,9 +44,7 @@ def _pipelines(numeric: list[str], categorical: list[str]) -> dict[str, Pipeline
         ]),
         "gbm": Pipeline([
             ("pre", pre),
-            ("clf", HistGradientBoostingClassifier(max_depth=3, learning_rate=0.06,
-                                                   max_iter=250, l2_regularization=1.0,
-                                                   random_state=RNG)),
+            ("clf", HistGradientBoostingClassifier(**GBM_PARAMS, random_state=RNG)),
         ]),
     }
 
@@ -65,11 +67,14 @@ def run_models(df: pd.DataFrame, feature_cols: list[str], tiers: dict[str, str],
 
     for name, pipe in _pipelines(numeric, categorical).items():
         aucs, briers = [], []
+        oof_prob, oof_y = [], []
         for train, test in cv.split(X, y, groups):
             pipe.fit(X.iloc[train], y[train])
             prob = pipe.predict_proba(X.iloc[test])[:, 1]
             aucs.append(roc_auc_score(y[test], prob))
             briers.append(brier_score_loss(y[test], prob))
+            oof_prob.append(prob)
+            oof_y.append(y[test])
             if name == "gbm":
                 pi = permutation_importance(pipe, X.iloc[test], y[test], scoring="roc_auc",
                                             n_repeats=PERM_REPEATS, random_state=RNG)
@@ -78,6 +83,8 @@ def run_models(df: pd.DataFrame, feature_cols: list[str], tiers: dict[str, str],
         results["models"][name] = {
             "auc_mean": float(np.mean(aucs)), "auc_std": float(np.std(aucs)),
             "brier_mean": float(np.mean(briers)),
+            # held-out reliability curve - the coach's win-prob is only usable if calibrated
+            "calibration": calibration_bins(np.concatenate(oof_prob), np.concatenate(oof_y)),
         }
 
     results["permutation_importance"] = sorted(
@@ -87,6 +94,16 @@ def run_models(df: pd.DataFrame, feature_cols: list[str], tiers: dict[str, str],
         key=lambda r: r["importance_mean"], reverse=True,
     )
     return results
+
+
+def calibration_bins(prob: np.ndarray, y: np.ndarray, n_bins: int = 10) -> list[dict]:
+    """Reliability-curve data over quantile bins of predicted probability: the coach's
+    win-probability is only honest if pred_mean tracks obs_rate per bin."""
+    order = np.argsort(prob)
+    bins = np.array_split(order, n_bins)
+    return [{"pred_mean": round(float(prob[b].mean()), 4),
+             "obs_rate": round(float(y[b].mean()), 4),
+             "n": int(len(b))} for b in bins if len(b)]
 
 
 def correlation_clusters(df: pd.DataFrame, feature_cols: list[str], threshold: float = 0.7) -> list[list[str]]:
