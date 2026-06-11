@@ -62,7 +62,8 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
                   transseasonal: set[str] | None = None,
                   interactions: pd.DataFrame | None = None,
                   gbm_h2: pd.DataFrame | None = None,
-                  data_sufficiency: dict | None = None) -> None:
+                  data_sufficiency: dict | None = None,
+                  targeting_crosstab: list[dict] | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     y = df["win"]
     sig = screen_df[screen_df["q_raw"] <= 0.10]
@@ -91,6 +92,7 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
             "pairs": interactions.to_dict(orient="records") if interactions is not None and not interactions.empty else [],
             "gbm_h2": gbm_h2.to_dict(orient="records") if gbm_h2 is not None and not gbm_h2.empty else [],
         },
+        "targeting_crosstab": targeting_crosstab or [],
         "data_sufficiency": data_sufficiency or {},
         "caveats": caveats,
     }
@@ -145,6 +147,22 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
         for _, r in cat_screened.head(30).iterrows():
             md.append(f"| {r['variable']} | {r['level']} | {r['n']} | {r['win_rate']:.1%} | "
                       f"{r['ci_lo']:.0%}–{r['ci_hi']:.0%} | {r['baseline']:.1%} | {r['q']:.3f} |")
+        md.append("")
+
+    if targeting_crosstab:
+        md.append("## Kill-target / first-death profile by enemy comp\n")
+        md.append("*Descriptive priors (no FDR family). 'losses: ...' = of losses vs this "
+                  "comp, who died first; 'WR me-first' = win rate when I die first.*\n")
+        md.append("| comp variable | level | n | win rate | losses: me / dps / healer / enemy-first | WR me-first |")
+        md.append("|---|---|---|---|---|---|")
+        for r in targeting_crosstab[:20]:
+            lf = r["loss_first_death"]
+            shares = (" / ".join(f"{lf[k]:.0%}" if lf.get(k) is not None else "—"
+                                 for k in ("me", "dps_ally", "healer_ally", "enemy"))
+                      + f" (n={r['n_loss']})")
+            me = r["wr_by_first_death"].get("me")
+            md.append(f"| {r['variable']} | {r['level']} | {r['n']} | {r['win_rate']:.1%} | "
+                      f"{shares} | {f'{me['wr']:.0%} (n={me['n']})' if me else '—'} |")
         md.append("")
 
     if atlas_summary:

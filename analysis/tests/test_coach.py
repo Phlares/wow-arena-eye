@@ -102,3 +102,42 @@ def test_build_pack_shape():
     assert pack["history"]["n_matches"] == 881
     assert pack["caveats"]
     assert pack["top_correlates"][0]["feature"] == "casts_per_min"
+
+
+def test_targeting_priors_picks_this_matchs_comp():
+    crosstab = [
+        {"variable": "enemy_comp_archetype", "level": "2melee+healer", "n": 113,
+         "win_rate": 0.41, "n_loss": 60,
+         "loss_first_death": {"me": 0.6, "dps_ally": 0.2, "healer_ally": 0.2, "enemy": 0.0},
+         "wr_by_first_death": {"me": {"n": 40, "wr": 0.1}}},
+        {"variable": "enemy_comp_archetype", "level": "melee+ranged+healer", "n": 90,
+         "win_rate": 0.55, "n_loss": 40,
+         "loss_first_death": {"me": 0.3, "dps_ally": 0.4, "healer_ally": 0.3, "enemy": 0.0},
+         "wr_by_first_death": {}},
+        {"variable": "enemy_healer_class", "level": "Paladin", "n": 200, "win_rate": 0.41,
+         "n_loss": 118, "loss_first_death": {}, "wr_by_first_death": {}},
+        {"variable": "enemy_has_Warrior", "level": "Warrior", "n": 150, "win_rate": 0.45,
+         "n_loss": 80, "loss_first_death": {}, "wr_by_first_death": {}},
+        {"variable": "enemy_has_Mage", "level": "Mage", "n": 120, "win_rate": 0.50,
+         "n_loss": 60, "loss_first_death": {}, "wr_by_first_death": {}},
+    ]
+    influence = {"anchors": {}, "screen": [], "categorical": [],
+                 "targeting_crosstab": crosstab, "interactions": {"pairs": [], "gbm_h2": []}}
+    feats = {"match_id": "abc", "enemy_comp_archetype": "2melee+healer",
+             "enemy_healer_class": "Paladin", "enemy_has_Warrior": 1.0, "enemy_has_Mage": 0.0}
+    pack = build_pack(feats, {"teams": [], "timeline": [], "offensiveWindows": []},
+                      influence, row={"result": "loss", "duration_sec": 200, "player_rating": 2400})
+    got = {(r["variable"], r["level"]) for r in pack["targeting_priors"]}
+    # this match's archetype + healer class + PRESENT classes; never the absent Mage
+    # or the other archetype
+    assert got == {("enemy_comp_archetype", "2melee+healer"),
+                   ("enemy_healer_class", "Paladin"),
+                   ("enemy_has_Warrior", "Warrior")}
+
+
+def test_targeting_priors_absent_when_no_crosstab():
+    influence = {"anchors": {}, "screen": [], "categorical": [],
+                 "interactions": {"pairs": [], "gbm_h2": []}}
+    pack = build_pack({"match_id": "abc"}, {"teams": [], "timeline": [], "offensiveWindows": []},
+                      influence, row={"result": "win", "duration_sec": 200, "player_rating": 2400})
+    assert pack["targeting_priors"] == []

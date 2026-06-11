@@ -66,6 +66,18 @@ def matchup_priors(categorical: list[dict], levels: dict[str, str]) -> dict:
     return out
 
 
+def targeting_priors(crosstab: list[dict], feats: dict) -> list[dict]:
+    """The targeting cross-tab rows that describe THIS match's enemy comp: the exact
+    archetype + healer-class levels, plus every class actually present (enemy_has_* == 1).
+    Same never-invent rule as matchup_priors - no row, no prior."""
+    def relevant(rec: dict) -> bool:
+        var = rec.get("variable", "")
+        if var.startswith("enemy_has_"):
+            return feats.get(var) == 1.0
+        return feats.get(var) == rec.get("level")
+    return [rec for rec in crosstab if relevant(rec)]
+
+
 def _go_summary(blob: dict, feats: dict) -> dict:
     """The favor/GO story: window counts, lethality, defensives-up - from the blob's
     offensive windows plus the already-derived per-match features."""
@@ -136,6 +148,7 @@ def build_pack(feats: dict, blob: dict, influence: dict, row: dict) -> dict:
                   "opener_pattern": feats.get("opener_pattern")},
         "features": placed,
         "matchup_priors": matchup_priors(influence.get("categorical", []), levels),
+        "targeting_priors": targeting_priors(influence.get("targeting_crosstab", []), feats),
         "death_atlas_this_map": atlas_row,
         "go_summary": _go_summary(blob, feats),
         "top_correlates": top,
