@@ -1,4 +1,4 @@
-import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, matchEndMs, position, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS, immuneEvent } from './eventAccess.js';
+import { eventType, srcId, destId, spellName, extraSpellName, auraType, eventTimeMs, matchStartMs, matchEndMs, position, advancedUnitId, spellId, amount, hpPct, absorbInfo, DAMAGE_EVENTS, immuneEvent } from './eventAccess.js';
 import { tally, unitKind, unitTeam, ownerIdOf, resolvePlayer, type UnitMetrics, type Sample, type CcSide, type ImmuneSide, type DrCategory, type CdUsageStat } from './types.js';
 import { isDefensive, ccInfo } from '../metadata/spells.js';
 import { type AuraState } from './auraState.js';
@@ -70,11 +70,15 @@ export function computeUnitMetrics(match: unknown, auras: AuraState, casts: Map<
     const d = destId(ev);
     const ms = eventTimeMs(ev);
 
-    // Sample capture for position tracking
-    if (s) {
+    // Sample capture for position tracking. The advanced block describes the infoGUID
+    // unit (DEST on damage/heal events) — attributing it to the SOURCE would paint a DoT
+    // caster's track with every tick target's position (hundreds of >15yd phantom jumps
+    // per match, observed before this guard).
+    const aid = advancedUnitId(ev);
+    if (aid) {
       const p = position(ev);
       if (p && ms !== undefined && startMs !== undefined) {
-        acc(s).samples.push({ tSec: (ms - startMs) / 1000, x: p.x, y: p.y, facing: p.facing, hpPct: hpPct(ev) });
+        acc(aid).samples.push({ tSec: (ms - startMs) / 1000, x: p.x, y: p.y, facing: p.facing, hpPct: hpPct(ev) });
       }
     }
 

@@ -14,8 +14,8 @@ function match() {
       E: { name: 'Enemy', type: 1, reaction: 2, ownerId: '0' },
     },
     events: [
-      { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', spellName: 'Agony', timestamp: 1000, advancedActorPositionX: 0, advancedActorPositionY: 0 },
-      { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', spellName: 'Agony', timestamp: 2000, advancedActorPositionX: 3, advancedActorPositionY: 4 },
+      { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', advancedActorId: 'P', spellName: 'Agony', timestamp: 1000, advancedActorPositionX: 0, advancedActorPositionY: 0 },
+      { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', advancedActorId: 'P', spellName: 'Agony', timestamp: 2000, advancedActorPositionX: 3, advancedActorPositionY: 4 },
       { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'PET', spellName: 'Shadowbite', timestamp: 2500 },
       { logLine: { event: 'SPELL_INTERRUPT' }, srcUnitId: 'PET', destUnitId: 'E', spellName: 'Spell Lock', extraSpellName: 'Polymorph', timestamp: 3000 },
       { logLine: { event: 'SPELL_DISPEL', parameters: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,'BUFF'] }, srcUnitId: 'PET', destUnitId: 'E', spellName: 'Devour Magic', extraSpellName: 'Power Word: Shield', timestamp: 3500 },
@@ -54,6 +54,45 @@ describe('computeUnitMetrics', () => {
   it('computes movement: (0,0) ignored as no-position, single real sample -> distance 0', () => {
     expect(byId('P').positionSamples).toBe(1);
     expect(byId('P').distanceMoved).toBe(0);
+  });
+});
+
+describe('position sample attribution (advanced infoGUID)', () => {
+  // WoW's advanced combat-log block describes the unit named by infoGUID (parser:
+  // advancedActorId) — for _DAMAGE/_HEAL events that is the DESTINATION, not the source.
+  // A DoT ticking on an enemy must sample the ENEMY's position, never the caster's.
+  const m = {
+    playerId: 'P',
+    units: {
+      P: { name: 'You', type: 1, reaction: 1 },
+      E: { name: 'Enemy', type: 1, reaction: 2 },
+    },
+    events: [
+      // my own cast: advanced block describes ME → sample on P
+      { logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', advancedActorId: 'P', spellName: 'Agony', timestamp: 1000, advancedActorPositionX: 10, advancedActorPositionY: 10 },
+      // my DoT ticking on E: advanced block describes E → sample on E, NOT on P
+      { logLine: { event: 'SPELL_PERIODIC_DAMAGE' }, srcUnitId: 'P', destUnitId: 'E', advancedActorId: 'E', spellName: 'Agony', amount: 100, timestamp: 2000, advancedActorPositionX: 40, advancedActorPositionY: 40 },
+      { logLine: { event: 'SPELL_PERIODIC_DAMAGE' }, srcUnitId: 'P', destUnitId: 'E', advancedActorId: 'E', spellName: 'Agony', amount: 100, timestamp: 3000, advancedActorPositionX: 41, advancedActorPositionY: 40 },
+    ],
+  };
+  const units = run(m);
+  const byId = (id: string) => units.find((u) => u.unitId === id)!;
+
+  it('attributes each sample to the advanced unit, not the event source', () => {
+    expect(byId('P').positionSamples).toBe(1);
+    expect(byId('P').track.map((s) => [s.x, s.y])).toEqual([[10, 10]]);
+    expect(byId('E').positionSamples).toBe(2);
+    expect(byId('E').track.map((s) => [s.x, s.y])).toEqual([[40, 40], [41, 40]]);
+  });
+
+  it('never emits a sample for positioned events lacking an advanced unit id', () => {
+    const units2 = run({
+      playerId: 'P',
+      units: { P: { name: 'You', type: 1, reaction: 1 } },
+      // position present but no advancedActorId (malformed/non-advanced shape) → no sample
+      events: [{ logLine: { event: 'SPELL_CAST_SUCCESS' }, srcUnitId: 'P', spellName: 'Agony', timestamp: 1000, advancedActorPositionX: 5, advancedActorPositionY: 5 }],
+    });
+    expect(units2.find((u) => u.unitId === 'P')!.positionSamples).toBe(0);
   });
 });
 

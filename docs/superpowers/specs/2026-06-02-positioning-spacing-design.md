@@ -63,6 +63,14 @@ timeline, so any timeline moment cross-references to where everyone was
 
 #### A.1 Sample sources
 
+> **AMENDED 2026-06-10 (position-sample attribution fix):** this section's premise was
+> wrong — the advanced-log block describes the **infoGUID** unit (parser field
+> `advancedActorId`), which is the DEST on `_DAMAGE`/`_HEAL`/`_DAMAGE_LANDED` events, not
+> the source. Samples are now attributed by `eventAccess.advancedUnitId(ev)`, which gives
+> passive targets exact samples from every hit/heal they receive; the inferred melee
+> gap-filling below was removed along with `Sample.inferred` / `PositionQuery.inferred`.
+> The original text is retained for the design history.
+
 1. **Observed samples** — the actor (source) position carried on ~41% of events
    (`eventAccess.position(ev)`), exactly as `perUnit` already collects them.
 2. **Inferred samples (passive-target gap-filling)** — `position(ev)` is the

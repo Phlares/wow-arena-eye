@@ -1,5 +1,5 @@
 import type { Sample, PositionTrack, PositionQuery, UnitMetrics } from './types.js';
-import { matchStartMs, eventType, destId, eventTimeMs, position } from './eventAccess.js';
+import { matchStartMs } from './eventAccess.js';
 import { collectCasts, type CastEvent } from './cooldownTimeline.js';
 import { isMobility } from '../metadata/repositioning.js';
 
@@ -20,17 +20,17 @@ function lastKnownBefore(samples: Sample[], t: number): Sample[] {
 export function resolvePosition(track: PositionTrack, tSec: number): PositionQuery {
   const s = track.samples;
   const lastKnown = lastKnownBefore(s, tSec);
-  if (s.length === 0) return { position: undefined, inferred: false, lastKnown };
+  if (s.length === 0) return { position: undefined, lastKnown };
 
   // Before first / after last: clamp to the endpoint only within MAX_GAP_SEC.
   if (tSec <= s[0].tSec) {
     const ok = s[0].tSec - tSec <= MAX_GAP_SEC;
-    return { position: ok ? { ...s[0], tSec } : undefined, inferred: ok ? !!s[0].inferred : false, lastKnown };
+    return { position: ok ? { ...s[0], tSec } : undefined, lastKnown };
   }
   const last = s[s.length - 1];
   if (tSec >= last.tSec) {
     const ok = tSec - last.tSec <= MAX_GAP_SEC;
-    return { position: ok ? { ...last, tSec } : undefined, inferred: ok ? !!last.inferred : false, lastKnown };
+    return { position: ok ? { ...last, tSec } : undefined, lastKnown };
   }
 
   // Bracket: greatest sample ≤ tSec at index lo, next sample at lo+1.
@@ -46,7 +46,7 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
   }
   const a = s[lo];
   const b = s[lo + 1] ?? a;
-  if (a.tSec === b.tSec) return { position: { ...a, tSec }, inferred: !!a.inferred, lastKnown };
+  if (a.tSec === b.tSec) return { position: { ...a, tSec }, lastKnown };
 
   // Mobility break inside the current bracket → never lerp across the teleport.
   // The first break suffices: brackets span adjacent samples, and the transit return is
@@ -56,18 +56,18 @@ export function resolvePosition(track: PositionTrack, tSec: number): PositionQue
     if (tSec <= tb - PRE_CAST_VALID_SEC) {
       // pre-cast: hold the last observed pre-sample, still subject to the gap guard
       const ok = tSec - a.tSec <= MAX_GAP_SEC;
-      return { position: ok ? { ...a, tSec } : undefined, inferred: ok ? !!a.inferred : false, lastKnown };
+      return { position: ok ? { ...a, tSec } : undefined, lastKnown };
     }
     // transit (Tc-0.5 .. landing sample b): genuinely unknown
-    return { position: undefined, inferred: false, lastKnown };
+    return { position: undefined, lastKnown };
   }
 
-  if (b.tSec - a.tSec > MAX_GAP_SEC) return { position: undefined, inferred: false, lastKnown };
+  if (b.tSec - a.tSec > MAX_GAP_SEC) return { position: undefined, lastKnown };
   const f = (tSec - a.tSec) / (b.tSec - a.tSec);
   // Lerp x/y; hpPct is step-held (take the lower bracket), NOT smoothed — same deliberate
   // choice as sampleAt.ts (HP should not be interpolated).
   const position: Sample = { tSec, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, facing: a.facing, hpPct: a.hpPct };
-  return { position, inferred: !!a.inferred || !!b.inferred, lastKnown };
+  return { position, lastKnown };
 }
 
 /** Convenience: just the resolved Sample (or undefined). */
@@ -84,8 +84,10 @@ export function distanceAt(a: PositionTrack, b: PositionTrack, tSec: number): nu
 }
 
 /** Build the enriched position-track store: each unit's OBSERVED samples (copied, not mutated)
- *  plus mobility-cast break times (tSec) and inferred melee-derived samples. `casts` defaults to
- *  a fresh scan but callers that already have the cast map (computeMatchMetrics) should pass it. */
+ *  plus mobility-cast break times (tSec). Samples are attributed upstream (perUnit) via the
+ *  advanced infoGUID, which already gives passive targets exact samples from the _DAMAGE/_HEAL
+ *  events they receive — no melee-derived gap-filling needed. `casts` defaults to a fresh scan
+ *  but callers that already have the cast map (computeMatchMetrics) should pass it. */
 export function buildPositionTracks(units: UnitMetrics[], match: unknown, casts: Map<string, CastEvent[]> = collectCasts(match)): Map<string, PositionTrack> {
   const m = match as { events?: unknown[] };
   const events = Array.isArray(m.events) ? m.events : [];
@@ -100,21 +102,6 @@ export function buildPositionTracks(units: UnitMetrics[], match: unknown, casts:
     const tr = tracks.get(uid);
     if (!tr) continue;
     for (const c of list) if (isMobility(c.spellId)) tr.breaks.push((c.ms - startMs) / 1000);
-  }
-
-  // Passive-target gap-filling: a melee swing on a unit constrains it to ≈ the attacker's
-  // position. position(ev) is the attacker's (actor) position; attribute it to the target,
-  // tagged inferred so it is never confused with an observed sample.
-  for (const ev of events) {
-    const t = eventType(ev);
-    if (t !== 'SWING_DAMAGE' && t !== 'SWING_DAMAGE_LANDED') continue;
-    const d = destId(ev);
-    const ms = eventTimeMs(ev);
-    const p = position(ev);
-    if (!d || ms === undefined || !p) continue;
-    const tr = tracks.get(d);
-    if (!tr) continue;
-    tr.samples.push({ tSec: (ms - startMs) / 1000, x: p.x, y: p.y, inferred: true });
   }
 
   for (const tr of tracks.values()) {

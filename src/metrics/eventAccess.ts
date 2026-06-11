@@ -159,7 +159,21 @@ export function hpPct(ev: unknown): number | undefined {
 }
 
 /**
- * Advanced-log position of the source unit at the time of the event.
+ * The unit the advanced-log block describes (WoW's infoGUID; parser field advancedActorId).
+ * This is who position()/hpPct() belong to — the DEST for _DAMAGE/_HEAL/_DAMAGE_LANDED
+ * events, the SOURCE for _CAST_SUCCESS/SWING_DAMAGE — so positions must be attributed to
+ * THIS unit, never blindly to srcUnitId. Returns undefined when the advanced block is
+ * absent (the parser leaves a nil GUID like "0000000000000000"; real GUIDs contain '-').
+ */
+export function advancedUnitId(ev: unknown): string | undefined {
+  const e = ev as Ev;
+  const id = strOpt(e?.advancedActorId);
+  if (!id || id === 'nil' || /^0+$/.test(id)) return undefined;
+  return id;
+}
+
+/**
+ * Advanced-log position of the advancedUnitId() unit at the time of the event.
  * Returns undefined for events without valid position data (x=0 & y=0 is treated as absent).
  * Real field names (confirmed via TDD): advancedActorPositionX / advancedActorPositionY /
  * advancedActorFacing. Present on ~41% of events in a typical arena match.
