@@ -61,6 +61,37 @@ def test_timeline_features():
     assert casts["Agony"] == 2 and casts["Malefic Rapture"] == 1
 
 
+def test_first_death_role():
+    # synthetic blob: E2 (enemy) dies first at t=80
+    out, _ = features.timeline_features(synthetic_blob(), minutes=100 / 60)
+    assert out["first_death_role"] == "enemy"
+
+    me_first = synthetic_blob()
+    me_first["timeline"].insert(0, {"tSec": 70, "unitId": "ME", "kind": "death"})
+    out, _ = features.timeline_features(me_first, minutes=100 / 60)
+    assert out["first_death_role"] == "me"
+    assert out["first_death_ours"] == 1.0
+
+    healer_first = synthetic_blob()
+    healer_first["timeline"].insert(0, {"tSec": 60, "unitId": "HEAL", "kind": "death"})
+    out, _ = features.timeline_features(healer_first, minutes=100 / 60)
+    assert out["first_death_role"] == "healer_ally"
+
+    # a non-healer, non-recorder friendly (3v3 third) is the dps ally
+    dps_first = synthetic_blob()
+    dps_first["teams"][0]["players"].append(
+        {"player": {"unitId": "DPS", "team": "friendly", "spec": "63"}})
+    dps_first["timeline"].insert(0, {"tSec": 50, "unitId": "DPS", "kind": "death"})
+    out, _ = features.timeline_features(dps_first, minutes=100 / 60)
+    assert out["first_death_role"] == "dps_ally"
+
+    # no deaths at all -> feature absent, never invented
+    no_deaths = synthetic_blob()
+    no_deaths["timeline"] = [ev for ev in no_deaths["timeline"] if ev.get("kind") != "death"]
+    out, _ = features.timeline_features(no_deaths, minutes=100 / 60)
+    assert "first_death_role" not in out
+
+
 def test_go_window_features():
     out = features.go_window_features(synthetic_blob(), minutes=100 / 60)
     assert out["first_enemy_go_sec"] == 20

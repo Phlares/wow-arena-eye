@@ -21,8 +21,9 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 CATEGORICAL = ["map_id", "character", "ally_healer_class", "enemy_healer_class", "my_main_target_class",
                "ally_comp_archetype", "enemy_comp_archetype"]
 # string columns screened categorically (win-rate + Fisher) but kept OUT of the models
-# (opener_pattern cardinality would just become noise one-hots)
-NON_MODEL_STRINGS = ["opener_pattern", "map_name"]
+# (opener_pattern cardinality would just become noise one-hots; first_death_role is
+# near-outcome - it feeds the targeting cross-tab, not the matchup screen)
+NON_MODEL_STRINGS = ["opener_pattern", "map_name", "first_death_role"]
 N_SPLITS = 5
 PERM_REPEATS = 8
 RNG = 7
