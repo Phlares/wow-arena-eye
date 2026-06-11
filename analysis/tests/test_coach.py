@@ -26,6 +26,26 @@ def test_anchor_placement_flags_loss_territory():
     assert ok["loss_territory"] is False
 
 
+def test_anchor_placement_handles_tied_quantiles():
+    # discrete features tie their quantiles (real pooled anchor: deaths win_q is all 0).
+    # np.interp misreads ties - a ZERO-death game must NOT land at the 90th pctile of
+    # wins and get flagged as loss territory.
+    deaths_anchor = {"win_q": [0.0, 0.0, 0.0, 0.0, 0.0], "loss_q": [0.0, 0.25, 1.0, 1.0, 1.0],
+                     "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]}
+    out = anchor_placement(0.0, deaths_anchor, rank_biserial=-0.5)
+    assert out["pct_in_win"] == pytest.approx(0.5)   # ties span the whole dist -> midpoint
+    assert out["loss_territory"] is False
+    # one death IS beyond every winning game here
+    bad = anchor_placement(1.0, deaths_anchor, rank_biserial=-0.5)
+    assert bad["pct_in_win"] == pytest.approx(0.95)
+    assert bad["loss_territory"] is True
+    # partial tie block: value sits inside the tied run, midpoint of its quantile span
+    lethal = {"win_q": [0.0, 0.0, 0.0, 0.5, 1.0], "loss_q": [0.0, 0.5, 1.0, 1.0, 1.0],
+              "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]}
+    mid = anchor_placement(0.0, lethal, rank_biserial=-0.5)
+    assert mid["pct_in_win"] == pytest.approx((0.1 + 0.5) / 2)
+
+
 def test_anchor_placement_respects_direction():
     # for a higher-in-LOSSES feature (rb negative), a HIGH value is loss territory
     out = anchor_placement(39.0, ANCHORS["casts_per_min"], rank_biserial=-0.3)

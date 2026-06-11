@@ -21,15 +21,30 @@ LOSS_TERRITORY_PCT = 0.25
 TOP_CORRELATES = 10
 
 
+def _pct_at(value: float, anchor_vals: list[float], q: list[float]) -> float:
+    """Percentile of `value` against quantile knots, tie-safe. Discrete features tie
+    their knots (deaths win_q can be all 0) and np.interp misreads ties - here a value
+    inside a tied run reads as the MIDPOINT of that run's quantile span. Outside the
+    span clamps to 0.05/0.95: "far in the tail", never a false-precision 0 or 1."""
+    av = np.asarray(anchor_vals, dtype=float)
+    lo = int(np.searchsorted(av, value, side="left"))
+    hi = int(np.searchsorted(av, value, side="right"))
+    if hi == 0:
+        return 0.05
+    if lo == len(av):
+        return 0.95
+    if lo == hi:   # strictly between two distinct knots: ordinary interpolation
+        return float(np.interp(value, [av[lo - 1], av[lo]], [q[lo - 1], q[lo]]))
+    return (q[lo] + q[hi - 1]) / 2
+
+
 def anchor_placement(value: float, anchor: dict, rank_biserial: float) -> dict:
     """Where this value sits in the win and loss distributions (percentile interpolated
     over the anchor quantiles), plus the loss-territory flag: beyond the win-dist
     quartile in the direction the screen associates with LOSING."""
     q = anchor["quantiles"]
-    # clamp to [0.05, 0.95]: values outside the anchor quantile span read as "far in the
-    # tail", never a false-precision 0 or 1
-    pct_win = float(np.interp(value, anchor["win_q"], q, left=0.05, right=0.95))
-    pct_loss = float(np.interp(value, anchor["loss_q"], q, left=0.05, right=0.95))
+    pct_win = _pct_at(value, anchor["win_q"], q)
+    pct_loss = _pct_at(value, anchor["loss_q"], q)
     if rank_biserial >= 0:   # winners run this HIGH -> low percentile = loss territory
         loss_territory = pct_win < LOSS_TERRITORY_PCT
     else:                    # winners run this LOW -> high percentile = loss territory
@@ -73,7 +88,7 @@ def _go_summary(blob: dict, feats: dict) -> dict:
     for k in ("mean_defensives_up_at_enemy_go", "first_enemy_go_sec",
               "mean_enemy_offense_ready_at_go", "mean_our_offense_ready_at_go"):
         if k in feats:
-            out[k] = feats[k]
+            out[k] = round(float(feats[k]), 3)   # never leak a numpy scalar into the json
     return out
 
 
@@ -141,7 +156,9 @@ def main() -> None:
     ap.add_argument("--db", default=str(db.REPO_ROOT / "wow-arena-eye.local.db"))
     ap.add_argument("--match", default="latest", help="'latest' or a match_id")
     ap.add_argument("--character", default=None, help="restrict 'latest' to this character")
-    ap.add_argument("--influence", default="pooled", help="influence label: pooled|phlares|...")
+    ap.add_argument("--influence", default="pooled",
+                    help="anchor source label (pooled|phlares|...): pooled anchors with a "
+                         "--character match is deliberate cross-history placement")
     ap.add_argument("--out", default=str(db.REPO_ROOT / "output" / "analysis"))
     args = ap.parse_args()
 
@@ -155,6 +172,8 @@ def main() -> None:
         raise SystemExit(f"match {args.match} not found")
 
     influence_path = Path(args.out) / f"influence-{args.influence}-3v3.json"
+    if not influence_path.exists():
+        raise SystemExit(f"influence file not found: {influence_path} (run python -m wae first)")
     influence = json.loads(influence_path.read_text(encoding="utf8"))
 
     metrics = db.metric_pivot(args.db, [row["match_id"]])
