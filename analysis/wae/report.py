@@ -58,19 +58,27 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
                   model_results: list[dict], clusters: list[list[str]],
                   spell_cols: list[str], caveats: list[str],
                   cat_screened: pd.DataFrame | None = None,
-                  death_atlas: list[dict] | None = None) -> None:
+                  death_atlas: list[dict] | None = None,
+                  transseasonal: set[str] | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     y = df["win"]
     sig = screen_df[screen_df["q_raw"] <= 0.10]
     top_anchor_feats = list(sig["feature"].head(40))
     atlas_summary = death_atlas_summary(death_atlas or [])
+    ts = transseasonal or set()
+
+    screen_records = screen_df.round(4).to_dict(orient="records")
+    for rec in screen_records:
+        rec["transseasonal"] = rec["feature"] in ts
 
     payload = {
         "generated": datetime.now(timezone.utc).isoformat(),
         "label": label,
         "n_matches": int(len(df)),
         "win_rate": round(float(y.mean()), 4),
-        "screen": screen_df.round(4).to_dict(orient="records"),
+        # mechanics-free features the coach can trust across season boundaries
+        "transseasonal_features": sorted(t for t in ts if t in df.columns),
+        "screen": screen_records,
         "categorical": cat_screened.to_dict(orient="records") if cat_screened is not None and not cat_screened.empty else [],
         "models": model_results,
         "correlation_clusters": clusters,
