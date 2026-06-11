@@ -25,6 +25,9 @@ NON_MODEL_STRINGS = ["opener_pattern", "map_name"]
 N_SPLITS = 5
 PERM_REPEATS = 8
 RNG = 7
+# shared with interactions.friedman_h - the H2 screen must rank pairs on the SAME model
+# family it reports importances for, or the two silently diverge when tuned
+GBM_PARAMS = dict(max_depth=3, learning_rate=0.06, max_iter=250, l2_regularization=1.0)
 
 
 def _pipelines(numeric: list[str], categorical: list[str]) -> dict[str, Pipeline]:
@@ -40,9 +43,7 @@ def _pipelines(numeric: list[str], categorical: list[str]) -> dict[str, Pipeline
         ]),
         "gbm": Pipeline([
             ("pre", pre),
-            ("clf", HistGradientBoostingClassifier(max_depth=3, learning_rate=0.06,
-                                                   max_iter=250, l2_regularization=1.0,
-                                                   random_state=RNG)),
+            ("clf", HistGradientBoostingClassifier(**GBM_PARAMS, random_state=RNG)),
         ]),
     }
 
