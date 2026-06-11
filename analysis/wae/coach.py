@@ -14,6 +14,7 @@ import json
 import numpy as np
 
 from .features import _team_maps
+from .targeting import rows_for_match
 
 # editorial threshold for the narrative flag: beyond the win-dist quartile, in the
 # losing direction. The agent layer reads the flag; restyle coaching by changing this.
@@ -66,18 +67,6 @@ def matchup_priors(categorical: list[dict], levels: dict[str, str]) -> dict:
     return out
 
 
-def targeting_priors(crosstab: list[dict], feats: dict) -> list[dict]:
-    """The targeting cross-tab rows that describe THIS match's enemy comp: the exact
-    archetype + healer-class levels, plus every class actually present (enemy_has_* == 1).
-    Same never-invent rule as matchup_priors - no row, no prior."""
-    def relevant(rec: dict) -> bool:
-        var = rec.get("variable", "")
-        if var.startswith("enemy_has_"):
-            return feats.get(var) == 1.0
-        return feats.get(var) == rec.get("level")
-    return [rec for rec in crosstab if relevant(rec)]
-
-
 def _go_summary(blob: dict, feats: dict) -> dict:
     """The favor/GO story: window counts, lethality, defensives-up - from the blob's
     offensive windows plus the already-derived per-match features."""
@@ -111,26 +100,31 @@ def build_pack(feats: dict, blob: dict, influence: dict, row: dict) -> dict:
     anchors = influence.get("anchors", {})
     comp_block = influence.get("anchors_by_enemy_archetype", {}).get(
         feats.get("enemy_comp_archetype")) or {}
+    comp_anchors = comp_block.get("anchors", {})
 
     placed: dict = {}
-    for feat, anchor in anchors.items():   # the influence anchors block is already capped
+    # both anchor sources place independently - a feature anchored only in the comp slice
+    # still gets a (comp-only) entry, so the pack never depends on the global top-40 cut
+    for feat in {**anchors, **comp_anchors}:
         v = feats.get(feat)
         if v is None or (isinstance(v, float) and np.isnan(v)):
             continue
         rec = screen_by_feat.get(feat, {})
-        placed[feat] = {
+        rb = rec.get("rank_biserial", 0.0)
+        entry = {
             "value": round(float(v), 3),
             "tier": rec.get("tier", "process"),
-            "direction": "higher_in_wins" if rec.get("rank_biserial", 0) >= 0 else "higher_in_losses",
+            "direction": "higher_in_wins" if rb >= 0 else "higher_in_losses",
             "transseasonal": bool(rec.get("transseasonal", False)),
-            **anchor_placement(float(v), anchor, rec.get("rank_biserial", 0.0)),
         }
-        comp_anchor = comp_block.get("anchors", {}).get(feat)
-        if comp_anchor:   # same-comp placement next to the global one; the persona prefers
-            placed[feat]["vs_this_comp"] = {   # it for comp-sensitive (positional) reads
-                **anchor_placement(float(v), comp_anchor, rec.get("rank_biserial", 0.0)),
+        if feat in anchors:
+            entry.update(anchor_placement(float(v), anchors[feat], rb))
+        if feat in comp_anchors:   # same-comp placement next to the global one; the
+            entry["vs_this_comp"] = {   # persona prefers it for positional reads
+                **anchor_placement(float(v), comp_anchors[feat], rb),
                 "comp_n": comp_block.get("n"),
             }
+        placed[feat] = entry
 
     levels = {var: feats.get(var) for var in
               ("enemy_healer_class", "my_main_target_class", "map_name", "opener_pattern",
@@ -156,7 +150,7 @@ def build_pack(feats: dict, blob: dict, influence: dict, row: dict) -> dict:
                   "opener_pattern": feats.get("opener_pattern")},
         "features": placed,
         "matchup_priors": matchup_priors(influence.get("categorical", []), levels),
-        "targeting_priors": targeting_priors(influence.get("targeting_crosstab", []), feats),
+        "targeting_priors": rows_for_match(influence.get("targeting_crosstab", []), feats),
         "death_atlas_this_map": atlas_row,
         "go_summary": _go_summary(blob, feats),
         "top_correlates": top,
@@ -209,7 +203,7 @@ def main() -> None:
     out_path.write_text(json.dumps(pack, indent=1), encoding="utf8")
     print(f"[wae.coach] wrote {out_path} ({out_path.stat().st_size // 1024}KB, "
           f"{len(pack['features'])} placed features, "
-          f"{sum(1 for f in pack['features'].values() if f['loss_territory'])} in loss territory)")
+          f"{sum(1 for f in pack['features'].values() if f.get('loss_territory'))} in loss territory)")
 
 
 if __name__ == "__main__":

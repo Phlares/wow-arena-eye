@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .categorical import MIN_LEVEL_N, wilson_interval
+from .categorical import MIN_LEVEL_N, iter_levels, wilson_interval
 
 ROLES = ("me", "dps_ally", "healer_ally", "enemy")
 CROSSTAB_VARS = ("enemy_comp_archetype", "enemy_healer_class")
@@ -24,8 +24,8 @@ def _slice_row(variable: str, level: str, sub: pd.DataFrame) -> dict:
         "win_rate": round(w / n, 3), "ci_lo": round(lo, 3), "ci_hi": round(hi, 3),
         "n_loss": len(losses),
         "loss_first_death": {
-            r: round(float((losses["first_death_role"] == r).mean()), 3) if len(losses) else None
-            for r in ROLES},
+            r: round(float((losses["first_death_role"] == r).mean()), 3)
+            for r in ROLES} if len(losses) else {},
         "wr_by_first_death": {
             r: {"n": int(m.sum()), "wr": round(float(roled.loc[m, "win"].mean()), 3)}
             for r in ROLES
@@ -42,14 +42,23 @@ def first_death_crosstab(df: pd.DataFrame, min_level_n: int = MIN_LEVEL_N) -> li
         return []
     rows = []
     for var in CROSSTAB_VARS:
-        if var not in df.columns:
-            continue
-        values = df[var].fillna("none").astype(str)
-        for level, idx in values.groupby(values).groups.items():
-            if level != "none" and len(idx) >= min_level_n:
-                rows.append(_slice_row(var, level, df.loc[idx]))
+        rows += [_slice_row(var, level, sub)
+                 for level, sub in iter_levels(df, var, min_level_n, skip_none=True)]
     for col in sorted(c for c in df.columns if c.startswith("enemy_has_")):
         sub = df[df[col] == 1.0]
         if len(sub) >= min_level_n:
             rows.append(_slice_row(col, col.removeprefix("enemy_has_"), sub))
     return sorted(rows, key=lambda r: -r["n"])
+
+
+def rows_for_match(crosstab: list[dict], feats: dict) -> list[dict]:
+    """The cross-tab rows describing ONE match's enemy comp: the exact archetype +
+    healer-class levels, plus every class actually present (enemy_has_* == 1). Lives
+    here so the matching convention stays next to the row constructor; same never-invent
+    rule as coach.matchup_priors - no row, no prior."""
+    def relevant(rec: dict) -> bool:
+        var = rec.get("variable", "")
+        if var.startswith("enemy_has_"):
+            return feats.get(var) == 1.0
+        return feats.get(var) == rec.get("level")
+    return [rec for rec in crosstab if relevant(rec)]

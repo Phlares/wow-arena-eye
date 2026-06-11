@@ -138,6 +138,31 @@ def test_vs_this_comp_placement():
     assert "vs_this_comp" not in pack2["features"]["casts_per_min"]
 
 
+def test_comp_only_anchor_still_places():
+    # a feature anchored ONLY in the comp slice (not in the global top-40 cut) must
+    # still appear in the pack, with the comp placement and no invented global one
+    influence = {
+        "anchors": {}, "screen": [], "categorical": [],
+        "interactions": {"pairs": [], "gbm_h2": []},
+        "anchors_by_enemy_archetype": {
+            "2melee+healer": {"n": 100, "win_rate": 0.5,
+                              "anchors": {"pct_time_in_enemy_melee": {
+                                  "win_q": [0.1, 0.2, 0.3, 0.4, 0.5],
+                                  "loss_q": [0.3, 0.4, 0.5, 0.6, 0.7],
+                                  "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]}}},
+        },
+    }
+    feats = {"match_id": "abc", "pct_time_in_enemy_melee": 0.3,
+             "enemy_comp_archetype": "2melee+healer"}
+    pack = build_pack(feats, {"teams": [], "timeline": [], "offensiveWindows": []},
+                      influence, row={"result": "win", "duration_sec": 200,
+                                      "player_rating": 2400})
+    entry = pack["features"]["pct_time_in_enemy_melee"]
+    assert "pct_in_win" not in entry          # no global anchor -> no global placement
+    assert entry["vs_this_comp"]["comp_n"] == 100
+    assert entry["vs_this_comp"]["pct_in_win"] == pytest.approx(0.5)
+
+
 def test_targeting_priors_picks_this_matchs_comp():
     crosstab = [
         {"variable": "enemy_comp_archetype", "level": "2melee+healer", "n": 113,

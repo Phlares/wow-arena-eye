@@ -14,6 +14,18 @@ from .screen import bh_qvalues
 MIN_LEVEL_N = 15
 
 
+def iter_levels(df: pd.DataFrame, col: str, min_n: int, skip_none: bool = False):
+    """(level, sub-frame) pairs of a categorical column - NaN folded into 'none', levels
+    under min_n dropped. The one slicing idiom shared by the categorical screen, the
+    targeting cross-tab, and the comp-conditioned anchors."""
+    if col not in df.columns:
+        return
+    values = df[col].fillna("none").astype(str)
+    for level, sub in df.groupby(values):
+        if len(sub) >= min_n and not (skip_none and level == "none"):
+            yield level, sub
+
+
 def wilson_interval(wins: int, n: int, z: float = 1.96) -> tuple[float, float]:
     if n == 0:
         return (0.0, 1.0)
@@ -31,14 +43,9 @@ def categorical_screen(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     total_w, total_n = int(y.sum()), len(y)
     rows = []
     for col in columns:
-        if col not in df.columns:
-            continue
-        values = df[col].fillna("none").astype(str)
-        for level, idx in values.groupby(values).groups.items():
-            n = len(idx)
-            if n < MIN_LEVEL_N:
-                continue
-            w = int(df.loc[idx, "win"].sum())
+        for level, sub in iter_levels(df, col, MIN_LEVEL_N):
+            n = len(sub)
+            w = int(sub["win"].sum())
             lo, hi = wilson_interval(w, n)
             table = [[w, n - w], [total_w - w, (total_n - n) - (total_w - w)]]
             p = float(stats.fisher_exact(table).pvalue)

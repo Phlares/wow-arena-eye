@@ -67,12 +67,15 @@ TRANSSEASONAL: set[str] = {
     # activity ratios
     "casts_per_min", "distanceMoved_per_min", "timeStationarySec_per_min",
     # time-in-CC and GO cadence
-    "ccReceived.timeSec_per_min", "ccDone.timeSec_per_min",
+    "ccReceived_timeSec_per_min", "ccDone_timeSec_per_min",
     "our_go_per_min", "enemy_go_per_min",
     # range discipline (game-constant ranges: 8yd melee / 40yd heal)
     "pct_time_beyond_heal_range", "median_dist_to_healer_yd",
     "median_dist_nearest_enemy_yd", "pct_time_in_enemy_melee",
-    "spacing.meleeRangeSec_per_min", "spacing.isolatedSec_per_min",
+    # scalar metric keys are minted with dots -> underscores (scalar_features); the
+    # spacing and cc entries were listed dotted until 2026-06-11 and silently never
+    # matched a real column (caught by report.py's stale-registry warning)
+    "spacing_meleeRangeSec_per_min", "spacing_isolatedSec_per_min",
     # map-position (map-normalized via occupancy bounds - features2.map_position_features)
     "center_dist_frac_mean", "edge_proximity_frac",
     "own_half_time_frac", "map_area_coverage_frac",
