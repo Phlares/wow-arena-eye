@@ -20,6 +20,10 @@ HEAL_RANGE_YD = 40.0
 EARLY_CC_SEC = 20.0
 EARLY_CC_SEC_WIDE = 30.0
 
+# first_death_role vocabulary, minted in timeline_features and consumed by the targeting
+# cross-tab + report tables - single source so a rename can't silently shrink the slices
+FIRST_DEATH_ROLES = ("me", "dps_ally", "healer_ally", "enemy")
+
 # metric-table scalars worth keeping, with whether they accumulate (-> per-minute rate).
 SCALAR_METRICS: dict[str, bool] = {
     "damageDone": True,

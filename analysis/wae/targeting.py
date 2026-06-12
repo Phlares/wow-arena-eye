@@ -7,9 +7,11 @@ from __future__ import annotations
 import pandas as pd
 
 from .categorical import MIN_LEVEL_N, iter_levels, wilson_interval
+from .features import FIRST_DEATH_ROLES as ROLES
 
-ROLES = ("me", "dps_ally", "healer_ally", "enemy")
-CROSSTAB_VARS = ("enemy_comp_archetype", "enemy_healer_class")
+# archetype 'none' is NaN-folded missing data; healer-class 'none' is a REAL level
+# (healer-less double-DPS comps, minted by comp_features) and must be kept
+CROSSTAB_VARS = (("enemy_comp_archetype", True), ("enemy_healer_class", False))
 
 
 def _slice_row(variable: str, level: str, sub: pd.DataFrame) -> dict:
@@ -18,7 +20,9 @@ def _slice_row(variable: str, level: str, sub: pd.DataFrame) -> dict:
     w, n = int(y.sum()), len(y)
     lo, hi = wilson_interval(w, n)
     roled = sub[sub["first_death_role"].isin(ROLES)]
-    losses = roled[roled["win"] == 0.0]
+    # ALL losses in the slice, so n_loss is consistent with n/win_rate; a loss with no
+    # recorded death (role unknown) counts in the denominator and in no role's share
+    losses = sub[sub["win"] == 0.0]
     return {
         "variable": variable, "level": level, "n": n,
         "win_rate": round(w / n, 3), "ci_lo": round(lo, 3), "ci_hi": round(hi, 3),
@@ -41,9 +45,9 @@ def first_death_crosstab(df: pd.DataFrame, min_level_n: int = MIN_LEVEL_N) -> li
     if "first_death_role" not in df.columns:
         return []
     rows = []
-    for var in CROSSTAB_VARS:
+    for var, skip_none in CROSSTAB_VARS:
         rows += [_slice_row(var, level, sub)
-                 for level, sub in iter_levels(df, var, min_level_n, skip_none=True)]
+                 for level, sub in iter_levels(df, var, min_level_n, skip_none=skip_none)]
     for col in sorted(c for c in df.columns if c.startswith("enemy_has_")):
         sub = df[df[col] == 1.0]
         if len(sub) >= min_level_n:

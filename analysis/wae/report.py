@@ -10,7 +10,9 @@ import numpy as np
 import pandas as pd
 
 from .categorical import iter_levels
+from .features import FIRST_DEATH_ROLES as ROLES
 from .interactions import KITING_METRICS
+from .screen import rank_biserial
 
 ANCHOR_QUANTILES = [0.1, 0.25, 0.5, 0.75, 0.9]
 
@@ -29,8 +31,10 @@ COMP_SENSITIVE_FEATURES = [
 ARCHETYPE_ANCHOR_MIN_N = 50   # the sufficiency verdict's categorical-slice floor
 
 
-def anchors_for(df: pd.DataFrame, features: list[str]) -> dict:
-    """Per-feature win/loss distribution quantiles - the coach's context anchors."""
+def anchors_for(df: pd.DataFrame, features: list[str], include_rb: bool = False) -> dict:
+    """Per-feature win/loss distribution quantiles - the coach's context anchors.
+    include_rb adds the distribution's own rank-biserial: slice anchors need their own
+    direction (the global screen's sign can be the OPPOSITE of the slice's)."""
     out = {}
     y = df["win"].to_numpy()
     for col in features:
@@ -43,6 +47,8 @@ def anchors_for(df: pd.DataFrame, features: list[str]) -> dict:
             "loss_q": [round(float(q), 3) for q in np.quantile(loss, ANCHOR_QUANTILES)],
             "quantiles": ANCHOR_QUANTILES,
         }
+        if include_rb:
+            out[col]["rank_biserial"] = round(rank_biserial(win, loss), 3)
     return out
 
 
@@ -55,7 +61,7 @@ def anchors_by_archetype(df: pd.DataFrame, features: list[str] = COMP_SENSITIVE_
     out: dict = {}
     cols = [f for f in features if f in df.columns]
     for archetype, sub in iter_levels(df, "enemy_comp_archetype", min_n, skip_none=True):
-        anchors = anchors_for(sub, cols)
+        anchors = anchors_for(sub, cols, include_rb=True)
         if anchors:
             out[archetype] = {"n": int(len(sub)),
                               "win_rate": round(float(sub["win"].mean()), 4),
@@ -200,9 +206,8 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
         md.append("|---|---|---|---|---|---|")
         for r in targeting_crosstab[:20]:
             lf = r["loss_first_death"]
-            shares = (" / ".join(f"{lf[k]:.0%}" if lf.get(k) is not None else "—"
-                                 for k in ("me", "dps_ally", "healer_ally", "enemy"))
-                      + f" (n={r['n_loss']})")
+            shares = (" / ".join(f"{lf[k]:.0%}" for k in ROLES)
+                      + f" (n={r['n_loss']})") if lf else "—"
             me = r["wr_by_first_death"].get("me")
             md.append(f"| {r['variable']} | {r['level']} | {r['n']} | {r['win_rate']:.1%} | "
                       f"{shares} | {f'{me['wr']:.0%} (n={me['n']})' if me else '—'} |")

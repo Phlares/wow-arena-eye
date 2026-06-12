@@ -68,3 +68,25 @@ def test_crosstab_ignores_unknown_roles():
     r = _row(out, "enemy_comp_archetype", "2melee+healer")
     assert r["n"] == 20                                # slice size unchanged
     assert r["wr_by_first_death"]["enemy"]["n"] == 2   # role-known rows only
+
+
+def test_crosstab_n_loss_counts_all_losses():
+    # a loss with no recorded death (role unknown) still counts as a loss: n_loss stays
+    # consistent with n/win_rate, and the unknown loss is in every share's denominator
+    df = _df()
+    me_loss = df[(df["win"] == 0.0) & (df["first_death_role"] == "me")].index[0]
+    df.loc[me_loss, "first_death_role"] = np.nan
+    r = _row(first_death_crosstab(df, min_level_n=15), "enemy_comp_archetype", "2melee+healer")
+    assert r["n_loss"] == 15                           # all losses, not role-known losses
+    assert r["loss_first_death"]["me"] == round(8 / 15, 3)
+
+
+def test_crosstab_keeps_real_none_healer_level():
+    # 'none' enemy_healer_class is a REAL level (double-DPS comps), not folded NaN
+    df = _df()
+    rows = [{"win": float(i % 2), "first_death_role": "enemy" if i % 2 else "me",
+             "enemy_comp_archetype": "2melee", "enemy_healer_class": "none",
+             "enemy_has_Warrior": 0.0} for i in range(16)]
+    df = pd.concat([df, pd.DataFrame(rows)], ignore_index=True)
+    out = first_death_crosstab(df, min_level_n=15)
+    assert _row(out, "enemy_healer_class", "none")["n"] == 16

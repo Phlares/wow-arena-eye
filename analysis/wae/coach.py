@@ -54,14 +54,15 @@ def anchor_placement(value: float, anchor: dict, rank_biserial: float) -> dict:
             "loss_territory": bool(loss_territory)}
 
 
-def matchup_priors(categorical: list[dict], levels: dict[str, str]) -> dict:
-    """The categorical-screen rows matching THIS match's levels (enemy healer class, map,
-    main-target class, opener). Variables with no row are omitted - the pack never
-    invents a prior."""
+def matchup_priors(categorical: list[dict], feats: dict) -> dict:
+    """The categorical-screen rows whose level matches THIS match's value for the same
+    variable - whatever variables the screen covered, no hardcoded list to drift out of
+    sync with cli.CATEGORICAL_SCREEN_COLS. Variables with no matching row are omitted -
+    the pack never invents a prior."""
     out: dict = {}
     for rec in categorical:
         var = rec.get("variable")
-        if levels.get(var) == rec.get("level"):
+        if var and feats.get(var) == rec.get("level"):
             out[var] = {k: rec[k] for k in ("level", "n", "win_rate", "ci_lo", "ci_hi",
                                             "baseline", "q") if k in rec}
     return out
@@ -114,21 +115,27 @@ def build_pack(feats: dict, blob: dict, influence: dict, row: dict) -> dict:
         entry = {
             "value": round(float(v), 3),
             "tier": rec.get("tier", "process"),
-            "direction": "higher_in_wins" if rb >= 0 else "higher_in_losses",
             "transseasonal": bool(rec.get("transseasonal", False)),
         }
+        if rec:   # no screen record -> no invented direction
+            entry["direction"] = "higher_in_wins" if rb >= 0 else "higher_in_losses"
         if feat in anchors:
             entry.update(anchor_placement(float(v), anchors[feat], rb))
-        if feat in comp_anchors:   # same-comp placement next to the global one; the
-            entry["vs_this_comp"] = {   # persona prefers it for positional reads
-                **anchor_placement(float(v), comp_anchors[feat], rb),
+        if feat in comp_anchors:
+            # same-comp placement next to the global one; the persona prefers it for
+            # positional reads. The slice's OWN rank-biserial decides the loss-territory
+            # tail - the comp-sensitive features exist because the sign can flip per
+            # comp (legacy influence files without it fall back to the global sign).
+            comp_rb = comp_anchors[feat].get("rank_biserial")
+            if comp_rb is None:
+                comp_rb = rb
+            entry["vs_this_comp"] = {
+                "direction": "higher_in_wins" if comp_rb >= 0 else "higher_in_losses",
+                **anchor_placement(float(v), comp_anchors[feat], comp_rb),
                 "comp_n": comp_block.get("n"),
             }
         placed[feat] = entry
 
-    levels = {var: feats.get(var) for var in
-              ("enemy_healer_class", "my_main_target_class", "map_name", "opener_pattern",
-               "ally_comp_archetype", "enemy_comp_archetype")}
     atlas_row = next((r for r in influence.get("death_atlas_summary", [])
                       if r.get("map") == feats.get("map_name")), None)
 
@@ -149,7 +156,7 @@ def build_pack(feats: dict, blob: dict, influence: dict, row: dict) -> dict:
                   "enemy_comp_archetype": feats.get("enemy_comp_archetype"),
                   "opener_pattern": feats.get("opener_pattern")},
         "features": placed,
-        "matchup_priors": matchup_priors(influence.get("categorical", []), levels),
+        "matchup_priors": matchup_priors(influence.get("categorical", []), feats),
         "targeting_priors": rows_for_match(influence.get("targeting_crosstab", []), feats),
         "death_atlas_this_map": atlas_row,
         "go_summary": _go_summary(blob, feats),

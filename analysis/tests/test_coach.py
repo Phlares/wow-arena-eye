@@ -104,24 +104,32 @@ def test_build_pack_shape():
     assert pack["top_correlates"][0]["feature"] == "casts_per_min"
 
 
-def test_vs_this_comp_placement():
-    influence = {
+def _comp_influence(comp_anchor):
+    return {
         "anchors": ANCHORS, "screen": SCREEN, "categorical": [],
         "interactions": {"pairs": [], "gbm_h2": []},
         "anchors_by_enemy_archetype": {
             "2melee+healer": {"n": 113, "win_rate": 0.41,
-                              # vs melee, winners cast LESS (turtling reads differently)
-                              "anchors": {"casts_per_min": {
-                                  "win_q": [10.0, 15.0, 20.0, 25.0, 30.0],
-                                  "loss_q": [20.0, 25.0, 30.0, 35.0, 40.0],
-                                  "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]}}},
+                              "anchors": {"casts_per_min": comp_anchor}},
         },
     }
+
+
+# vs melee, winners cast LESS - the slice's win dist sits BELOW its loss dist
+COMP_ANCHOR_INVERTED = {
+    "win_q": [10.0, 15.0, 20.0, 25.0, 30.0],
+    "loss_q": [20.0, 25.0, 30.0, 35.0, 40.0],
+    "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9],
+    "rank_biserial": -0.3,
+}
+BLOB = {"teams": [], "timeline": [], "offensiveWindows": []}
+ROW = {"result": "loss", "duration_sec": 200, "player_rating": 2400}
+
+
+def test_vs_this_comp_placement():
     feats = {"match_id": "abc", "casts_per_min": 21.0,
              "enemy_comp_archetype": "2melee+healer"}
-    blob = {"teams": [], "timeline": [], "offensiveWindows": []}
-    pack = build_pack(feats, blob, influence, row={"result": "loss", "duration_sec": 200,
-                                                   "player_rating": 2400})
+    pack = build_pack(feats, BLOB, _comp_influence(COMP_ANCHOR_INVERTED), row=ROW)
     placed = pack["features"]["casts_per_min"]
     # global placement says 21/min is low-in-wins; the comp slice says it's mid-pack
     assert placed["loss_territory"] is True
@@ -133,9 +141,30 @@ def test_vs_this_comp_placement():
     # a different archetype (or none) -> no vs_this_comp block, never a wrong-slice one
     feats2 = {"match_id": "abc", "casts_per_min": 21.0,
               "enemy_comp_archetype": "2ranged+healer"}
-    pack2 = build_pack(feats2, blob, influence, row={"result": "loss", "duration_sec": 200,
-                                                     "player_rating": 2400})
+    pack2 = build_pack(feats2, BLOB, _comp_influence(COMP_ANCHOR_INVERTED), row=ROW)
     assert "vs_this_comp" not in pack2["features"]["casts_per_min"]
+
+
+def test_vs_this_comp_uses_the_slices_own_direction():
+    # the sign-flip case the feature exists for: globally rb +0.3 (cast MORE), in this
+    # comp rb -0.3 (cast LESS). A high value is healthy globally but loss territory
+    # IN THE SLICE - the comp placement must use the slice's direction, not the global.
+    feats = {"match_id": "abc", "casts_per_min": 38.0,
+             "enemy_comp_archetype": "2melee+healer"}
+    pack = build_pack(feats, BLOB, _comp_influence(COMP_ANCHOR_INVERTED), row=ROW)
+    placed = pack["features"]["casts_per_min"]
+    assert placed["loss_territory"] is False          # global: high casts = winning
+    vs = placed["vs_this_comp"]
+    assert vs["direction"] == "higher_in_losses"      # the slice's own sign
+    assert vs["pct_in_win"] > 0.75
+    assert vs["loss_territory"] is True               # beyond the slice's winning games
+
+    # an old influence file without per-slice rb falls back to the global direction
+    legacy = {k: v for k, v in COMP_ANCHOR_INVERTED.items() if k != "rank_biserial"}
+    pack2 = build_pack(feats, BLOB, _comp_influence(legacy), row=ROW)
+    vs2 = pack2["features"]["casts_per_min"]["vs_this_comp"]
+    assert vs2["direction"] == "higher_in_wins"
+    assert vs2["loss_territory"] is False
 
 
 def test_comp_only_anchor_still_places():
@@ -149,7 +178,8 @@ def test_comp_only_anchor_still_places():
                               "anchors": {"pct_time_in_enemy_melee": {
                                   "win_q": [0.1, 0.2, 0.3, 0.4, 0.5],
                                   "loss_q": [0.3, 0.4, 0.5, 0.6, 0.7],
-                                  "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]}}},
+                                  "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9],
+                                  "rank_biserial": -0.5}}},
         },
     }
     feats = {"match_id": "abc", "pct_time_in_enemy_melee": 0.3,
@@ -159,6 +189,7 @@ def test_comp_only_anchor_still_places():
                                       "player_rating": 2400})
     entry = pack["features"]["pct_time_in_enemy_melee"]
     assert "pct_in_win" not in entry          # no global anchor -> no global placement
+    assert "direction" not in entry           # no screen record -> no invented direction
     assert entry["vs_this_comp"]["comp_n"] == 100
     assert entry["vs_this_comp"]["pct_in_win"] == pytest.approx(0.5)
 

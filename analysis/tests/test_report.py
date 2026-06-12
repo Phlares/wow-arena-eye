@@ -37,8 +37,10 @@ def test_anchors_by_archetype_slices_and_gates():
     assert block["n"] == 60
     assert block["win_rate"] == 0.5
     anchor = block["anchors"]["pct_time_in_enemy_melee"]
-    # winners kept melee uptime low IN THIS SLICE - the win dist sits below the loss dist
+    # winners kept melee uptime low IN THIS SLICE - the win dist sits below the loss
+    # dist, and the slice carries its OWN direction for the coach's placement
     assert anchor["win_q"][2] < anchor["loss_q"][2]
+    assert anchor["rank_biserial"] < -0.5
 
 
 def test_anchors_by_archetype_without_column():
