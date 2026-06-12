@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import categorical, db, features, features2, interactions, model, report, screen
+from . import categorical, db, features, features2, interactions, model, report, screen, targeting
 
 META_COLS = {"match_id", "win", "session_id"}
 CATEGORICAL_SCREEN_COLS = ["map_name", "ally_healer_class", "enemy_healer_class",
@@ -64,6 +64,7 @@ def run(db_path: str, bracket: str, character: str | None, out_dir: Path) -> Non
 
     screened = screen.screen(df, numeric_cols, features.TIERS)
     cat_screened = categorical.categorical_screen(df, CATEGORICAL_SCREEN_COLS)
+    crosstab = targeting.first_death_crosstab(df)
     results = [model.run_models(df, feature_cols, features.TIERS, scope) for scope in ("process", "full")]
     clusters = model.correlation_clusters(df, numeric_cols)
 
@@ -115,7 +116,8 @@ def run(db_path: str, bracket: str, character: str | None, out_dir: Path) -> Non
                          cat_screened=cat_screened, death_atlas=death_atlas,
                          transseasonal=features.TRANSSEASONAL,
                          interactions=inter, gbm_h2=gbm_h2,
-                         data_sufficiency=data_sufficiency)
+                         data_sufficiency=data_sufficiency,
+                         targeting_crosstab=crosstab)
     df.to_csv(out_dir / f"features-{label}.csv", index=False)
     print(f"[wae] wrote {out_dir}/influence-{label}.md (+.json, features csv, death atlas)")
 

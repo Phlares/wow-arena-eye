@@ -20,6 +20,10 @@ HEAL_RANGE_YD = 40.0
 EARLY_CC_SEC = 20.0
 EARLY_CC_SEC_WIDE = 30.0
 
+# first_death_role vocabulary, minted in timeline_features and consumed by the targeting
+# cross-tab + report tables - single source so a rename can't silently shrink the slices
+FIRST_DEATH_ROLES = ("me", "dps_ally", "healer_ally", "enemy")
+
 # metric-table scalars worth keeping, with whether they accumulate (-> per-minute rate).
 SCALAR_METRICS: dict[str, bool] = {
     "damageDone": True,
@@ -67,12 +71,15 @@ TRANSSEASONAL: set[str] = {
     # activity ratios
     "casts_per_min", "distanceMoved_per_min", "timeStationarySec_per_min",
     # time-in-CC and GO cadence
-    "ccReceived.timeSec_per_min", "ccDone.timeSec_per_min",
+    "ccReceived_timeSec_per_min", "ccDone_timeSec_per_min",
     "our_go_per_min", "enemy_go_per_min",
     # range discipline (game-constant ranges: 8yd melee / 40yd heal)
     "pct_time_beyond_heal_range", "median_dist_to_healer_yd",
     "median_dist_nearest_enemy_yd", "pct_time_in_enemy_melee",
-    "spacing.meleeRangeSec_per_min", "spacing.isolatedSec_per_min",
+    # scalar metric keys are minted with dots -> underscores (scalar_features); the
+    # spacing and cc entries were listed dotted until 2026-06-11 and silently never
+    # matched a real column (caught by report.py's stale-registry warning)
+    "spacing_meleeRangeSec_per_min", "spacing_isolatedSec_per_min",
     # map-position (map-normalized via occupancy bounds - features2.map_position_features)
     "center_dist_frac_mean", "edge_proximity_frac",
     "own_half_time_frac", "map_area_coverage_frac",
@@ -140,13 +147,13 @@ def comp_features(blob: dict, spec_table: dict[str, dict[str, str]]) -> dict:
 
 def timeline_features(blob: dict, minutes: float) -> tuple[dict, Counter]:
     """Early CC, kick timing, first death, plus the player's per-spell cast counter."""
-    team, _ = _team_maps(blob)
+    team, spec = _team_maps(blob)
     player = blob.get("playerUnitId")
     out: dict = {}
     cc_early = cc_early_wide = 0
     first_kick_by_us = first_kick_on_us = None
     first_death_sec = None
-    first_death_side = None
+    first_death_unit = None
     casts_by_spell: Counter = Counter()
     for ev in blob.get("timeline", []):
         kind, t = ev.get("kind"), ev.get("tSec", 0)
@@ -162,7 +169,7 @@ def timeline_features(blob: dict, minutes: float) -> tuple[dict, Counter]:
                 first_kick_on_us = t
         elif kind == "death" and first_death_sec is None and team.get(ev.get("unitId")) is not None:
             first_death_sec = t
-            first_death_side = team.get(ev.get("unitId"))
+            first_death_unit = ev.get("unitId")
         elif kind == "cast" and ev.get("unitId") == player and ev.get("spell"):
             # the player's OWN GCD mix by design - pet casts (Spell Lock etc.) are captured by
             # the rolled-up scalar metrics (interruptsLanded, casts), not the spell-mix columns
@@ -175,7 +182,17 @@ def timeline_features(blob: dict, minutes: float) -> tuple[dict, Counter]:
         out[_t("process", "first_kick_on_us_sec")] = first_kick_on_us
     if first_death_sec is not None:
         out[_t("outcome", "first_death_sec")] = first_death_sec
-        out[_t("outcome", "first_death_ours")] = 1.0 if first_death_side == "friendly" else 0.0
+        ours = team.get(first_death_unit) == "friendly"
+        out[_t("outcome", "first_death_ours")] = 1.0 if ours else 0.0
+        if not ours:
+            role = "enemy"
+        elif first_death_unit == player:
+            role = "me"
+        elif first_death_unit == friendly_healer_id(team, spec, player):
+            role = "healer_ally"
+        else:
+            role = "dps_ally"
+        out[_t("outcome", "first_death_role")] = role
     return out, casts_by_spell
 
 

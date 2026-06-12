@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from wae.interactions import (friedman_h, lr_interaction_p, median_2x2, pair_screen)
+from wae.interactions import (candidate_pairs, friedman_h, lr_interaction_p,
+                              median_2x2, pair_screen)
 
 RNG = np.random.default_rng(11)
 N = 600
@@ -91,6 +92,24 @@ def test_report_carries_interactions_block(tmp_path):
     assert payload["interactions"]["gbm_h2"][0]["h2"] == 0.21
     md = (tmp_path / "influence-test.md").read_text(encoding="utf8")
     assert "Interaction mining" in md
+
+
+def test_candidate_pairs_include_melee_count_x_kiting():
+    # the sign-flip hypothesis: does melee-uptime's meaning invert with enemy comp?
+    df = pd.DataFrame({
+        "win": [1.0, 0.0] * 50, "mmr": RNG.normal(2400, 100, 100),
+        "character": ["P"] * 100, "session_id": ["s"] * 100,
+        "enemy_melee_count": RNG.integers(0, 3, 100).astype(float),
+        "pct_time_in_enemy_melee": RNG.random(100),
+        "distanceMoved_per_min": RNG.random(100),
+    })
+    screen_df = pd.DataFrame([
+        {"feature": "pct_time_in_enemy_melee", "tier": "process"},
+        {"feature": "distanceMoved_per_min", "tier": "process"},
+    ])
+    pairs, _ = candidate_pairs(df, screen_df)
+    assert ("enemy_melee_count", "pct_time_in_enemy_melee") in pairs
+    assert ("enemy_melee_count", "distanceMoved_per_min") in pairs
 
 
 def test_friedman_h_ranks_interacting_pair_highest():

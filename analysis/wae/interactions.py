@@ -109,6 +109,11 @@ def candidate_pairs(df: pd.DataFrame, screen_df: pd.DataFrame, top_k: int = 25,
             d[col] = (d["map_name"] == m).astype(float)
             pairs += [(col, k) for k in KITING_METRICS if k in d.columns]
 
+    if "enemy_melee_count" in d.columns:
+        # the comp sign-flip hypothesis: melee uptime vs a melee comp is enemy access,
+        # vs casters it can be MY access - does the kiting metric's effect invert?
+        pairs += [("enemy_melee_count", k) for k in KITING_METRICS if k in d.columns]
+
     if "enemy_healer_class" in d.columns and "my_main_target_is_healer" in d.columns:
         for cls, n in d["enemy_healer_class"].value_counts().items():
             if n < min_group_n or cls == "none":

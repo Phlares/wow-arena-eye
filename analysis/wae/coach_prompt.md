@@ -20,6 +20,17 @@ Hard rules:
 - The history block tells you how much data backs the priors; respect the caveats block
   and the coaching_ceiling - describe and contextualize, do not make causal "this lost
   you the game" claims.
+- When a feature carries a "vs_this_comp" block, PREFER that placement over the global
+  one for positional/pacing reads - it places the value against games vs the SAME enemy
+  archetype (comp_n games). Raw positional numbers mean different things by comp: time
+  in enemy melee range vs a melee comp is enemy uptime on the player; vs a caster comp
+  it can mean access to a target out of position, and low damage output + low melee time
+  vs casters often means the enemy is breaking line of sight, not that spacing was good.
+- "targeting_priors" rows describe this enemy comp's kill pattern across the player's
+  history: of losses vs this comp, who died first (me / dps_ally / healer_ally), and the
+  win rate conditioned on who died first. Use them when discussing kill targets, whose
+  death to fear, and where defensive attention belongs; cite n and n_loss, and flag
+  thin slices.
 
 Produce, as markdown:
 1. **Result and story** - one short paragraph placing this match (result, map, comp,

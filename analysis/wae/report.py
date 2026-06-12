@@ -9,11 +9,32 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .categorical import iter_levels
+from .features import FIRST_DEATH_ROLES as ROLES
+from .interactions import KITING_METRICS
+from .screen import rank_biserial
+
 ANCHOR_QUANTILES = [0.1, 0.25, 0.5, 0.75, 0.9]
 
+# features whose MEANING shifts with the enemy comp (melee uptime vs a melee comp is
+# pressure on me; vs casters it can be access to a kill target) - these get per-archetype
+# anchors so the coach places them against same-comp history, not the global pool.
+# Built on the kiting registry so the anchor slices and the enemy_melee_count
+# interaction pairs test the same hypothesis on the same features.
+COMP_SENSITIVE_FEATURES = [
+    *KITING_METRICS,
+    "spacing_meleeRangeSec_per_min", "spacing_isolatedSec_per_min",
+    "median_dist_to_healer_yd", "pct_time_beyond_heal_range",
+    "own_half_time_frac", "damageDone_per_min", "my_time_on_enemy_healer_frac",
+    "our_go_per_min", "enemy_go_per_min",
+]
+ARCHETYPE_ANCHOR_MIN_N = 50   # the sufficiency verdict's categorical-slice floor
 
-def anchors_for(df: pd.DataFrame, features: list[str]) -> dict:
-    """Per-feature win/loss distribution quantiles - the coach's context anchors."""
+
+def anchors_for(df: pd.DataFrame, features: list[str], include_rb: bool = False) -> dict:
+    """Per-feature win/loss distribution quantiles - the coach's context anchors.
+    include_rb adds the distribution's own rank-biserial: slice anchors need their own
+    direction (the global screen's sign can be the OPPOSITE of the slice's)."""
     out = {}
     y = df["win"].to_numpy()
     for col in features:
@@ -26,6 +47,25 @@ def anchors_for(df: pd.DataFrame, features: list[str]) -> dict:
             "loss_q": [round(float(q), 3) for q in np.quantile(loss, ANCHOR_QUANTILES)],
             "quantiles": ANCHOR_QUANTILES,
         }
+        if include_rb:
+            out[col]["rank_biserial"] = round(rank_biserial(win, loss), 3)
+    return out
+
+
+def anchors_by_archetype(df: pd.DataFrame, features: list[str] = COMP_SENSITIVE_FEATURES,
+                         min_n: int = ARCHETYPE_ANCHOR_MIN_N) -> dict:
+    """Comp-conditioned anchors: anchors_for over each enemy_comp_archetype slice with
+    n >= min_n (anchors_for's own >=15-win/>=15-loss per-feature gate still applies).
+    Archetypes whose slice yields no anchors are omitted - the pack never places a
+    feature against an anchor the data couldn't support."""
+    out: dict = {}
+    cols = [f for f in features if f in df.columns]
+    for archetype, sub in iter_levels(df, "enemy_comp_archetype", min_n, skip_none=True):
+        anchors = anchors_for(sub, cols, include_rb=True)
+        if anchors:
+            out[archetype] = {"n": int(len(sub)),
+                              "win_rate": round(float(sub["win"].mean()), 4),
+                              "anchors": anchors}
     return out
 
 
@@ -62,13 +102,22 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
                   transseasonal: set[str] | None = None,
                   interactions: pd.DataFrame | None = None,
                   gbm_h2: pd.DataFrame | None = None,
-                  data_sufficiency: dict | None = None) -> None:
+                  data_sufficiency: dict | None = None,
+                  targeting_crosstab: list[dict] | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     y = df["win"]
     sig = screen_df[screen_df["q_raw"] <= 0.10]
+    # comp-sensitive features are always globally anchored, significant or not, so the
+    # pack can show the global placement next to every vs_this_comp placement
     top_anchor_feats = list(sig["feature"].head(40))
+    top_anchor_feats += [f for f in COMP_SENSITIVE_FEATURES
+                         if f in df.columns and f not in top_anchor_feats]
     atlas_summary = death_atlas_summary(death_atlas or [])
     ts = transseasonal or set()
+    # name registries are hand-maintained; a renamed feature degrades silently otherwise
+    stale = sorted((set(COMP_SENSITIVE_FEATURES) | ts) - set(df.columns))
+    if stale:
+        print(f"[wae] WARNING: registry names not in the feature frame: {', '.join(stale)}")
 
     screen_records = screen_df.round(4).to_dict(orient="records")
     for rec in screen_records:
@@ -86,11 +135,13 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
         "models": model_results,
         "correlation_clusters": clusters,
         "anchors": anchors_for(df, top_anchor_feats),
+        "anchors_by_enemy_archetype": anchors_by_archetype(df),
         "death_atlas_summary": atlas_summary,
         "interactions": {
             "pairs": interactions.to_dict(orient="records") if interactions is not None and not interactions.empty else [],
             "gbm_h2": gbm_h2.to_dict(orient="records") if gbm_h2 is not None and not gbm_h2.empty else [],
         },
+        "targeting_crosstab": targeting_crosstab or [],
         "data_sufficiency": data_sufficiency or {},
         "caveats": caveats,
     }
@@ -145,6 +196,21 @@ def write_reports(out_dir: Path, label: str, df: pd.DataFrame, screen_df: pd.Dat
         for _, r in cat_screened.head(30).iterrows():
             md.append(f"| {r['variable']} | {r['level']} | {r['n']} | {r['win_rate']:.1%} | "
                       f"{r['ci_lo']:.0%}–{r['ci_hi']:.0%} | {r['baseline']:.1%} | {r['q']:.3f} |")
+        md.append("")
+
+    if targeting_crosstab:
+        md.append("## Kill-target / first-death profile by enemy comp\n")
+        md.append("*Descriptive priors (no FDR family). 'losses: ...' = of losses vs this "
+                  "comp, who died first; 'WR me-first' = win rate when I die first.*\n")
+        md.append("| comp variable | level | n | win rate | losses: me / dps / healer / enemy-first | WR me-first |")
+        md.append("|---|---|---|---|---|---|")
+        for r in targeting_crosstab[:20]:
+            lf = r["loss_first_death"]
+            shares = (" / ".join(f"{lf[k]:.0%}" for k in ROLES)
+                      + f" (n={r['n_loss']})") if lf else "—"
+            me = r["wr_by_first_death"].get("me")
+            md.append(f"| {r['variable']} | {r['level']} | {r['n']} | {r['win_rate']:.1%} | "
+                      f"{shares} | {f'{me['wr']:.0%} (n={me['n']})' if me else '—'} |")
         md.append("")
 
     if atlas_summary:
