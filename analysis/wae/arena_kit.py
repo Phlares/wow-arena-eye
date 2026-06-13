@@ -88,6 +88,18 @@ def parse_placements(csv_text: str) -> list[dict]:
     return out
 
 
+def dedup_placements(recs: list[dict]) -> list[dict]:
+    """Drop models listed in more than one tile CSV - a WMO straddling a tile boundary
+    appears in both tiles' dumps with identical fdid + position. Keeps the first."""
+    seen, out = set(), []
+    for r in recs:
+        key = (r["fdid"], tuple(np.round(r["pos"], 1)))
+        if key not in seen:
+            seen.add(key)
+            out.append(r)
+    return out
+
+
 def footprint(tris: np.ndarray, band) -> np.ndarray:
     """(n,2,2) cross-section segments: slice the placed triangles across a vertical band
     [lo_f, hi_f] of their own height range (band = (lo_f, hi_f, n_slices))."""
@@ -109,7 +121,9 @@ def assemble(export_dir, config: dict) -> str:
             _cache[rel] = mapkit.load_obj(resolve_mesh(export_dir, rel))
         return _cache[rel]
 
-    recs = parse_placements((export_dir / config["csv"]).read_text(encoding="utf8"))
+    csv_paths = config["csv"] if isinstance(config["csv"], list) else [config["csv"]]
+    recs = dedup_placements([r for c in csv_paths
+                             for r in parse_placements((export_dir / c).read_text(encoding="utf8"))])
     by_fdid = {}                       # first-wins: a duplicated fdid keeps its first placement
     for r in recs:
         by_fdid.setdefault(r["fdid"], r)

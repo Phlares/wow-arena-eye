@@ -96,6 +96,39 @@ def test_assemble_end_to_end(tmp_path):
     assert "<path d=" in svg and "Test Arena" in svg
 
 
+def test_dedup_placements_drops_straddling_duplicates():
+    recs = [
+        {"fdid": 1, "pos": np.array([10.0, 0.0, 5.0])},
+        {"fdid": 1, "pos": np.array([10.04, 0.0, 5.0])},   # same model, other tile (rounds equal)
+        {"fdid": 2, "pos": np.array([1.0, 0.0, 1.0])},
+    ]
+    out = arena_kit.dedup_placements(recs)
+    assert [r["fdid"] for r in out] == [1, 2]              # straddling dup dropped, first kept
+
+
+def test_assemble_multi_tile_csv(tmp_path):
+    (tmp_path / "world" / "wmo").mkdir(parents=True)
+    (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")
+    (tmp_path / "maps").mkdir()
+    arena_row = "..\\..\\world\\wmo\\cube.obj;0;0;0;0;0;0;0;1;1;wmo;999;0;Set\n"
+    head = _CSV.splitlines()[0] + "\n"
+    # arena straddles both tiles (identical row); each tile carries a distinct prop
+    (tmp_path / "maps" / "t1.csv").write_text(
+        head + arena_row + "..\\..\\world\\wmo\\cube.obj;20;0;0;0;0;0;0;1;2;wmo;888;0;Set\n", encoding="utf8")
+    (tmp_path / "maps" / "t2.csv").write_text(
+        head + arena_row + "..\\..\\world\\wmo\\cube.obj;-20;0;0;0;0;0;0;1;3;wmo;777;0;Set\n", encoding="utf8")
+    config = {
+        "zone": "0", "name": "Two Tile", "csv": ["maps/t1.csv", "maps/t2.csv"],
+        "arena": {"fdid": 999, "band": [0.2, 0.8, 3]},
+        "categories": [
+            {"label": "east", "fdids": [888], "kind": "wmo", "band": [0.2, 0.8, 2], "color": "#f00"},
+            {"label": "west", "fdids": [777], "kind": "wmo", "band": [0.2, 0.8, 2], "color": "#00f"},
+        ],
+    }
+    svg = arena_kit.assemble(tmp_path, config)
+    assert 'id="east"' in svg and 'id="west"' in svg   # props from BOTH tiles rendered
+
+
 def test_assemble_missing_arena_fdid_raises(tmp_path):
     (tmp_path / "world" / "wmo").mkdir(parents=True)
     (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")
