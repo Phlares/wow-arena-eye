@@ -1,0 +1,13 @@
+{
+  "zone": "2547",
+  "name": "Enigma Crucible",
+  "csv": "maps/2547/adt_31_31_ModelPlacementInformation.csv",
+  "arena": {"fdid": 6935263, "band": [0.1, 0.6, 4], "color": "#999"},
+  "categories": [
+    {"label": "grandgate", "fdids": [3922474], "kind": "wmo", "band": [0.05, 0.5, 3], "color": "#7a3fd2", "radius": 95, "width": 1.0},
+    {"label": "tallwall", "fdids": [3931802, 3889790], "kind": "wmo", "band": [0.05, 0.4, 3], "color": "#1aa39a", "radius": 95},
+    {"label": "cornerpillar", "fdids": [3889786], "kind": "wmo", "band": [0.05, 0.5, 2], "color": "#8a5a2b", "radius": 95, "width": 1.0},
+    {"label": "hexcolumn", "fdids": [4264206], "kind": "m2", "band": [0.05, 0.5, 2], "color": "#e01b1b", "width": 1.2},
+    {"label": "hexrock", "fdids": [4264207], "kind": "m2", "band": [0.05, 0.5, 2], "color": "#d28a3f", "width": 1.2}
+  ]
+}
