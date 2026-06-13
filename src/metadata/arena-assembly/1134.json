@@ -1,0 +1,10 @@
+{
+  "zone": "1134",
+  "name": "Tiger's Peak",
+  "csv": "maps/shadopanarena/adt_30_30_ModelPlacementInformation.csv",
+  "arena": {"fdid": 850048, "band": [0.05, 0.6, 5], "color": "#999"},
+  "categories": [
+    {"label": "platform", "fdids": [841360], "kind": "wmo", "band": [0.2, 0.8, 3], "color": "#1d6fdc"},
+    {"label": "statue", "fdids": [841339], "kind": "wmo", "band": [0.05, 0.45, 3], "color": "#e01b1b", "width": 1.1}
+  ]
+}

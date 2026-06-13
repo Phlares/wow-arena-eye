@@ -1,0 +1,9 @@
+{
+  "zone": "1504",
+  "name": "Black Rook Hold",
+  "csv": "maps/blackrookholdarena/adt_29_29_ModelPlacementInformation.csv",
+  "arena": {"fdid": 1274735, "mesh": "world/wmo/pvp/buildings/blackrookhold/7vs_blackrookhold_arena_arena.obj", "band": [0.05, 0.55, 5], "color": "#999"},
+  "categories": [
+    {"label": "platform", "fdids": [1380596], "mesh": "world/wmo/pvp/buildings/blackrookhold/blackrookhold_arena_platformtest_set0.obj", "kind": "wmo", "band": [0.1, 0.6, 4], "color": "#1d6fdc", "width": 1.0}
+  ]
+}
