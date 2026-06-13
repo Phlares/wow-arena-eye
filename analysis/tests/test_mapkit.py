@@ -29,7 +29,7 @@ def test_plane_slice_cuts_a_crossing_triangle():
     assert {round(x1, 3), round(x2, 3)} == {2.0, 0.0}
     assert {round(z1, 3), round(z2, 3)} == {0.0, 2.0}
     # a plane above the triangle cuts nothing
-    assert mapkit.plane_slice(verts, faces, height=5.0) == []
+    assert len(mapkit.plane_slice(verts, faces, height=5.0)) == 0
 
 
 def test_wmo_to_world_yaw_and_mirror():

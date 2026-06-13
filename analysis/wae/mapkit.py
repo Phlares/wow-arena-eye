@@ -16,16 +16,21 @@ Draw in Figma over these layers, export SVG, and the same contract maps the draw
 back to world yards.
 
 Run: .venv\\Scripts\\python -m wae.mapkit [--zone all|1505] [--matches 3]
-     [--wmo-dir <dir> --wmo-zone 1505 --wmo-mirror -1 --wmo-yaw 0
-      --wmo-tx -2055.3 --wmo-ty 6651.5 --wmo-heights 1.5,15,26]
+     [--wmo-dir <wow.export dir of .obj groups> --wmo-zone 1505]
 Emits: output/mapkit/<zone>-<arena>.svg
 
-The Nagrand 1505 transform above is the registration fit from 2026-06-12 (pillar
-geometry vs occupancy voids); nudge visually in Figma if it's a yard or two off.
+The WMO transform comes from the committed per-zone registration fit
+(src/metadata/wmo-registration/<zone>.json) - nudge tx/ty there if the overlay
+sits a yard or two off in Figma.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
+
+from .features import _team_maps
+from .features2 import PLAYABLE_VOIDNESS_MAX
 
 SVG_NS = "http://www.w3.org/2000/svg"
 PAD_YD = 8.0
@@ -53,13 +58,18 @@ def load_obj(path) -> tuple[np.ndarray, np.ndarray]:
     return np.array(vs, dtype=float), np.array(fs, dtype=int)
 
 
-def plane_slice(verts: np.ndarray, faces: np.ndarray, height: float) -> list:
-    """Cross-section: segments ((x1,z1),(x2,z2)) where triangles cross the horizontal
-    plane y=height - a floor-plan cut through walls/pillars at fight height."""
-    segs = []
-    tri = verts[faces]                       # (n, 3, 3)
+def plane_slice(verts: np.ndarray, faces: np.ndarray, height: float) -> np.ndarray:
+    """Cross-section: (n, 2, 2) segments in the (x, z) plane where triangles cross the
+    horizontal plane y=height - a floor-plan cut through walls/pillars at fight height."""
+    return _slice_tri(verts[faces], height)
+
+
+def _slice_tri(tri: np.ndarray, height: float) -> np.ndarray:
+    """Slice pre-gathered (n, 3, 3) triangles - callers slicing several heights gather
+    the (multi-MB) triangle array once."""
     d = tri[:, :, 1] - height                # signed distance per corner
-    crossing = ~((d > 0).all(1) | (d < 0).all(1) | (d == 0).all(1))
+    crossing = (d > 0).any(1) & (d < 0).any(1)
+    segs = []
     for t, dd in zip(tri[crossing], d[crossing]):
         pts = []
         for a, b in ((0, 1), (1, 2), (2, 0)):
@@ -68,10 +78,10 @@ def plane_slice(verts: np.ndarray, faces: np.ndarray, height: float) -> list:
                 continue
             w = da / (da - db)
             p = t[a] + w * (t[b] - t[a])
-            pts.append((float(p[0]), float(p[2])))
+            pts.append((p[0], p[2]))
         if len(pts) == 2:
-            segs.append((pts[0], pts[1]))
-    return segs
+            segs.append(pts)
+    return np.array(segs, dtype=float).reshape(-1, 2, 2)
 
 
 def wmo_to_world(xy: np.ndarray, mirror: int, yaw_deg: float, tx: float, ty: float) -> np.ndarray:
@@ -94,7 +104,7 @@ def voids_layer(grid: dict, bounds: dict, pad: float = PAD_YD) -> str:
     b = grid["bounds"]
     v = np.asarray(grid["voidness"], dtype=float).reshape(grid["rows"], grid["cols"])
     rects = []
-    for r, c in zip(*np.nonzero(v >= 0.5)):
+    for r, c in zip(*np.nonzero(v >= PLAYABLE_VOIDNESS_MAX)):
         x, y = world_to_svg(b["minX"] + c * cell, b["minY"] + (r + 1) * cell, bounds, pad)
         rects.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{cell}" height="{cell}"/>')
     return (f'<g id="occupancy-voids" fill="#999" fill-opacity="0.35" stroke="none">'
@@ -106,6 +116,8 @@ def occluders_layer(occ: dict, bounds: dict, pad: float = PAD_YD) -> str:
     polys = []
     for kind in ("walls", "pillars", "manual"):
         for poly in occ.get(kind) or []:
+            # walls/pillars are bare point arrays; manual entries are ManualOccluder
+            # dicts ({heightYd, points, label}) per src/metrics/occluderOverrides.ts
             pts = poly.get("points", poly) if isinstance(poly, dict) else poly
             polys.append(f'<polygon class="{kind}" points="{_poly_points(pts, bounds, pad)}"/>')
     return (f'<g id="fitted-occluders" fill="none" stroke="#7a3fd2" stroke-width="0.4">'
@@ -117,20 +129,14 @@ def movement_layer(match_blobs: list[tuple[str, dict]], bounds: dict,
     """One polyline per unit per match: friendly green, enemy red, recorder blue."""
     groups = []
     for match_id, blob in match_blobs:
-        team = {}
-        for tg in blob.get("teams", []):
-            for pg in tg.get("players", []):
-                p = pg.get("player", {})
-                team[p.get("unitId")] = tg.get("team")
+        team, _spec = _team_maps(blob)
         recorder = blob.get("playerUnitId")
         lines = []
         for tr in blob.get("positionTracks", []):
             uid = tr.get("unitId")
             if uid not in team:
                 continue   # pets stay out - unit paths only
-            pts = " ".join(f"{x:.2f},{y:.2f}" for x, y in
-                           (world_to_svg(s["x"], s["y"], bounds, pad)
-                            for s in tr.get("samples", [])))
+            pts = _poly_points(tr.get("samples", []), bounds, pad)
             if not pts:
                 continue
             color = RECORDER_COLOR if uid == recorder else TEAM_COLORS.get(team[uid], "#666")
@@ -144,24 +150,23 @@ def movement_layer(match_blobs: list[tuple[str, dict]], bounds: dict,
 def wmo_layer(obj_dir, transform: dict, bounds: dict, heights: list[float],
               pad: float = PAD_YD) -> str:
     """Cross-sections of every OBJ in the dir at each height, in world coords."""
-    from pathlib import Path
     groups = []
-    objs = [(p, *load_obj(p)) for p in sorted(Path(obj_dir).glob("*.obj"))]
+    tris = []
+    for p in sorted(Path(obj_dir).glob("*.obj")):
+        verts, faces = load_obj(p)
+        tris.append((p.stem, verts[faces]))
     for h in heights:
         paths = []
-        for p, verts, faces in objs:
-            segs = plane_slice(verts, faces, h)
-            if not segs:
+        for stem, tri in tris:
+            segs = _slice_tri(tri, h)
+            if not len(segs):
                 continue
-            a = wmo_to_world(np.array([s[0] for s in segs]), **transform)
-            b = np.array([s[1] for s in segs])
-            b = wmo_to_world(b, **transform)
-            d = "".join(f"M{world_to_svg(*pa, bounds, pad)[0]:.2f},"
-                        f"{world_to_svg(*pa, bounds, pad)[1]:.2f} "
-                        f"L{world_to_svg(*pb, bounds, pad)[0]:.2f},"
-                        f"{world_to_svg(*pb, bounds, pad)[1]:.2f}"
-                        for pa, pb in zip(a, b))
-            paths.append(f'<path data-obj="{p.stem}" d="{d}"/>')
+            # transform + svg-map all endpoints in two vector ops, then format
+            w = wmo_to_world(segs.reshape(-1, 2), **transform)
+            sp = np.column_stack([w[:, 0] - bounds["minX"] + pad,
+                                  bounds["maxY"] - w[:, 1] + pad]).reshape(-1, 2, 2)
+            d = "".join(f"M{a[0]:.2f},{a[1]:.2f} L{b[0]:.2f},{b[1]:.2f}" for a, b in sp)
+            paths.append(f'<path data-obj="{stem}" d="{d}"/>')
         groups.append(f'<g id="wmo-slice-{h:g}" fill="none" stroke="#111" '
                       f'stroke-width="0.15">' + "".join(paths) + "</g>")
     return "".join(groups)
@@ -195,8 +200,6 @@ def svg_document(arena: str, zone: str, bounds: dict, layers: list[str],
 
 def main() -> None:
     import argparse
-    import json
-    from pathlib import Path
 
     from . import db
 
@@ -206,14 +209,16 @@ def main() -> None:
     ap.add_argument("--matches", type=int, default=3, help="recent matches to paint")
     ap.add_argument("--out", default=str(db.REPO_ROOT / "output" / "mapkit"))
     ap.add_argument("--wmo-dir", default=None, help="wow.export dir of .obj groups")
-    ap.add_argument("--wmo-zone", default=None, help="zone the WMO layer applies to")
-    ap.add_argument("--wmo-mirror", type=int, default=-1)
-    ap.add_argument("--wmo-yaw", type=float, default=0.0)
-    ap.add_argument("--wmo-tx", type=float, default=0.0)
-    ap.add_argument("--wmo-ty", type=float, default=0.0)
-    ap.add_argument("--wmo-heights", default="1.5,15,26",
-                    help="comma-separated slice heights (obj Y-up yards)")
+    ap.add_argument("--wmo-zone", default=None,
+                    help="zone the WMO belongs to (transform read from "
+                         "src/metadata/wmo-registration/<zone>.json)")
     args = ap.parse_args()
+    if bool(args.wmo_dir) != bool(args.wmo_zone):
+        ap.error("--wmo-dir and --wmo-zone must be given together")
+    registration = db.load_wmo_registration(args.wmo_zone) if args.wmo_zone else None
+    if args.wmo_zone and registration is None:
+        ap.error(f"no registration fit committed for zone {args.wmo_zone} "
+                 f"(src/metadata/wmo-registration/{args.wmo_zone}.json)")
 
     arenas = db.arenas_table()
     rows = db.load_matches(args.db)
@@ -235,31 +240,30 @@ def main() -> None:
         if grid:
             bounds = grid["bounds"]
         else:
-            xs = [s["x"] for _m, b in blobs for tr in b.get("positionTracks", [])
-                  for s in tr.get("samples", [])]
-            ys = [s["y"] for _m, b in blobs for tr in b.get("positionTracks", [])
-                  for s in tr.get("samples", [])]
-            if not xs:
+            samples = [s for _m, b in blobs for tr in b.get("positionTracks", [])
+                       for s in tr.get("samples", [])]
+            if not samples:
                 print(f"[mapkit] {zone}: no positions, skipped")
                 continue
-            bounds = {"minX": min(xs), "minY": min(ys), "maxX": max(xs), "maxY": max(ys)}
+            bounds = {"minX": min(s["x"] for s in samples), "minY": min(s["y"] for s in samples),
+                      "maxX": max(s["x"] for s in samples), "maxY": max(s["y"] for s in samples)}
 
         layers = []
         if grid:
             layers.append(voids_layer(grid, bounds))
-        occ_path = db.REPO_ROOT / "src" / "metadata" / "occluders" / f"{zone}.json"
-        if occ_path.exists():
-            layers.append(occluders_layer(json.loads(occ_path.read_text(encoding="utf8")), bounds))
+        occ = db.load_occluders(zone)
+        if occ:
+            layers.append(occluders_layer(occ, bounds))
         layers.append(movement_layer(blobs, bounds))
-        if args.wmo_dir and zone == (args.wmo_zone or zone):
-            transform = {"mirror": args.wmo_mirror, "yaw_deg": args.wmo_yaw,
-                         "tx": args.wmo_tx, "ty": args.wmo_ty}
-            heights = [float(x) for x in args.wmo_heights.split(",")]
-            layers.append(wmo_layer(args.wmo_dir, transform, bounds, heights))
+        if registration and zone == args.wmo_zone:
+            transform = {"mirror": registration["mirror"], "yaw_deg": registration["yawDeg"],
+                         "tx": registration["tx"], "ty": registration["ty"]}
+            layers.append(wmo_layer(args.wmo_dir, transform, bounds, registration["heights"]))
         layers.append(scale_layer(bounds))
 
         arena = arenas.get(zone, zone)
-        path = out_dir / f"{zone}-{arena.replace(' ', '-').replace(chr(39), '')}.svg"
+        slug = arena.replace(" ", "-").replace("'", "")
+        path = out_dir / f"{zone}-{slug}.svg"
         path.write_text(svg_document(arena, zone, bounds, layers), encoding="utf8")
         print(f"[mapkit] wrote {path.name} ({len(recent)} matches painted)")
 

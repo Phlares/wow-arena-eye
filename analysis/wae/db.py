@@ -35,6 +35,19 @@ def load_occupancy(zone_id: str) -> dict | None:
     return _GRID_CACHE[zone_id]
 
 
+def load_occluders(zone_id: str) -> dict | None:
+    """The committed fitted occluder vectors (walls/pillars/manual) for a zone, or None."""
+    path = REPO_ROOT / "src/metadata/occluders" / f"{zone_id}.json"
+    return json.loads(path.read_text(encoding="utf8")) if path.exists() else None
+
+
+def load_wmo_registration(zone_id: str) -> dict | None:
+    """The committed WMO->world registration fit for a zone (mirror/yawDeg/tx/ty/heights,
+    yards, scale 1:1), or None. Authored by the mapkit registration workflow."""
+    path = REPO_ROOT / "src/metadata/wmo-registration" / f"{zone_id}.json"
+    return json.loads(path.read_text(encoding="utf8")) if path.exists() else None
+
+
 def load_matches(db_path: str | Path, bracket: str = "3v3", character: str | None = None) -> list[dict]:
     """Ranked-match rows (newest season only is assumed ingested), oldest first."""
     con = sqlite3.connect(db_path)
