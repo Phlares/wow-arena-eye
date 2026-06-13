@@ -1,0 +1,11 @@
+{
+ "zoneId": "1505",
+ "mirror": -1,
+ "yawDeg": 0,
+ "tx": -2055.3,
+ "ty": 6651.5,
+ "heights": [1.5, 15, 26],
+ "source": "registration vs occupancy voids (pillar geometry), wae.mapkit",
+ "generated": "2026-06-12",
+ "note": "world = R(yawDeg) @ (objX, mirror*objZ) + (tx, ty); scale 1:1 yd. Nudge tx/ty here if the Figma overlay sits a yard or two off."
+}
