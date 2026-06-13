@@ -42,10 +42,20 @@ def load_occluders(zone_id: str) -> dict | None:
 
 
 def load_wmo_registration(zone_id: str) -> dict | None:
-    """The committed WMO->world registration fit for a zone (mirror/yawDeg/tx/ty/heights,
-    yards, scale 1:1), or None. Authored by the mapkit registration workflow."""
+    """The committed WMO->world registration fit for a zone, or None. Validated on load:
+    these files are hand-nudged (the note in each invites it), so a typo'd key or a
+    copy-pasted wrong-zone file must fail HERE, not as a KeyError mid-render. Heights
+    are OBJ-local Y-up yards (pre-transform - the registration is 2D-only)."""
     path = REPO_ROOT / "src/metadata/wmo-registration" / f"{zone_id}.json"
-    return json.loads(path.read_text(encoding="utf8")) if path.exists() else None
+    if not path.exists():
+        return None
+    reg = json.loads(path.read_text(encoding="utf8"))
+    missing = [k for k in ("mirror", "yawDeg", "tx", "ty", "heights") if k not in reg]
+    if missing:
+        raise ValueError(f"{path.name}: missing keys {missing}")
+    if str(reg.get("zoneId")) != str(zone_id):
+        raise ValueError(f"{path.name}: zoneId {reg.get('zoneId')!r} != filename zone {zone_id!r}")
+    return reg
 
 
 def load_matches(db_path: str | Path, bracket: str = "3v3", character: str | None = None) -> list[dict]:

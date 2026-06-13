@@ -38,13 +38,16 @@ TEAM_COLORS = {"friendly": "#2a9d4e", "enemy": "#d23f3f"}
 RECORDER_COLOR = "#1d6fdc"
 
 
-def world_to_svg(x: float, y: float, bounds: dict, pad: float = 0.0) -> tuple[float, float]:
-    """World yards -> svg units. North (maxY) maps to the top of the document."""
+def world_to_svg(x, y, bounds: dict, pad: float = 0.0):
+    """World yards -> svg units (maxY maps to the top of the document). Works
+    elementwise on numpy arrays too. Layers emit in pad-free content space; the
+    document pad is applied ONCE by svg_document's translate group."""
     return (x - bounds["minX"] + pad, bounds["maxY"] - y + pad)
 
 
 def load_obj(path) -> tuple[np.ndarray, np.ndarray]:
-    """wow.export OBJ -> (verts Nx3 Y-up, triangle faces Mx3). Polygons fan-triangulated."""
+    """wow.export OBJ -> (verts Nx3 Y-up, triangle faces Mx3). Polygons fan-triangulated.
+    The faces reshape keeps face-less OBJs (collision-only exports) a valid empty Mx3."""
     vs, fs = [], []
     with open(path, encoding="utf8", errors="ignore") as f:
         for line in f:
@@ -55,7 +58,7 @@ def load_obj(path) -> tuple[np.ndarray, np.ndarray]:
                 idx = [int(tok.split("/")[0]) - 1 for tok in line.split()[1:]]
                 for i in range(1, len(idx) - 1):
                     fs.append((idx[0], idx[i], idx[i + 1]))
-    return np.array(vs, dtype=float), np.array(fs, dtype=int)
+    return np.array(vs, dtype=float), np.array(fs, dtype=int).reshape(-1, 3)
 
 
 def plane_slice(verts: np.ndarray, faces: np.ndarray, height: float) -> np.ndarray:
@@ -93,39 +96,40 @@ def wmo_to_world(xy: np.ndarray, mirror: int, yaw_deg: float, tx: float, ty: flo
     return p @ rot.T + np.array([tx, ty])
 
 
-def _poly_points(poly: list[dict], bounds: dict, pad: float) -> str:
+def _poly_points(poly: list[dict], bounds: dict) -> str:
     return " ".join(f"{x:.2f},{y:.2f}" for x, y in
-                    (world_to_svg(p["x"], p["y"], bounds, pad) for p in poly))
+                    (world_to_svg(p["x"], p["y"], bounds) for p in poly))
 
 
-def voids_layer(grid: dict, bounds: dict, pad: float = PAD_YD) -> str:
-    """Gray cell rects where the occupancy raster says non-walkable (voidness >= 0.5)."""
+def voids_layer(grid: dict, bounds: dict) -> str:
+    """Gray cell rects where the occupancy raster says non-walkable (voidness at or
+    above PLAYABLE_VOIDNESS_MAX, the shared mirror of lineOfSight.ts CLEAR_MAX)."""
     cell = grid["cellSize"]
     b = grid["bounds"]
     v = np.asarray(grid["voidness"], dtype=float).reshape(grid["rows"], grid["cols"])
     rects = []
     for r, c in zip(*np.nonzero(v >= PLAYABLE_VOIDNESS_MAX)):
-        x, y = world_to_svg(b["minX"] + c * cell, b["minY"] + (r + 1) * cell, bounds, pad)
+        x, y = world_to_svg(b["minX"] + c * cell, b["minY"] + (r + 1) * cell, bounds)
         rects.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{cell}" height="{cell}"/>')
     return (f'<g id="occupancy-voids" fill="#999" fill-opacity="0.35" stroke="none">'
             + "".join(rects) + "</g>")
 
 
-def occluders_layer(occ: dict, bounds: dict, pad: float = PAD_YD) -> str:
-    """The current fitted vector occluders (walls + pillars + manual), for comparison."""
+def occluders_layer(occ: dict, bounds: dict) -> str:
+    """The current fitted vector occluders (walls + pillars + manual), for comparison.
+    Slopes (LoS height ramps) are deliberately not drawn - they aren't boundaries."""
     polys = []
     for kind in ("walls", "pillars", "manual"):
         for poly in occ.get(kind) or []:
             # walls/pillars are bare point arrays; manual entries are ManualOccluder
             # dicts ({heightYd, points, label}) per src/metrics/occluderOverrides.ts
-            pts = poly.get("points", poly) if isinstance(poly, dict) else poly
-            polys.append(f'<polygon class="{kind}" points="{_poly_points(pts, bounds, pad)}"/>')
+            pts = poly["points"] if isinstance(poly, dict) else poly
+            polys.append(f'<polygon class="{kind}" points="{_poly_points(pts, bounds)}"/>')
     return (f'<g id="fitted-occluders" fill="none" stroke="#7a3fd2" stroke-width="0.4">'
             + "".join(polys) + "</g>")
 
 
-def movement_layer(match_blobs: list[tuple[str, dict]], bounds: dict,
-                   pad: float = PAD_YD) -> str:
+def movement_layer(match_blobs: list[tuple[str, dict]], bounds: dict) -> str:
     """One polyline per unit per match: friendly green, enemy red, recorder blue."""
     groups = []
     for match_id, blob in match_blobs:
@@ -136,7 +140,7 @@ def movement_layer(match_blobs: list[tuple[str, dict]], bounds: dict,
             uid = tr.get("unitId")
             if uid not in team:
                 continue   # pets stay out - unit paths only
-            pts = _poly_points(tr.get("samples", []), bounds, pad)
+            pts = _poly_points(tr.get("samples", []), bounds)
             if not pts:
                 continue
             color = RECORDER_COLOR if uid == recorder else TEAM_COLORS.get(team[uid], "#666")
@@ -147,9 +151,10 @@ def movement_layer(match_blobs: list[tuple[str, dict]], bounds: dict,
     return '<g id="movement">' + "".join(groups) + "</g>"
 
 
-def wmo_layer(obj_dir, transform: dict, bounds: dict, heights: list[float],
-              pad: float = PAD_YD) -> str:
-    """Cross-sections of every OBJ in the dir at each height, in world coords."""
+def wmo_layer(obj_dir, transform: dict, bounds: dict, heights: list[float]) -> str:
+    """Cross-sections of every OBJ in the dir at each height (OBJ-local Y-up yards,
+    pre-transform - the registration is 2D, it never moves the vertical axis),
+    transformed into world coords."""
     groups = []
     tris = []
     for p in sorted(Path(obj_dir).glob("*.obj")):
@@ -163,8 +168,8 @@ def wmo_layer(obj_dir, transform: dict, bounds: dict, heights: list[float],
                 continue
             # transform + svg-map all endpoints in two vector ops, then format
             w = wmo_to_world(segs.reshape(-1, 2), **transform)
-            sp = np.column_stack([w[:, 0] - bounds["minX"] + pad,
-                                  bounds["maxY"] - w[:, 1] + pad]).reshape(-1, 2, 2)
+            sx, sy = world_to_svg(w[:, 0], w[:, 1], bounds)
+            sp = np.column_stack([sx, sy]).reshape(-1, 2, 2)
             d = "".join(f"M{a[0]:.2f},{a[1]:.2f} L{b[0]:.2f},{b[1]:.2f}" for a, b in sp)
             paths.append(f'<path data-obj="{stem}" d="{d}"/>')
         groups.append(f'<g id="wmo-slice-{h:g}" fill="none" stroke="#111" '
@@ -172,22 +177,27 @@ def wmo_layer(obj_dir, transform: dict, bounds: dict, heights: list[float],
     return "".join(groups)
 
 
-def scale_layer(bounds: dict, pad: float = PAD_YD) -> str:
-    """10-yd bar, bottom-left. The document is already 1 unit = 1 yd; this is the check."""
-    h = bounds["maxY"] - bounds["minY"] + 2 * pad
-    x, y = pad, h - pad / 2
+def scale_layer(bounds: dict) -> str:
+    """10-yd bar just below the content box (in the document's pad band). The document
+    is already 1 unit = 1 yd; this is the sanity check."""
+    y = bounds["maxY"] - bounds["minY"] + 4
     return (f'<g id="scale">'
-            f'<line id="scale-bar" x1="{x}" y1="{y}" x2="{x + 10}" y2="{y}" '
+            f'<line id="scale-bar" x1="0" y1="{y}" x2="10" y2="{y}" '
             f'stroke="#000" stroke-width="0.6"/>'
-            f'<text x="{x}" y="{y - 1.2}" font-size="2.5" font-family="sans-serif">'
+            f'<text x="0" y="{y - 1.2}" font-size="2.5" font-family="sans-serif">'
             f'10 yd</text></g>')
 
 
 def svg_document(arena: str, zone: str, bounds: dict, layers: list[str],
                  pad: float = PAD_YD) -> str:
+    """Layers come in pad-free content space; the pad is applied exactly once here,
+    by the translate group - so the embedded contract can never disagree with the
+    painted geometry."""
+    from xml.sax.saxutils import escape
+
     w = bounds["maxX"] - bounds["minX"] + 2 * pad
     h = bounds["maxY"] - bounds["minY"] + 2 * pad
-    desc = (f"{arena} (zone {zone}) at 1 svg unit = 1 yard. "
+    desc = (f"{escape(arena)} (zone {zone}) at 1 svg unit = 1 yard. "
             f"worldX = minX + (svgX - pad); worldY = maxY - (svgY - pad); "
             f"minX={bounds['minX']} minY={bounds['minY']} "
             f"maxX={bounds['maxX']} maxY={bounds['maxY']} pad={pad}")
@@ -195,7 +205,8 @@ def svg_document(arena: str, zone: str, bounds: dict, layers: list[str],
             f'width="{w * 8}" height="{h * 8}" '
             f'data-zone="{zone}" data-min-x="{bounds["minX"]}" data-min-y="{bounds["minY"]}" '
             f'data-max-x="{bounds["maxX"]}" data-max-y="{bounds["maxY"]}" data-pad="{pad}">'
-            f"<desc>{desc}</desc>" + "".join(layers) + "</svg>")
+            f"<desc>{desc}</desc>"
+            f'<g transform="translate({pad} {pad})">' + "".join(layers) + "</g></svg>")
 
 
 def main() -> None:
@@ -234,7 +245,7 @@ def main() -> None:
         if not zrows:
             print(f"[mapkit] {zone}: no matches in store, skipped")
             continue
-        recent = zrows[-args.matches:]
+        recent = zrows[-args.matches:] if args.matches > 0 else []   # -0 slices to ALL
         blobs = list(db.iter_blobs(args.db, [r["match_id"] for r in recent]))
         grid = db.load_occupancy(zone)
         if grid:

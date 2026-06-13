@@ -30,6 +30,8 @@ def test_plane_slice_cuts_a_crossing_triangle():
     assert {round(z1, 3), round(z2, 3)} == {0.0, 2.0}
     # a plane above the triangle cuts nothing
     assert len(mapkit.plane_slice(verts, faces, height=5.0)) == 0
+    # a face-less obj (collision-only wow.export group) slices to empty, not a crash
+    assert len(mapkit.plane_slice(verts, np.empty((0, 3), dtype=int), height=1.0)) == 0
 
 
 def test_wmo_to_world_yaw_and_mirror():
@@ -60,7 +62,7 @@ def _blob(team_units):
 def test_movement_layer_one_polyline_per_unit():
     bounds = {"minX": -100.0, "minY": 600.0, "maxX": -40.0, "maxY": 700.0}
     g = mapkit.movement_layer([("m1", _blob({"friendly": ["ME", "HEAL"], "enemy": ["E1"]}))],
-                              bounds, pad=0.0)
+                              bounds)
     el = ET.fromstring(g)   # bare fragment: no xmlns until it sits inside the root svg
     polys = el.findall(".//polyline")
     assert len(polys) == 3
