@@ -154,7 +154,9 @@ def assemble(export_dir, config: dict) -> str:
         kind = cat["kind"]
         if kind not in YAW_OFF:
             raise ValueError(f"category {cat['label']!r}: unknown kind {kind!r} (expected {sorted(YAW_OFF)})")
-        fdids, yaw, rad = set(cat["fdids"]), YAW_OFF[kind], cat.get("radius")
+        # yaw defaults to the type convention but can be overridden per category to dial in
+        # the unreliable M2 facing (e.g. perimeter fences that need a 90-deg own-axis spin).
+        fdids, yaw, rad = set(cat["fdids"]), cat.get("yaw", YAW_OFF[kind]), cat.get("radius")
         # Radius filter drops far map clutter; anchor_fdid centres it on a prop's position
         # (e.g. boundary props clustered near the market stall) rather than the arena.
         center = (find(cat["anchor_fdid"], f"category {cat['label']!r} anchor")["pos"] - origin)[[0, 2]] \

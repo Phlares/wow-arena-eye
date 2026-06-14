@@ -174,6 +174,28 @@ def test_assemble_wmo_lone_obj(tmp_path):
     assert 'id="floor"' in svg and "<path d=" in svg and "Lone WMO" in svg
 
 
+# a bar long in local X (6) x short Z (1) x 2 tall - footprint orientation reveals yaw
+_BAR_OBJ = "\n".join([
+    "v -3 -1 -0.5", "v 3 -1 -0.5", "v 3 -1 0.5", "v -3 -1 0.5",
+    "v -3 1 -0.5", "v 3 1 -0.5", "v 3 1 0.5", "v -3 1 0.5",
+    "f 1 2 6 5", "f 2 3 7 6", "f 3 4 8 7", "f 4 1 5 8",
+]) + "\n"
+
+
+def test_category_yaw_override(tmp_path):
+    (tmp_path / "world" / "wmo").mkdir(parents=True)
+    (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")
+    (tmp_path / "world" / "wmo" / "bar.obj").write_text(_BAR_OBJ, encoding="utf8")
+    (tmp_path / "maps").mkdir()
+    rows = ("..\\..\\world\\wmo\\cube.obj;0;0;0;0;0;0;0;1;1;wmo;100;0;Set\n"
+            "..\\..\\world\\wmo\\bar.obj;5;0;0;0;0;0;0;1;2;wmo;200;0;Set\n")
+    (tmp_path / "maps" / "t.csv").write_text(_CSV.splitlines()[0] + "\n" + rows, encoding="utf8")
+    base = {"zone": "0", "name": "Y", "csv": "maps/t.csv", "arena": {"fdid": 100, "band": [0.05, 0.6, 3]}}
+    go = lambda yaw: arena_kit.assemble(tmp_path, {**base, "categories": [
+        {"label": "bar", "fdids": [200], "kind": "wmo", "band": [0.2, 0.8, 3], "color": "#f00", "yaw": yaw}]})
+    assert go(0) != go(90)      # the override rotates the asymmetric bar -> different geometry
+
+
 def test_assemble_slab_radius_and_zband(tmp_path):
     (tmp_path / "world" / "wmo").mkdir(parents=True)
     (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")
