@@ -1,0 +1,9 @@
+{
+  "zone": "robodrome",
+  "name": "Robodrome",
+  "obj": "world/wmo/dungeon/robodrome/8du_robodrome_arena01.obj",
+  "layers": [
+    {"label": "floor", "heights": [-2, -1, 0, 1, 2], "color": "#999", "width": 0.8},
+    {"label": "structure", "heights": [5, 8, 11], "color": "#1aa39a", "width": 0.5}
+  ]
+}

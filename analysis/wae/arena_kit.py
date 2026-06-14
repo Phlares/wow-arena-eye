@@ -172,6 +172,61 @@ def assemble(export_dir, config: dict) -> str:
     for *_, s in named:          # ONE global reflection of the whole scene
         if len(s):
             reflect_x(s, gcx)
+    return _render(named, config)
+
+
+def slice_heights(tris: np.ndarray, heights) -> np.ndarray:
+    """(n,2,2) segments from cross-sectioning placed triangles at explicit absolute Y heights
+    (yards relative to the WMO origin) - used for lone-WMO floor-plans where the caller knows
+    the walkable band, rather than fractions of the mesh's own range."""
+    return _stack([s for h in heights if len((s := mapkit._slice_tri(tris, h)))])
+
+
+def load_obj_grouped(path) -> tuple[np.ndarray, dict]:
+    """Like mapkit.load_obj but keeps faces partitioned by their OBJ group ('g'/'o' line),
+    so callers can drop named groups (e.g. a centerRoom or rock-pile group) before slicing.
+    Returns (verts Nx3, {group_name: faces Mx3}); polygons are fan-triangulated."""
+    verts, groups, cur = [], {}, None
+    with open(path, encoding="utf8", errors="ignore") as fh:
+        for line in fh:
+            if line.startswith("v "):
+                verts.append([float(x) for x in line.split()[1:4]])
+            elif line.startswith(("g ", "o ")):
+                cur = line[2:].strip()
+            elif line.startswith("f "):
+                idx = [int(p.split("/")[0]) - 1 for p in line.split()[1:]]
+                groups.setdefault(cur, []).extend([idx[0], idx[k], idx[k + 1]] for k in range(1, len(idx) - 1))
+    return np.array(verts, float), {g: np.array(fs) for g, fs in groups.items() if fs}
+
+
+def assemble_wmo(export_dir, config: dict) -> str:
+    """Floor-plan of a single self-contained WMO OBJ (no placement CSV / no assembly). Each
+    config layer cross-sections the mesh at its own list of absolute Y heights; pass several
+    heights to surface a stair/ramp walkable band as contour lines. Reflected about the mesh
+    x-centre by default (the WoW->OBJ handedness flip), as for assembled arenas. Optional
+    exclude_groups drops named OBJ groups (decorative rock piles, an unwanted centerRoom)."""
+    export_dir = Path(export_dir)
+    mesh_path = resolve_mesh(export_dir, config["obj"])
+    excl = set(config.get("exclude_groups", []))
+    if excl:
+        v, gfaces = load_obj_grouped(mesh_path)
+        kept = [f for g, f in gfaces.items() if g not in excl]
+        tris = v[np.vstack(kept)] if kept else _EMPTY_SEGS
+    else:
+        v, f = mapkit.load_obj(mesh_path)
+        tris = v[f]
+    gcx = (v[:, 0].min() + v[:, 0].max()) / 2
+    named = [(L["label"], L.get("color", "#999"), L.get("width", 0.7), slice_heights(tris, L["heights"]))
+             for L in config["layers"]]
+    if config.get("reflect", True):
+        for *_, s in named:
+            if len(s):
+                reflect_x(s, gcx)
+    return _render(named, config)
+
+
+def _render(named: list, config: dict) -> str:
+    """Shared tail: named (label, colour, width, segments) layers -> floor-plan SVG."""
     allpts = np.vstack([s.reshape(-1, 2) for *_, s in named if len(s)])
     bounds = {"minX": float(allpts[:, 0].min()), "minY": float(allpts[:, 1].min()),
               "maxX": float(allpts[:, 0].max()), "maxY": float(allpts[:, 1].max())}
@@ -201,7 +256,8 @@ def main() -> None:
 
     cfg_path = db.REPO_ROOT / "src" / "metadata" / "arena-assembly" / f"{args.zone}.json"
     config = json.loads(cfg_path.read_text(encoding="utf8"))
-    svg = assemble(args.export_dir, config)
+    # "obj" config = a lone self-contained WMO (slice one mesh); "csv" = map-tile assembly.
+    svg = assemble_wmo(args.export_dir, config) if config.get("obj") else assemble(args.export_dir, config)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     slug = config.get("name", args.zone).replace(" ", "-").replace("'", "")

@@ -2,6 +2,8 @@
 recipe (validated across 6 arenas): per-model scale*R_euler(rx, ry+yaw_off, rz)*v +
 (pos-origin), then ONE global world-X reflection of the whole scene about the arena's
 symmetry axis. WMO yaw_off=-90; M2 differs (facing unreliable, positions exact)."""
+import re
+
 import numpy as np
 import pytest
 
@@ -127,6 +129,49 @@ def test_assemble_multi_tile_csv(tmp_path):
     }
     svg = arena_kit.assemble(tmp_path, config)
     assert 'id="east"' in svg and 'id="west"' in svg   # props from BOTH tiles rendered
+
+
+def test_slice_heights_absolute():
+    # the cube spans Y -1..1; slicing at Y=0 hits the four walls, at Y=9 misses entirely
+    verts = np.array([[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1],
+                      [-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]], float)
+    faces = np.array([[0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5],
+                      [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]])
+    tris = verts[faces]
+    assert len(arena_kit.slice_heights(tris, [0.0])) > 0
+    assert arena_kit.slice_heights(tris, [9.0]).shape == (0, 2, 2)
+
+
+# cube walls (group "keep") + a far vertical wall at X~100 (group "drop")
+_GROUPED_OBJ = "\n".join([
+    "v -1 -1 -1", "v 1 -1 -1", "v 1 -1 1", "v -1 -1 1", "v -1 1 -1", "v 1 1 -1", "v 1 1 1", "v -1 1 1",
+    "v 100 -1 100", "v 101 -1 100", "v 101 1 100", "v 100 1 100",
+    "g keep", "f 1 2 6 5", "f 2 3 7 6", "f 3 4 8 7", "f 4 1 5 8",
+    "g drop", "f 9 10 11 12",
+]) + "\n"
+
+
+def test_assemble_wmo_excludes_groups(tmp_path):
+    (tmp_path / "world").mkdir()
+    (tmp_path / "world" / "g.obj").write_text(_GROUPED_OBJ, encoding="utf8")
+    base = {"zone": "g", "name": "G", "obj": "world/g.obj", "reflect": False,
+            "layers": [{"label": "f", "heights": [0.0], "color": "#999"}]}
+    width = lambda svg: float(re.search(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+)', svg).group(1))
+    full = arena_kit.assemble_wmo(tmp_path, base)
+    pruned = arena_kit.assemble_wmo(tmp_path, {**base, "exclude_groups": ["drop"]})
+    assert width(full) > 90       # far 'drop' wall at X~100 widens the document
+    assert width(pruned) < 30     # excluding it leaves only the cube near the origin
+
+
+def test_assemble_wmo_lone_obj(tmp_path):
+    (tmp_path / "world" / "wmo").mkdir(parents=True)
+    (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")
+    config = {
+        "zone": "lone", "name": "Lone WMO", "obj": "world/wmo/cube.obj",
+        "layers": [{"label": "floor", "heights": [-0.5, 0.0, 0.5], "color": "#999", "width": 0.7}],
+    }
+    svg = arena_kit.assemble_wmo(tmp_path, config)
+    assert 'id="floor"' in svg and "<path d=" in svg and "Lone WMO" in svg
 
 
 def test_assemble_missing_arena_fdid_raises(tmp_path):

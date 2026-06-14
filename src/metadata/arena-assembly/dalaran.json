@@ -1,0 +1,9 @@
+{
+  "zone": "dalaran",
+  "name": "Dalaran Sewers",
+  "obj": "world/wmo/pvp/buildings/dalaran/dalaran_sewer_arena_Arenaz.obj",
+  "exclude_groups": ["Arenaz6"],
+  "layers": [
+    {"label": "walkable", "heights": [-14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4], "color": "#999", "width": 0.5}
+  ]
+}
