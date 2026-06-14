@@ -196,6 +196,20 @@ def test_category_yaw_override(tmp_path):
     assert go(0) != go(90)      # the override rotates the asymmetric bar -> different geometry
 
 
+def test_render_rotate_changes_orientation(tmp_path):
+    (tmp_path / "world" / "wmo").mkdir(parents=True)
+    (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")
+    (tmp_path / "world" / "wmo" / "bar.obj").write_text(_BAR_OBJ, encoding="utf8")
+    (tmp_path / "maps").mkdir()
+    rows = ("..\\..\\world\\wmo\\cube.obj;0;0;0;0;0;0;0;1;1;wmo;100;0;Set\n"
+            "..\\..\\world\\wmo\\bar.obj;5;0;0;0;0;0;0;1;2;wmo;200;0;Set\n")
+    (tmp_path / "maps" / "t.csv").write_text(_CSV.splitlines()[0] + "\n" + rows, encoding="utf8")
+    base = {"zone": "0", "name": "R", "csv": "maps/t.csv", "arena": {"center": [0, 0], "y": 0},
+            "categories": [{"label": "bar", "fdids": [200], "kind": "wmo", "band": [0.2, 0.8, 3], "color": "#f00", "radius": 30}]}
+    dims = lambda svg: re.search(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"', svg).groups()
+    assert dims(arena_kit.assemble(tmp_path, base)) != dims(arena_kit.assemble(tmp_path, {**base, "rotate": 45}))
+
+
 def test_assemble_slab_radius_and_zband(tmp_path):
     (tmp_path / "world" / "wmo").mkdir(parents=True)
     (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")

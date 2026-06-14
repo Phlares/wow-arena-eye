@@ -263,6 +263,13 @@ def assemble_wmo(export_dir, config: dict) -> str:
 
 def _render(named: list, config: dict) -> str:
     """Shared tail: named (label, colour, width, segments) layers -> floor-plan SVG."""
+    rot = config.get("rotate")          # optional whole-plan rotation (deg CCW) for a tidy upright trace
+    if rot:
+        th = np.radians(rot)
+        rmat = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
+        for *_, seg in named:
+            if len(seg):
+                seg[...] = seg @ rmat.T   # rotate the (x,z) points about the origin
     allpts = np.vstack([s.reshape(-1, 2) for *_, s in named if len(s)])
     bounds = {"minX": float(allpts[:, 0].min()), "minY": float(allpts[:, 1].min()),
               "maxX": float(allpts[:, 0].max()), "maxY": float(allpts[:, 1].max())}
