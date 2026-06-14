@@ -174,6 +174,25 @@ def test_assemble_wmo_lone_obj(tmp_path):
     assert 'id="floor"' in svg and "<path d=" in svg and "Lone WMO" in svg
 
 
+def test_assemble_slab_radius_and_zband(tmp_path):
+    (tmp_path / "world" / "wmo").mkdir(parents=True)
+    (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")
+    (tmp_path / "maps").mkdir()
+    head = _CSV.splitlines()[0] + "\n"
+    rows = (
+        "..\\..\\world\\wmo\\cube.obj;0;0;0;0;0;0;0;1;1;wmo;100;0;Set\n"      # arena
+        "..\\..\\world\\wmo\\cube.obj;10;0;0;0;0;0;0;1;2;wmo;200;0;Set\n"     # near (in radius)
+        "..\\..\\world\\wmo\\cube.obj;200;0;0;0;0;0;0;1;3;wmo;300;0;Set\n")   # far (out of radius)
+    (tmp_path / "maps" / "t.csv").write_text(head + rows, encoding="utf8")
+    config = {"zone": "0", "name": "Slab", "csv": "maps/t.csv",
+              "arena": {"fdid": 100, "band": [0.05, 0.6, 3]},
+              "slab": {"radius": 30, "z_band": [-1, 1], "slices": 5, "color": "#1a7"}}
+    svg = arena_kit.assemble(tmp_path, config)
+    width = float(re.search(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+)', svg).group(1))
+    assert 'id="slab"' in svg
+    assert width < 50      # near cube at X=10 kept, far cube at X=200 dropped by radius
+
+
 def test_assemble_missing_arena_fdid_raises(tmp_path):
     (tmp_path / "world" / "wmo").mkdir(parents=True)
     (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")

@@ -1,0 +1,7 @@
+{
+  "zone": "2759",
+  "name": "Cage of Carnage",
+  "csv": "maps/2759/adt_31_31_ModelPlacementInformation.csv",
+  "arena": {"fdid": 5760415, "band": [0.05, 0.6, 4], "color": "#999"},
+  "slab": {"radius": 60, "z_band": [-4, 4], "slices": 7, "color": "#1aa39a", "width": 0.5}
+}

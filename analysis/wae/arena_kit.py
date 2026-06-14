@@ -150,7 +150,7 @@ def assemble(export_dir, config: dict) -> str:
 
     # Thin arena outline under thicker prop strokes keeps the dense floor readable.
     named = [("arena", acfg.get("color", "#999"), acfg.get("width", 0.6), arena_seg)]
-    for cat in config["categories"]:
+    for cat in config.get("categories", []):
         kind = cat["kind"]
         if kind not in YAW_OFF:
             raise ValueError(f"category {cat['label']!r}: unknown kind {kind!r} (expected {sorted(YAW_OFF)})")
@@ -168,6 +168,27 @@ def assemble(export_dir, config: dict) -> str:
             if len(s):
                 segs.append(s)
         named.append((cat["label"], cat["color"], cat.get("width", 0.9), _stack(segs)))
+
+    # Slab mode (junk-perimeter arenas, e.g. Cage): instead of hand-picking prop fdids,
+    # grab EVERY model within a radius of the arena centre and slice it in an absolute
+    # vertical band around the arena base (base+z_band yards) - the band keeps wall/tower
+    # bases at play height and clips the tall decorative tops. Per-model yaw by CSV type.
+    if config.get("slab"):
+        sl = config["slab"]
+        base = arena_tris[:, :, 1].min()
+        lo, hi = sl["z_band"]
+        heights = list(np.linspace(base + lo, base + hi, sl.get("slices", 5)))
+        segs = []
+        for r in recs:
+            if r["fdid"] == acfg["fdid"] or not within((r["pos"] - origin)[[0, 2]], arena_center, sl["radius"]):
+                continue
+            v, f = mesh(r["file"])
+            if not len(v) or not len(f):     # FX / aura / collision stub with no drawable geometry
+                continue
+            s = slice_heights(place(v, r["pos"], r["rot"], r["scale"], origin, YAW_OFF[r["kind"]])[f], heights)
+            if len(s):
+                segs.append(s)
+        named.append((sl.get("label", "slab"), sl.get("color", "#1aa39a"), sl.get("width", 0.5), _stack(segs)))
 
     for *_, s in named:          # ONE global reflection of the whole scene
         if len(s):
