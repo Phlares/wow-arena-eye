@@ -1,0 +1,10 @@
+{
+  "zone": "572",
+  "name": "Ruins of Lordaeron",
+  "obj": "world/wmo/pvp/buildings/lordaeron/pvp_lordaeron_arena_set0.obj",
+  "layers": [
+    {"label": "lower", "heights": [-14, -12, -10, -8, -6, -4], "color": "#b07a7a", "width": 0.4},
+    {"label": "courtyard", "heights": [-2, -1, 0, 1], "color": "#999999", "width": 0.6},
+    {"label": "raised", "heights": [3, 5, 7, 9], "color": "#1d6fdc", "width": 0.5}
+  ]
+}
