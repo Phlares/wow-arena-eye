@@ -191,6 +191,10 @@ def test_assemble_slab_radius_and_zband(tmp_path):
     width = float(re.search(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+)', svg).group(1))
     assert 'id="slab"' in svg
     assert width < 50      # near cube at X=10 kept, far cube at X=200 dropped by radius
+    # promoting the near cube to a named category removes it from the leftover slab
+    promoted = arena_kit.assemble(tmp_path, {**config,
+        "categories": [{"label": "near", "fdids": [200], "kind": "wmo", "band": [0.05, 0.6, 3], "color": "#f00"}]})
+    assert 'id="near"' in promoted and 'id="slab"' not in promoted
 
 
 def test_assemble_missing_arena_fdid_raises(tmp_path):

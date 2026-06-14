@@ -178,9 +178,12 @@ def assemble(export_dir, config: dict) -> str:
         base = arena_tris[:, :, 1].min()
         lo, hi = sl["z_band"]
         heights = list(np.linspace(base + lo, base + hi, sl.get("slices", 5)))
+        # everything already drawn as a named structural layer is excluded, so the slab is
+        # purely the leftover clutter - a toggleable reference layer, not the boundary itself.
+        named_fdids = {acfg["fdid"], *(fd for cat in config.get("categories", []) for fd in cat["fdids"])}
         segs = []
         for r in recs:
-            if r["fdid"] == acfg["fdid"] or not within((r["pos"] - origin)[[0, 2]], arena_center, sl["radius"]):
+            if r["fdid"] in named_fdids or not within((r["pos"] - origin)[[0, 2]], arena_center, sl["radius"]):
                 continue
             v, f = mesh(r["file"])
             if not len(v) or not len(f):     # FX / aura / collision stub with no drawable geometry

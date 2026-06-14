@@ -2,6 +2,13 @@
   "zone": "2759",
   "name": "Cage of Carnage",
   "csv": "maps/2759/adt_31_31_ModelPlacementInformation.csv",
-  "arena": {"fdid": 5760415, "band": [0.05, 0.6, 4], "color": "#999"},
-  "slab": {"radius": 60, "z_band": [-4, 4], "slices": 7, "color": "#1aa39a", "width": 0.5}
+  "arena": {"fdid": 5760415, "band": [0.1, 0.7, 4], "color": "#999"},
+  "categories": [
+    {"label": "wall", "fdids": [5558818, 5558819], "kind": "wmo", "band": [0.1, 0.5, 3], "color": "#7a3fd2", "radius": 95, "width": 0.9},
+    {"label": "corner", "fdids": [5558820, 5558821], "kind": "wmo", "band": [0.1, 0.5, 3], "color": "#9a4fe2", "radius": 95, "width": 0.9},
+    {"label": "fence", "fdids": [5761507, 5761508, 5761509], "kind": "m2", "band": [0.1, 0.6, 2], "color": "#1aa39a", "radius": 80, "width": 0.9},
+    {"label": "watchtower", "fdids": [5689846], "kind": "m2", "band": [0.02, 0.18, 2], "color": "#e01b1b", "radius": 60, "width": 1.3},
+    {"label": "starting", "fdids": [5847574, 6075322], "kind": "wmo", "band": [0.2, 0.8, 2], "color": "#1d6fdc", "radius": 95, "width": 1.0}
+  ],
+  "slab": {"radius": 75, "z_band": [-4, 4], "slices": 7, "color": "#cccccc", "width": 0.35, "label": "junk"}
 }
