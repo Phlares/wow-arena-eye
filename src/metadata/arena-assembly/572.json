@@ -11,8 +11,8 @@
   "doodads": {
     "csv": "world/wmo/pvp/buildings/lordaeron/pvp_lordaeron_arena_set0_ModelPlacementInformation.csv",
     "layers": [
-      {"label": "cart", "fdids": [194865], "band": [0.1, 0.6, 2], "color": "#e07b00", "width": 1.0},
-      {"label": "tombstone", "fdids": [189536, 189538], "band": [0.1, 0.6, 2], "color": "#e01b1b", "width": 1.2}
+      {"label": "cart", "fdids": [194865], "band": [0.25, 0.25, 1], "color": "#e07b00", "width": 0.6},
+      {"label": "tombstone", "fdids": [189536, 189538], "band": [0.25, 0.25, 1], "color": "#e01b1b", "width": 0.7}
     ]
   }
 }
