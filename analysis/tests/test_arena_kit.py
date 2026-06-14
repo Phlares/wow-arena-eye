@@ -219,6 +219,24 @@ def test_assemble_slab_radius_and_zband(tmp_path):
     assert 'id="near"' in promoted and 'id="slab"' not in promoted
 
 
+def test_assemble_manual_center(tmp_path):
+    # an all-doodad arena: no arena WMO, centre given as a point; only categories render
+    (tmp_path / "world" / "wmo").mkdir(parents=True)
+    (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")
+    (tmp_path / "maps").mkdir()
+    rows = ("..\\..\\world\\wmo\\cube.obj;10;0;0;0;0;0;0;1;1;wmo;200;0;Set\n"
+            "..\\..\\world\\wmo\\cube.obj;300;0;0;0;0;0;0;1;2;wmo;300;0;Set\n")   # far, dropped
+    (tmp_path / "maps" / "t.csv").write_text(_CSV.splitlines()[0] + "\n" + rows, encoding="utf8")
+    config = {"zone": "0", "name": "Manual", "csv": "maps/t.csv",
+              "arena": {"center": [0, 0], "y": 0},
+              "categories": [{"label": "prop", "fdids": [200], "kind": "wmo", "band": [0.2, 0.8, 3],
+                              "color": "#f00", "radius": 30}]}
+    svg = arena_kit.assemble(tmp_path, config)
+    assert 'id="prop"' in svg and 'id="arena"' not in svg     # category drawn, no arena layer
+    width = float(re.search(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+)', svg).group(1))
+    assert width < 50      # near cube (d=10) kept, far cube (d=300) dropped by the radius filter
+
+
 def test_assemble_missing_arena_fdid_raises(tmp_path):
     (tmp_path / "world" / "wmo").mkdir(parents=True)
     (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")

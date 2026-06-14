@@ -134,22 +134,32 @@ def assemble(export_dir, config: dict) -> str:
         return by_fdid[fdid]
 
     acfg = config["arena"]
-    arena = find(acfg["fdid"], "arena")
-    origin = arena["pos"]
-    # A mesh override loads a specific OBJ group instead of the CSV's model (e.g. a clean
-    # floor group rather than the whole castle); resolve_mesh handles plain relative paths.
-    av, af = mesh(acfg["mesh"]) if acfg.get("mesh") else mesh(arena["file"])
-    arena_tris = place(av, arena["pos"], arena["rot"], arena["scale"], origin, YAW_OFF["wmo"])[af]
-    # NB: arena.band is geometry-load-bearing, not just cosmetic - gcx (the global reflection
-    # axis the whole scene mirrors about) is the x-centre of this sliced footprint.
-    arena_seg = footprint(arena_tris, acfg.get("band", (0.05, 0.55, 5)))
-    if not len(arena_seg):
-        raise ValueError(f"arena {acfg['fdid']} produced no cross-section; check arena.band / arena.mesh")
-    gcx = (arena_seg[:, :, 0].min() + arena_seg[:, :, 0].max()) / 2   # global reflection axis
-    arena_center = np.array([arena_tris[:, :, 0].mean(), arena_tris[:, :, 2].mean()])
-
-    # Thin arena outline under thicker prop strokes keeps the dense floor readable.
-    named = [("arena", acfg.get("color", "#999"), acfg.get("width", 0.6), arena_seg)]
+    if "center" in acfg:
+        # All-doodad arena with no WMO to anchor on: the centre is given directly (world X,Z)
+        # and there is no arena layer. Categories/slab filter relative to this point.
+        cx, cz = acfg["center"]
+        origin = np.array([cx, acfg.get("y", 0.0), cz])
+        arena_center = np.array([0.0, 0.0])          # the origin IS the centre (origin-relative)
+        gcx = acfg.get("gcx", 0.0)                   # reflection axis (origin-relative X; 0 = centre)
+        arena_base = acfg.get("base", 0.0)           # for the slab z-band
+        named = []
+    else:
+        arena = find(acfg["fdid"], "arena")
+        origin = arena["pos"]
+        # A mesh override loads a specific OBJ group instead of the CSV's model (e.g. a clean
+        # floor group rather than the whole castle); resolve_mesh handles plain relative paths.
+        av, af = mesh(acfg["mesh"]) if acfg.get("mesh") else mesh(arena["file"])
+        arena_tris = place(av, arena["pos"], arena["rot"], arena["scale"], origin, YAW_OFF["wmo"])[af]
+        # NB: arena.band is geometry-load-bearing, not just cosmetic - gcx (the global reflection
+        # axis the whole scene mirrors about) is the x-centre of this sliced footprint.
+        arena_seg = footprint(arena_tris, acfg.get("band", (0.05, 0.55, 5)))
+        if not len(arena_seg):
+            raise ValueError(f"arena {acfg['fdid']} produced no cross-section; check arena.band / arena.mesh")
+        gcx = (arena_seg[:, :, 0].min() + arena_seg[:, :, 0].max()) / 2   # global reflection axis
+        arena_center = np.array([arena_tris[:, :, 0].mean(), arena_tris[:, :, 2].mean()])
+        arena_base = arena_tris[:, :, 1].min()
+        # Thin arena outline under thicker prop strokes keeps the dense floor readable.
+        named = [("arena", acfg.get("color", "#999"), acfg.get("width", 0.6), arena_seg)]
     for cat in config.get("categories", []):
         kind = cat["kind"]
         if kind not in YAW_OFF:
@@ -177,7 +187,7 @@ def assemble(export_dir, config: dict) -> str:
     # bases at play height and clips the tall decorative tops. Per-model yaw by CSV type.
     if config.get("slab"):
         sl = config["slab"]
-        base = arena_tris[:, :, 1].min()
+        base = arena_base
         lo, hi = sl["z_band"]
         heights = list(np.linspace(base + lo, base + hi, sl.get("slices", 5)))
         # everything already drawn as a named structural layer is excluded, so the slab is
