@@ -163,6 +163,30 @@ def test_assemble_wmo_excludes_groups(tmp_path):
     assert width(pruned) < 30     # excluding it leaves only the cube near the origin
 
 
+def test_parse_wmo_doodads_zup_to_yup():
+    csv = ("ModelFile;PositionX;PositionY;PositionZ;RotationW;RotationX;RotationY;RotationZ;"
+           "ScaleFactor;DoodadSet;FileDataID\n"
+           "..\\..\\x\\cart.obj;33.0;7.0;5.0;0.66;0.0;0.0;0.75;1.5;Set;194865\n")
+    d = arena_kit.parse_wmo_doodads(csv)
+    assert d[0]["fdid"] == 194865 and d[0]["scale"] == 1.5
+    assert np.allclose(d[0]["pos"], [33.0, 5.0, -7.0])    # (x, z, -y): WoW Z-up -> OBJ Y-up
+
+
+def test_assemble_wmo_doodad_overlay(tmp_path):
+    (tmp_path / "w").mkdir()
+    (tmp_path / "w" / "bldg.obj").write_text(_CUBE_OBJ, encoding="utf8")
+    (tmp_path / "cart.obj").write_text(_CUBE_OBJ, encoding="utf8")   # ..\cart.obj resolves to export root
+    (tmp_path / "w" / "dood.csv").write_text(
+        "ModelFile;PositionX;PositionY;PositionZ;RotationW;RotationX;RotationY;RotationZ;ScaleFactor;DoodadSet;FileDataID\n"
+        "..\\cart.obj;3;0;0;1;0;0;0;1;Set;777\n", encoding="utf8")
+    config = {"zone": "0", "name": "L", "obj": "w/bldg.obj", "reflect": False,
+              "layers": [{"label": "floor", "heights": [0.0], "color": "#999"}],
+              "doodads": {"csv": "w/dood.csv", "layers": [
+                  {"label": "cart", "fdids": [777], "band": [0.2, 0.8, 2], "color": "#f00"}]}}
+    svg = arena_kit.assemble_wmo(tmp_path, config)
+    assert 'id="floor"' in svg and 'id="cart"' in svg     # building + overlaid doodad both drawn
+
+
 def test_assemble_wmo_lone_obj(tmp_path):
     (tmp_path / "world" / "wmo").mkdir(parents=True)
     (tmp_path / "world" / "wmo" / "cube.obj").write_text(_CUBE_OBJ, encoding="utf8")

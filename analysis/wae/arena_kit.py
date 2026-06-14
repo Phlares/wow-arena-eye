@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 from pathlib import Path
 
 import numpy as np
@@ -235,25 +236,76 @@ def load_obj_grouped(path) -> tuple[np.ndarray, dict]:
     return np.array(verts, float), {g: np.array(fs) for g, fs in groups.items() if fs}
 
 
+def parse_wmo_doodads(csv_text: str) -> list[dict]:
+    """A WMO's own doodad-set CSV (e.g. <wmo>_set0_ModelPlacementInformation.csv) - a DIFFERENT
+    format from the map dump: WoW-native Z-up coords + a rotation quaternion, no Type column.
+    Returns each doodad with pos already converted to the OBJ Y-up frame ((x, z, -y)) so it
+    lands in the same space as mapkit.load_obj'd WMO geometry."""
+    rows = list(csv.reader(io.StringIO(csv_text), delimiter=";"))
+    hdr = {h: i for i, h in enumerate(rows[0])}
+    out = []
+    for r in rows[1:]:
+        if len(r) <= hdr["FileDataID"]:
+            continue
+        x, y, z = (float(r[hdr[c]] or 0) for c in ("PositionX", "PositionY", "PositionZ"))
+        out.append({
+            "file": r[hdr["ModelFile"]],
+            "fdid": int(r[hdr["FileDataID"]]),
+            "pos": np.array([x, z, -y]),                 # WoW Z-up -> OBJ Y-up
+            "scale": float(r[hdr["ScaleFactor"]] or 1),
+        })
+    return out
+
+
 def assemble_wmo(export_dir, config: dict) -> str:
     """Floor-plan of a single self-contained WMO OBJ (no placement CSV / no assembly). Each
     config layer cross-sections the mesh at its own list of absolute Y heights; pass several
     heights to surface a stair/ramp walkable band as contour lines. Reflected about the mesh
     x-centre by default (the WoW->OBJ handedness flip), as for assembled arenas. Optional
-    exclude_groups drops named OBJ groups (decorative rock piles, an unwanted centerRoom)."""
+    exclude_groups drops named OBJ groups (decorative rock piles, an unwanted centerRoom).
+    Optional doodads overlays the WMO's own doodad set (cart, tombstones) as extra layers."""
     export_dir = Path(export_dir)
-    mesh_path = resolve_mesh(export_dir, config["obj"])
+    _cache: dict[str, tuple] = {}
+
+    def mesh(rel):
+        if rel not in _cache:
+            _cache[rel] = mapkit.load_obj(resolve_mesh(export_dir, rel))
+        return _cache[rel]
+
     excl = set(config.get("exclude_groups", []))
     if excl:
-        v, gfaces = load_obj_grouped(mesh_path)
+        v, gfaces = load_obj_grouped(resolve_mesh(export_dir, config["obj"]))
         kept = [f for g, f in gfaces.items() if g not in excl]
         tris = v[np.vstack(kept)] if kept else _EMPTY_SEGS
     else:
-        v, f = mapkit.load_obj(mesh_path)
+        v, f = mesh(config["obj"])
         tris = v[f]
     gcx = (v[:, 0].min() + v[:, 0].max()) / 2
     named = [(L["label"], L.get("color", "#999"), L.get("width", 0.7), slice_heights(tris, L["heights"]))
              for L in config["layers"]]
+
+    dd = config.get("doodads")           # WMO-local doodads sharing the obj frame (no rotation - M2 facing
+    if dd:                               # is unreliable anyway; positions are what matter for tracing)
+        ddir = (export_dir / dd["csv"]).parent   # doodad ModelFile paths are relative to the CSV's folder
+        drecs = parse_wmo_doodads((export_dir / dd["csv"]).read_text(encoding="utf8"))
+
+        def dmesh(rel):
+            key = ("dd", rel)
+            if key not in _cache:
+                _cache[key] = mapkit.load_obj(Path(os.path.normpath(ddir / rel.replace("\\", "/"))))
+            return _cache[key]
+
+        for cat in dd["layers"]:
+            fdids, segs = set(cat["fdids"]), []
+            for r in (x for x in drecs if x["fdid"] in fdids):
+                dv, df = dmesh(r["file"])
+                if not len(dv) or not len(df):
+                    continue
+                s = footprint((r["scale"] * dv + r["pos"])[df], cat.get("band", (0.1, 0.6, 2)))
+                if len(s):
+                    segs.append(s)
+            named.append((cat["label"], cat["color"], cat.get("width", 1.0), _stack(segs)))
+
     if config.get("reflect", True):
         for *_, s in named:
             if len(s):
