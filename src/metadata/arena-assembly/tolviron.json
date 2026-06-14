@@ -1,0 +1,7 @@
+{
+  "zone": "tolviron",
+  "name": "Tol'viron Arena",
+  "csv": ["maps/tolvirarena/adt_31_51_ModelPlacementInformation.csv", "maps/tolvirarena/adt_31_52_ModelPlacementInformation.csv"],
+  "arena": {"fdid": 604666, "band": [0.05, 0.6, 5], "color": "#999"},
+  "categories": []
+}

@@ -1,0 +1,11 @@
+{
+  "zone": "2509",
+  "name": "Maldraxxus Coliseum",
+  "csv": "maps/2509/adt_27_26_ModelPlacementInformation.csv",
+  "arena": {"fdid": 3176196, "band": [0.05, 0.55, 5], "color": "#999"},
+  "categories": [
+    {"label": "curb", "fdids": [3041322], "kind": "wmo", "band": [0.1, 0.5, 2], "color": "#7a3fd2", "radius": 80},
+    {"label": "brazier", "fdids": [3486913], "kind": "m2", "band": [0.05, 0.4, 2], "color": "#d28a3f", "radius": 80},
+    {"label": "pillar", "fdids": [4280168, 4280169], "kind": "m2", "band": [0.05, 0.5, 3], "color": "#e01b1b", "width": 1.2}
+  ]
+}

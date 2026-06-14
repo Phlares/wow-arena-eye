@@ -1,0 +1,15 @@
+{
+  "zone": "1825",
+  "name": "Hook Point",
+  "csv": "maps/kultirasarena/adt_32_30_ModelPlacementInformation.csv",
+  "arena": {"fdid": 1955846, "band": [0.05, 0.6, 5], "color": "#999"},
+  "categories": [
+    {"label": "pillar", "fdids": [1714000], "kind": "wmo", "band": [0.1, 0.5, 2], "color": "#7a3fd2", "radius": 75},
+    {"label": "stall", "fdids": [1992027], "kind": "wmo", "band": [0.1, 0.6, 3], "color": "#1d6fdc", "width": 1.0},
+    {"label": "shark", "fdids": [1992028], "kind": "wmo", "band": [0.3, 0.7, 2], "color": "#e01b1b", "width": 1.0},
+    {"label": "lamp", "fdids": [2128613], "kind": "m2", "band": [0.1, 0.5, 2], "color": "#d28a3f", "radius": 75, "width": 0.8},
+    {"label": "fence", "fdids": [1602431], "kind": "m2", "band": [0.1, 0.6, 2], "color": "#1aa39a", "radius": 65, "anchor_fdid": 1992027, "width": 1.0},
+    {"label": "narrow", "fdids": [1672386], "kind": "wmo", "band": [0.1, 0.5, 3], "color": "#8a5a2b", "radius": 65, "anchor_fdid": 1992027},
+    {"label": "wagon", "fdids": [1709768], "kind": "m2", "band": [0.1, 0.6, 2], "color": "#c026d3", "radius": 65, "anchor_fdid": 1992027}
+  ]
+}
