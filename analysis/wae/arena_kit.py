@@ -70,23 +70,37 @@ def resolve_mesh(export_dir, rel: str) -> Path:
     return Path(export_dir) / clean
 
 
-def parse_placements(csv_text: str) -> list[dict]:
-    """One dict per CSV row: file, fdid, kind (wmo|m2), pos (xyz), rot (xyz deg), scale."""
+def _mesh_loader(resolve):
+    """A path-keyed memoized OBJ loader: resolve(rel) -> filesystem path. Shared so a model
+    type instanced many times (and a big arena WMO) is parsed only once."""
+    cache: dict[str, tuple] = {}
+
+    def load(rel):
+        if rel not in cache:
+            cache[rel] = mapkit.load_obj(resolve(rel))
+        return cache[rel]
+    return load
+
+
+def _csv_rows(csv_text: str):
+    """(header-index map, valid data rows) for a ';'-delimited wow.export placement CSV;
+    rows shorter than the FileDataID column are dropped. Shared by both CSV parsers."""
     rows = list(csv.reader(io.StringIO(csv_text), delimiter=";"))
     hdr = {h: i for i, h in enumerate(rows[0])}
-    out = []
-    for r in rows[1:]:
-        if len(r) <= hdr["FileDataID"]:
-            continue
-        out.append({
-            "file": r[hdr["ModelFile"]],
-            "fdid": int(r[hdr["FileDataID"]]),
-            "kind": r[hdr["Type"]],
-            "pos": np.array([float(r[hdr[c]] or 0) for c in ("PositionX", "PositionY", "PositionZ")]),
-            "rot": [float(r[hdr[c]] or 0) for c in ("RotationX", "RotationY", "RotationZ")],
-            "scale": float(r[hdr["ScaleFactor"]] or 1),   # wow.export occasionally blanks scale
-        })
-    return out
+    return hdr, [r for r in rows[1:] if len(r) > hdr["FileDataID"]]
+
+
+def parse_placements(csv_text: str) -> list[dict]:
+    """One dict per CSV row: file, fdid, kind (wmo|m2), pos (xyz), rot (xyz deg), scale."""
+    hdr, rows = _csv_rows(csv_text)
+    return [{
+        "file": r[hdr["ModelFile"]],
+        "fdid": int(r[hdr["FileDataID"]]),
+        "kind": r[hdr["Type"]],
+        "pos": np.array([float(r[hdr[c]] or 0) for c in ("PositionX", "PositionY", "PositionZ")]),
+        "rot": [float(r[hdr[c]] or 0) for c in ("RotationX", "RotationY", "RotationZ")],
+        "scale": float(r[hdr["ScaleFactor"]] or 1),   # wow.export occasionally blanks scale
+    } for r in rows]
 
 
 def dedup_placements(recs: list[dict]) -> list[dict]:
@@ -113,14 +127,14 @@ def footprint(tris: np.ndarray, band) -> np.ndarray:
 
 
 def assemble(export_dir, config: dict) -> str:
-    """Full pipeline: CSV -> placed footprints -> global reflection -> floor-plan SVG."""
-    export_dir = Path(export_dir)
-    _cache: dict[str, tuple] = {}
+    """Full pipeline: CSV -> placed footprints -> global reflection -> floor-plan SVG.
 
-    def mesh(rel):
-        if rel not in _cache:
-            _cache[rel] = mapkit.load_obj(resolve_mesh(export_dir, rel))
-        return _cache[rel]
+    Slice-band vocabularies differ by config section (each slices a different reference frame):
+    category/doodad `band` = (lo,hi,n) fractions of each mesh's OWN height range; lone-WMO layer
+    `heights` = absolute Y (yd from WMO origin); `slab.z_band` = [lo,hi] yards from the arena base.
+    """
+    export_dir = Path(export_dir)
+    mesh = _mesh_loader(lambda rel: resolve_mesh(export_dir, rel))
 
     csv_paths = config["csv"] if isinstance(config["csv"], list) else [config["csv"]]
     recs = dedup_placements([r for c in csv_paths
@@ -193,7 +207,8 @@ def assemble(export_dir, config: dict) -> str:
         heights = list(np.linspace(base + lo, base + hi, sl.get("slices", 5)))
         # everything already drawn as a named structural layer is excluded, so the slab is
         # purely the leftover clutter - a toggleable reference layer, not the boundary itself.
-        named_fdids = {acfg["fdid"], *(fd for cat in config.get("categories", []) for fd in cat["fdids"])}
+        # acfg.get (not [...]) so a slab works under a manual-center arena too (no fdid present)
+        named_fdids = {acfg.get("fdid"), *(fd for cat in config.get("categories", []) for fd in cat["fdids"])}
         segs = []
         for r in recs:
             if r["fdid"] in named_fdids or not within((r["pos"] - origin)[[0, 2]], arena_center, sl["radius"]):
@@ -241,12 +256,9 @@ def parse_wmo_doodads(csv_text: str) -> list[dict]:
     format from the map dump: WoW-native Z-up coords + a rotation quaternion, no Type column.
     Returns each doodad with pos already converted to the OBJ Y-up frame ((x, z, -y)) so it
     lands in the same space as mapkit.load_obj'd WMO geometry."""
-    rows = list(csv.reader(io.StringIO(csv_text), delimiter=";"))
-    hdr = {h: i for i, h in enumerate(rows[0])}
+    hdr, rows = _csv_rows(csv_text)
     out = []
-    for r in rows[1:]:
-        if len(r) <= hdr["FileDataID"]:
-            continue
+    for r in rows:
         x, y, z = (float(r[hdr[c]] or 0) for c in ("PositionX", "PositionY", "PositionZ"))
         out.append({
             "file": r[hdr["ModelFile"]],
@@ -265,12 +277,7 @@ def assemble_wmo(export_dir, config: dict) -> str:
     exclude_groups drops named OBJ groups (decorative rock piles, an unwanted centerRoom).
     Optional doodads overlays the WMO's own doodad set (cart, tombstones) as extra layers."""
     export_dir = Path(export_dir)
-    _cache: dict[str, tuple] = {}
-
-    def mesh(rel):
-        if rel not in _cache:
-            _cache[rel] = mapkit.load_obj(resolve_mesh(export_dir, rel))
-        return _cache[rel]
+    mesh = _mesh_loader(lambda rel: resolve_mesh(export_dir, rel))
 
     excl = set(config.get("exclude_groups", []))
     if excl:
@@ -280,7 +287,7 @@ def assemble_wmo(export_dir, config: dict) -> str:
     else:
         v, f = mesh(config["obj"])
         tris = v[f]
-    gcx = (v[:, 0].min() + v[:, 0].max()) / 2
+    gcx = (v[:, 0].min() + v[:, 0].max()) / 2   # lone WMO: its own bbox x-centre is the symmetry axis
     named = [(L["label"], L.get("color", "#999"), L.get("width", 0.7), slice_heights(tris, L["heights"]))
              for L in config["layers"]]
 
@@ -288,12 +295,8 @@ def assemble_wmo(export_dir, config: dict) -> str:
     if dd:                               # is unreliable anyway; positions are what matter for tracing)
         ddir = (export_dir / dd["csv"]).parent   # doodad ModelFile paths are relative to the CSV's folder
         drecs = parse_wmo_doodads((export_dir / dd["csv"]).read_text(encoding="utf8"))
-
-        def dmesh(rel):
-            key = ("dd", rel)
-            if key not in _cache:
-                _cache[key] = mapkit.load_obj(Path(os.path.normpath(ddir / rel.replace("\\", "/"))))
-            return _cache[key]
+        # own loader: ModelFile paths resolve against the CSV folder, not the export root
+        dmesh = _mesh_loader(lambda rel: Path(os.path.normpath(ddir / rel.replace("\\", "/"))))
 
         for cat in dd["layers"]:
             fdids, segs = set(cat["fdids"]), []
