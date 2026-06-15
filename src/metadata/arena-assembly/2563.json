@@ -1,0 +1,13 @@
+{
+  "zone": "2563",
+  "name": "Nokhudon Proving Grounds",
+  "csv": ["maps/2563/adt_24_32_ModelPlacementInformation.csv", "maps/2563/adt_24_33_ModelPlacementInformation.csv"],
+  "arena": {"center": [12898, 17605], "y": 378.6},
+  "rotate": 38,
+  "categories": [
+    {"label": "perimeter", "fdids": [4742868, 4742869], "kind": "m2", "yaw": 90, "band": [0.1, 0.5, 2], "color": "#7a3fd2", "radius": 100, "width": 0.8},
+    {"label": "pillarparts", "fdids": [4742871, 4742872], "kind": "m2", "yaw": 90, "band": [0.1, 0.5, 2], "color": "#9a4fe2", "radius": 100, "width": 0.8},
+    {"label": "centralrock", "fdids": [3794107], "kind": "m2", "band": [0.1, 0.6, 2], "color": "#999", "radius": 16, "width": 0.9},
+    {"label": "ramp", "fdids": [4742880], "kind": "m2", "band": [0.1, 0.6, 2], "color": "#1d6fdc", "radius": 100, "width": 1.0}
+  ]
+}

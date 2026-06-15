@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 from pathlib import Path
 
 import numpy as np
@@ -69,23 +70,41 @@ def resolve_mesh(export_dir, rel: str) -> Path:
     return Path(export_dir) / clean
 
 
+def _mesh_loader(resolve):
+    """A path-keyed memoized OBJ loader: resolve(rel) -> filesystem path. Shared so a model
+    type instanced many times (and a big arena WMO) is parsed only once."""
+    cache: dict[str, tuple] = {}
+
+    def load(rel):
+        if rel not in cache:
+            cache[rel] = mapkit.load_obj(resolve(rel))
+        return cache[rel]
+    return load
+
+
+def _csv_rows(csv_text: str):
+    """(header-index map, valid data rows) for a ';'-delimited wow.export placement CSV;
+    rows shorter than the FileDataID column are dropped. Shared by both CSV parsers."""
+    rows = list(csv.reader(io.StringIO(csv_text), delimiter=";"))
+    if not rows:
+        raise ValueError("empty placement CSV (no header row) - wrong/empty export file?")
+    hdr = {h: i for i, h in enumerate(rows[0])}
+    if "FileDataID" not in hdr:
+        raise ValueError(f"placement CSV missing a FileDataID column; header was {rows[0][:6]}")
+    return hdr, [r for r in rows[1:] if len(r) > hdr["FileDataID"]]
+
+
 def parse_placements(csv_text: str) -> list[dict]:
     """One dict per CSV row: file, fdid, kind (wmo|m2), pos (xyz), rot (xyz deg), scale."""
-    rows = list(csv.reader(io.StringIO(csv_text), delimiter=";"))
-    hdr = {h: i for i, h in enumerate(rows[0])}
-    out = []
-    for r in rows[1:]:
-        if len(r) <= hdr["FileDataID"]:
-            continue
-        out.append({
-            "file": r[hdr["ModelFile"]],
-            "fdid": int(r[hdr["FileDataID"]]),
-            "kind": r[hdr["Type"]],
-            "pos": np.array([float(r[hdr[c]] or 0) for c in ("PositionX", "PositionY", "PositionZ")]),
-            "rot": [float(r[hdr[c]] or 0) for c in ("RotationX", "RotationY", "RotationZ")],
-            "scale": float(r[hdr["ScaleFactor"]] or 1),   # wow.export occasionally blanks scale
-        })
-    return out
+    hdr, rows = _csv_rows(csv_text)
+    return [{
+        "file": r[hdr["ModelFile"]],
+        "fdid": int(r[hdr["FileDataID"]]),
+        "kind": r[hdr["Type"]],
+        "pos": np.array([float(r[hdr[c]] or 0) for c in ("PositionX", "PositionY", "PositionZ")]),
+        "rot": [float(r[hdr[c]] or 0) for c in ("RotationX", "RotationY", "RotationZ")],
+        "scale": float(r[hdr["ScaleFactor"]] or 1),   # wow.export occasionally blanks scale
+    } for r in rows]
 
 
 def dedup_placements(recs: list[dict]) -> list[dict]:
@@ -112,14 +131,14 @@ def footprint(tris: np.ndarray, band) -> np.ndarray:
 
 
 def assemble(export_dir, config: dict) -> str:
-    """Full pipeline: CSV -> placed footprints -> global reflection -> floor-plan SVG."""
-    export_dir = Path(export_dir)
-    _cache: dict[str, tuple] = {}
+    """Full pipeline: CSV -> placed footprints -> global reflection -> floor-plan SVG.
 
-    def mesh(rel):
-        if rel not in _cache:
-            _cache[rel] = mapkit.load_obj(resolve_mesh(export_dir, rel))
-        return _cache[rel]
+    Slice-band vocabularies differ by config section (each slices a different reference frame):
+    category/doodad `band` = (lo,hi,n) fractions of each mesh's OWN height range; lone-WMO layer
+    `heights` = absolute Y (yd from WMO origin); `slab.z_band` = [lo,hi] yards from the arena base.
+    """
+    export_dir = Path(export_dir)
+    mesh = _mesh_loader(lambda rel: resolve_mesh(export_dir, rel))
 
     csv_paths = config["csv"] if isinstance(config["csv"], list) else [config["csv"]]
     recs = dedup_placements([r for c in csv_paths
@@ -134,27 +153,39 @@ def assemble(export_dir, config: dict) -> str:
         return by_fdid[fdid]
 
     acfg = config["arena"]
-    arena = find(acfg["fdid"], "arena")
-    origin = arena["pos"]
-    # A mesh override loads a specific OBJ group instead of the CSV's model (e.g. a clean
-    # floor group rather than the whole castle); resolve_mesh handles plain relative paths.
-    av, af = mesh(acfg["mesh"]) if acfg.get("mesh") else mesh(arena["file"])
-    arena_tris = place(av, arena["pos"], arena["rot"], arena["scale"], origin, YAW_OFF["wmo"])[af]
-    # NB: arena.band is geometry-load-bearing, not just cosmetic - gcx (the global reflection
-    # axis the whole scene mirrors about) is the x-centre of this sliced footprint.
-    arena_seg = footprint(arena_tris, acfg.get("band", (0.05, 0.55, 5)))
-    if not len(arena_seg):
-        raise ValueError(f"arena {acfg['fdid']} produced no cross-section; check arena.band / arena.mesh")
-    gcx = (arena_seg[:, :, 0].min() + arena_seg[:, :, 0].max()) / 2   # global reflection axis
-    arena_center = np.array([arena_tris[:, :, 0].mean(), arena_tris[:, :, 2].mean()])
-
-    # Thin arena outline under thicker prop strokes keeps the dense floor readable.
-    named = [("arena", acfg.get("color", "#999"), acfg.get("width", 0.6), arena_seg)]
-    for cat in config["categories"]:
+    if "center" in acfg:
+        # All-doodad arena with no WMO to anchor on: the centre is given directly (world X,Z)
+        # and there is no arena layer. Categories/slab filter relative to this point.
+        cx, cz = acfg["center"]
+        origin = np.array([cx, acfg.get("y", 0.0), cz])
+        arena_center = np.array([0.0, 0.0])          # the origin IS the centre (origin-relative)
+        gcx = acfg.get("gcx", 0.0)                   # reflection axis (origin-relative X; 0 = centre)
+        arena_base = acfg.get("base", 0.0)           # for the slab z-band
+        named = []
+    else:
+        arena = find(acfg["fdid"], "arena")
+        origin = arena["pos"]
+        # A mesh override loads a specific OBJ group instead of the CSV's model (e.g. a clean
+        # floor group rather than the whole castle); resolve_mesh handles plain relative paths.
+        av, af = mesh(acfg["mesh"]) if acfg.get("mesh") else mesh(arena["file"])
+        arena_tris = place(av, arena["pos"], arena["rot"], arena["scale"], origin, YAW_OFF["wmo"])[af]
+        # NB: arena.band is geometry-load-bearing, not just cosmetic - gcx (the global reflection
+        # axis the whole scene mirrors about) is the x-centre of this sliced footprint.
+        arena_seg = footprint(arena_tris, acfg.get("band", (0.05, 0.55, 5)))
+        if not len(arena_seg):
+            raise ValueError(f"arena {acfg['fdid']} produced no cross-section; check arena.band / arena.mesh")
+        gcx = (arena_seg[:, :, 0].min() + arena_seg[:, :, 0].max()) / 2   # global reflection axis
+        arena_center = np.array([arena_tris[:, :, 0].mean(), arena_tris[:, :, 2].mean()])
+        arena_base = arena_tris[:, :, 1].min()
+        # Thin arena outline under thicker prop strokes keeps the dense floor readable.
+        named = [("arena", acfg.get("color", "#999"), acfg.get("width", 0.6), arena_seg)]
+    for cat in config.get("categories", []):
         kind = cat["kind"]
         if kind not in YAW_OFF:
             raise ValueError(f"category {cat['label']!r}: unknown kind {kind!r} (expected {sorted(YAW_OFF)})")
-        fdids, yaw, rad = set(cat["fdids"]), YAW_OFF[kind], cat.get("radius")
+        # yaw defaults to the type convention but can be overridden per category to dial in
+        # the unreliable M2 facing (e.g. perimeter fences that need a 90-deg own-axis spin).
+        fdids, yaw, rad = set(cat["fdids"]), cat.get("yaw", YAW_OFF[kind]), cat.get("radius")
         # Radius filter drops far map clutter; anchor_fdid centres it on a prop's position
         # (e.g. boundary props clustered near the market stall) rather than the arena.
         center = (find(cat["anchor_fdid"], f"category {cat['label']!r} anchor")["pos"] - origin)[[0, 2]] \
@@ -169,10 +200,139 @@ def assemble(export_dir, config: dict) -> str:
                 segs.append(s)
         named.append((cat["label"], cat["color"], cat.get("width", 0.9), _stack(segs)))
 
+    # Slab mode (junk-perimeter arenas, e.g. Cage): instead of hand-picking prop fdids,
+    # grab EVERY model within a radius of the arena centre and slice it in an absolute
+    # vertical band around the arena base (base+z_band yards) - the band keeps wall/tower
+    # bases at play height and clips the tall decorative tops. Per-model yaw by CSV type.
+    if config.get("slab"):
+        sl = config["slab"]
+        base = arena_base
+        lo, hi = sl["z_band"]
+        heights = list(np.linspace(base + lo, base + hi, sl.get("slices", 5)))
+        # everything already drawn as a named structural layer is excluded, so the slab is
+        # purely the leftover clutter - a toggleable reference layer, not the boundary itself.
+        # acfg.get (not [...]) so a slab works under a manual-center arena too (no fdid present)
+        named_fdids = {acfg.get("fdid"), *(fd for cat in config.get("categories", []) for fd in cat["fdids"])}
+        segs = []
+        for r in recs:
+            if r["fdid"] in named_fdids or not within((r["pos"] - origin)[[0, 2]], arena_center, sl["radius"]):
+                continue
+            v, f = mesh(r["file"])
+            if not len(v) or not len(f):     # FX / aura / collision stub with no drawable geometry
+                continue
+            s = slice_heights(place(v, r["pos"], r["rot"], r["scale"], origin, YAW_OFF[r["kind"]])[f], heights)
+            if len(s):
+                segs.append(s)
+        named.append((sl.get("label", "slab"), sl.get("color", "#1aa39a"), sl.get("width", 0.5), _stack(segs)))
+
     for *_, s in named:          # ONE global reflection of the whole scene
         if len(s):
             reflect_x(s, gcx)
-    allpts = np.vstack([s.reshape(-1, 2) for *_, s in named if len(s)])
+    return _render(named, config)
+
+
+def slice_heights(tris: np.ndarray, heights) -> np.ndarray:
+    """(n,2,2) segments from cross-sectioning placed triangles at explicit absolute Y heights
+    (yards relative to the WMO origin) - used for lone-WMO floor-plans where the caller knows
+    the walkable band, rather than fractions of the mesh's own range."""
+    return _stack([s for h in heights if len((s := mapkit._slice_tri(tris, h)))])
+
+
+def load_obj_grouped(path) -> tuple[np.ndarray, dict]:
+    """Like mapkit.load_obj but keeps faces partitioned by their OBJ group ('g'/'o' line),
+    so callers can drop named groups (e.g. a centerRoom or rock-pile group) before slicing.
+    Returns (verts Nx3, {group_name: faces Mx3}); polygons are fan-triangulated."""
+    verts, groups, cur = [], {}, None
+    with open(path, encoding="utf8", errors="ignore") as fh:
+        for line in fh:
+            if line.startswith("v "):
+                verts.append([float(x) for x in line.split()[1:4]])
+            elif line.startswith(("g ", "o ")):
+                cur = line[2:].strip()
+            elif line.startswith("f "):
+                idx = [int(p.split("/")[0]) - 1 for p in line.split()[1:]]
+                groups.setdefault(cur, []).extend([idx[0], idx[k], idx[k + 1]] for k in range(1, len(idx) - 1))
+    return np.array(verts, float), {g: np.array(fs) for g, fs in groups.items() if fs}
+
+
+def parse_wmo_doodads(csv_text: str) -> list[dict]:
+    """A WMO's own doodad-set CSV (e.g. <wmo>_set0_ModelPlacementInformation.csv) - a DIFFERENT
+    format from the map dump: WoW-native Z-up coords + a rotation quaternion, no Type column.
+    Returns each doodad with pos already converted to the OBJ Y-up frame ((x, z, -y)) so it
+    lands in the same space as mapkit.load_obj'd WMO geometry."""
+    hdr, rows = _csv_rows(csv_text)
+    out = []
+    for r in rows:
+        x, y, z = (float(r[hdr[c]] or 0) for c in ("PositionX", "PositionY", "PositionZ"))
+        out.append({
+            "file": r[hdr["ModelFile"]],
+            "fdid": int(r[hdr["FileDataID"]]),
+            "pos": np.array([x, z, -y]),                 # WoW Z-up -> OBJ Y-up
+            "scale": float(r[hdr["ScaleFactor"]] or 1),
+        })
+    return out
+
+
+def assemble_wmo(export_dir, config: dict) -> str:
+    """Floor-plan of a single self-contained WMO OBJ (no placement CSV / no assembly). Each
+    config layer cross-sections the mesh at its own list of absolute Y heights; pass several
+    heights to surface a stair/ramp walkable band as contour lines. Reflected about the mesh
+    x-centre by default (the WoW->OBJ handedness flip), as for assembled arenas. Optional
+    exclude_groups drops named OBJ groups (decorative rock piles, an unwanted centerRoom).
+    Optional doodads overlays the WMO's own doodad set (cart, tombstones) as extra layers."""
+    export_dir = Path(export_dir)
+    mesh = _mesh_loader(lambda rel: resolve_mesh(export_dir, rel))
+
+    excl = set(config.get("exclude_groups", []))
+    if excl:
+        v, gfaces = load_obj_grouped(resolve_mesh(export_dir, config["obj"]))
+        kept = [f for g, f in gfaces.items() if g not in excl]
+        tris = v[np.vstack(kept)] if kept else np.empty((0, 3, 3))   # empty TRIANGLE set, not segments
+    else:
+        v, f = mesh(config["obj"])
+        tris = v[f]
+    gcx = (v[:, 0].min() + v[:, 0].max()) / 2   # lone WMO: its own bbox x-centre is the symmetry axis
+    named = [(L["label"], L.get("color", "#999"), L.get("width", 0.7), slice_heights(tris, L["heights"]))
+             for L in config["layers"]]
+
+    dd = config.get("doodads")           # WMO-local doodads sharing the obj frame (no rotation - M2 facing
+    if dd:                               # is unreliable anyway; positions are what matter for tracing)
+        ddir = (export_dir / dd["csv"]).parent   # doodad ModelFile paths are relative to the CSV's folder
+        drecs = parse_wmo_doodads((export_dir / dd["csv"]).read_text(encoding="utf8"))
+        # own loader: ModelFile paths resolve against the CSV folder, not the export root
+        dmesh = _mesh_loader(lambda rel: Path(os.path.normpath(ddir / rel.replace("\\", "/"))))
+
+        for cat in dd["layers"]:
+            fdids, segs = set(cat["fdids"]), []
+            for r in (x for x in drecs if x["fdid"] in fdids):
+                dv, df = dmesh(r["file"])
+                if not len(dv) or not len(df):
+                    continue
+                s = footprint((r["scale"] * dv + r["pos"])[df], cat.get("band", (0.1, 0.6, 2)))
+                if len(s):
+                    segs.append(s)
+            named.append((cat["label"], cat["color"], cat.get("width", 1.0), _stack(segs)))
+
+    if config.get("reflect", True):
+        for *_, s in named:
+            if len(s):
+                reflect_x(s, gcx)
+    return _render(named, config)
+
+
+def _render(named: list, config: dict) -> str:
+    """Shared tail: named (label, colour, width, segments) layers -> floor-plan SVG."""
+    rot = config.get("rotate")          # optional whole-plan rotation (deg CCW) for a tidy upright trace
+    if rot:
+        th = np.radians(rot)
+        rmat = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
+        for *_, seg in named:
+            if len(seg):
+                seg[...] = seg @ rmat.T   # rotate the (x,z) points about the origin
+    drawn = [s.reshape(-1, 2) for *_, s in named if len(s)]
+    if not drawn:
+        raise ValueError("no geometry to render - check arena band/heights and category fdids/radius")
+    allpts = np.vstack(drawn)
     bounds = {"minX": float(allpts[:, 0].min()), "minY": float(allpts[:, 1].min()),
               "maxX": float(allpts[:, 0].max()), "maxY": float(allpts[:, 1].max())}
 
@@ -201,7 +361,8 @@ def main() -> None:
 
     cfg_path = db.REPO_ROOT / "src" / "metadata" / "arena-assembly" / f"{args.zone}.json"
     config = json.loads(cfg_path.read_text(encoding="utf8"))
-    svg = assemble(args.export_dir, config)
+    # "obj" config = a lone self-contained WMO (slice one mesh); "csv" = map-tile assembly.
+    svg = assemble_wmo(args.export_dir, config) if config.get("obj") else assemble(args.export_dir, config)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     slug = config.get("name", args.zone).replace(" ", "-").replace("'", "")

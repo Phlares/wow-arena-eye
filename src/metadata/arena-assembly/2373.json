@@ -1,0 +1,9 @@
+{
+  "zone": "2373",
+  "name": "Empyrean Domain",
+  "csv": "maps/2373/adt_30_34_ModelPlacementInformation.csv",
+  "arena": {"fdid": 3556604, "band": [0.08, 0.72, 5], "color": "#999"},
+  "categories": [
+    {"label": "pillar", "fdids": [3605396], "kind": "m2", "band": [0.2, 0.7, 3], "color": "#e01b1b", "width": 1.2}
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "zone": "572",
+  "name": "Ruins of Lordaeron",
+  "obj": "world/wmo/pvp/buildings/lordaeron/pvp_lordaeron_arena_set0.obj",
+  "layers": [
+    {"label": "lower", "heights": [-10, -8, -6, -4], "color": "#b07a7a", "width": 0.4},
+    {"label": "courtyard", "heights": [-2, -1, 0, 1], "color": "#999999", "width": 0.6},
+    {"label": "raised", "heights": [4, 6, 8, 10], "color": "#1d6fdc", "width": 0.6},
+    {"label": "turret", "heights": [14, 18, 22], "color": "#6a3fb0", "width": 0.5}
+  ],
+  "doodads": {
+    "csv": "world/wmo/pvp/buildings/lordaeron/pvp_lordaeron_arena_set0_ModelPlacementInformation.csv",
+    "layers": [
+      {"label": "cart", "fdids": [194865], "band": [0.25, 0.25, 1], "color": "#e07b00", "width": 0.6},
+      {"label": "tombstone", "fdids": [189536, 189538], "band": [0.25, 0.25, 1], "color": "#e01b1b", "width": 0.7}
+    ]
+  }
+}
