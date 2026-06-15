@@ -86,7 +86,11 @@ def _csv_rows(csv_text: str):
     """(header-index map, valid data rows) for a ';'-delimited wow.export placement CSV;
     rows shorter than the FileDataID column are dropped. Shared by both CSV parsers."""
     rows = list(csv.reader(io.StringIO(csv_text), delimiter=";"))
+    if not rows:
+        raise ValueError("empty placement CSV (no header row) - wrong/empty export file?")
     hdr = {h: i for i, h in enumerate(rows[0])}
+    if "FileDataID" not in hdr:
+        raise ValueError(f"placement CSV missing a FileDataID column; header was {rows[0][:6]}")
     return hdr, [r for r in rows[1:] if len(r) > hdr["FileDataID"]]
 
 
@@ -283,7 +287,7 @@ def assemble_wmo(export_dir, config: dict) -> str:
     if excl:
         v, gfaces = load_obj_grouped(resolve_mesh(export_dir, config["obj"]))
         kept = [f for g, f in gfaces.items() if g not in excl]
-        tris = v[np.vstack(kept)] if kept else _EMPTY_SEGS
+        tris = v[np.vstack(kept)] if kept else np.empty((0, 3, 3))   # empty TRIANGLE set, not segments
     else:
         v, f = mesh(config["obj"])
         tris = v[f]
@@ -325,7 +329,10 @@ def _render(named: list, config: dict) -> str:
         for *_, seg in named:
             if len(seg):
                 seg[...] = seg @ rmat.T   # rotate the (x,z) points about the origin
-    allpts = np.vstack([s.reshape(-1, 2) for *_, s in named if len(s)])
+    drawn = [s.reshape(-1, 2) for *_, s in named if len(s)]
+    if not drawn:
+        raise ValueError("no geometry to render - check arena band/heights and category fdids/radius")
+    allpts = np.vstack(drawn)
     bounds = {"minX": float(allpts[:, 0].min()), "minY": float(allpts[:, 1].min()),
               "maxX": float(allpts[:, 0].max()), "maxY": float(allpts[:, 1].max())}
 
